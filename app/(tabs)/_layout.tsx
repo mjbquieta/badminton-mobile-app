@@ -1,5 +1,6 @@
 import { PotatoPalette } from "@/constants/palette";
 import AntDesign from "@expo/vector-icons/AntDesign";
+import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { Tabs } from "expo-router";
 import React from "react";
 import { Text, View } from "react-native";
@@ -23,7 +24,13 @@ const TabIcon = ({
       icon = <AntDesign name="home" size={20} color={iconColor} />;
       break;
     case "activity":
-      icon = <AntDesign name="up-circle" size={20} color={iconColor} />;
+      icon = (
+        <MaterialCommunityIcons
+          name="human-queue"
+          size={20}
+          color={iconColor}
+        />
+      );
       break;
     case "players":
       icon = <AntDesign name="usergroup-add" size={20} color={iconColor} />;
@@ -78,9 +85,9 @@ const _layout = () => {
       <Tabs.Screen
         name="index"
         options={{
-          title: "Overview",
+          title: "Home",
           tabBarIcon: ({ focused }) => (
-            <TabIcon focused={focused} type="home" title="Overview" />
+            <TabIcon focused={focused} type="home" title="Home" />
           ),
         }}
       />

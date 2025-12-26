@@ -1,3 +1,4 @@
+import AddInput from "@/components/AddInput";
 import { PotatoPalette } from "@/constants/palette";
 import { type Player } from "@/types/players";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
@@ -27,13 +28,21 @@ const ManualAddPlayersModal = ({
   onConfirm: (selectedPlayerIds: string[]) => void;
 }) => {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [query, setQuery] = useState<string>("");
 
   useEffect(() => {
     if (!visible) return;
     setSelectedIds([]);
+    setQuery("");
   }, [visible, title]);
 
   const selectedSet = useMemo(() => new Set(selectedIds), [selectedIds]);
+
+  const filteredPlayers = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return players;
+    return players.filter((p) => p.name.toLowerCase().includes(q));
+  }, [players, query]);
 
   const toggle = (id: string) => {
     setSelectedIds((prev) => {
@@ -67,15 +76,28 @@ const ManualAddPlayersModal = ({
             </Text>
           </View>
 
+          <AddInput
+            type="search"
+            placeholder="Search players"
+            value={query}
+            onChangeText={setQuery}
+          />
+
           {players.length === 0 ? (
             <View className="py-6">
               <Text className="text-light-200 text-sm text-center">
                 No available players (everyone is already on a court).
               </Text>
             </View>
+          ) : filteredPlayers.length === 0 ? (
+            <View className="py-6">
+              <Text className="text-light-200 text-sm text-center">
+                No players match "{query.trim()}".
+              </Text>
+            </View>
           ) : (
             <FlatList
-              data={players}
+              data={filteredPlayers}
               keyExtractor={(item) => item.id}
               style={{ maxHeight: 360 }}
               contentContainerStyle={{ gap: 8, paddingVertical: 4 }}
