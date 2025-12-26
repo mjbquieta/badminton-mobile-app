@@ -1,7 +1,6 @@
 import AddPInput from "@/components/AddInput";
 import ConfirmationAlert from "@/components/ConfirmationAlert";
 import PlayerCard from "@/components/PlayerCard";
-import { icons } from "@/constants/icons";
 import { RootState } from "@/store";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import {
@@ -10,11 +9,12 @@ import {
   clearPlayersError,
   removePlayer,
 } from "@/store/playersSlice";
+import FontAwesome5 from "@expo/vector-icons/FontAwesome5";
+import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import React, { useCallback, useEffect, useState } from "react";
 import {
   Alert,
   FlatList,
-  Image,
   LayoutAnimation,
   Platform,
   Text,
@@ -66,7 +66,7 @@ const players = () => {
       <View className="flex-row items-center gap-3">
         <View className="flex-1">
           <AddPInput
-            icon="player"
+            type="player"
             placeholder="Player Name"
             value={newPlayerName}
             onChangeText={(text) => {
@@ -87,12 +87,7 @@ const players = () => {
           accessibilityRole="button"
           accessibilityLabel="Add player"
         >
-          <Image
-            source={icons.add}
-            className="size-6"
-            resizeMode="contain"
-            tintColor="#00A300"
-          />
+          <FontAwesome5 name="plus" size={24} color="#00A300" />
         </TouchableOpacity>
       </View>
 
@@ -119,12 +114,7 @@ const players = () => {
               accessibilityRole="button"
               accessibilityLabel="Clear players list"
             >
-              <Image
-                source={icons.clear}
-                className="size-7"
-                resizeMode="contain"
-                tintColor="#ab8bff"
-              />
+              <MaterialCommunityIcons name="broom" size={24} color="#ab8bff" />
               <Text className="text-white text-sm font-bold text-center">
                 Clear
               </Text>
@@ -154,6 +144,7 @@ const players = () => {
             )}
             keyExtractor={(item) => item.id}
             contentContainerStyle={{ gap: 10 }}
+            className="mb-20"
           />
         </>
       )}

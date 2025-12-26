@@ -1,8 +1,8 @@
-import { icons } from "@/constants/icons";
 import { assignPlayersToCourts } from "@/store/courtSlice";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import FontAwesome5 from "@expo/vector-icons/FontAwesome5";
 import React, { useMemo } from "react";
-import { Alert, Image, Text, TouchableOpacity, View } from "react-native";
+import { Alert, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 const index = () => {
@@ -77,12 +77,7 @@ const index = () => {
           className="bg-dark-200 h-40 w-40 rounded-full overflow-hidden shadow-md items-center justify-center self-center gap-2 border border-accent"
           onPress={masterRollDice}
         >
-          <Image
-            source={icons.dice}
-            className="size-20"
-            resizeMode="contain"
-            tintColor="#AB8BFF"
-          />
+          <FontAwesome5 name="dice" size={50} color="#ab8bff" />
           <Text className="text-white text-lg font-semibold text-center">
             Roll
           </Text>

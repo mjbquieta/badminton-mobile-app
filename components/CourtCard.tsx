@@ -1,7 +1,8 @@
-import { icons } from "@/constants/icons";
 import { Player } from "@/types/players";
+import FontAwesome5 from "@expo/vector-icons/FontAwesome5";
+import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import React from "react";
-import { Image, Pressable, Text, TouchableOpacity, View } from "react-native";
+import { Pressable, Text, TouchableOpacity, View } from "react-native";
 import PlayerTag from "./PlayerTag";
 
 const CourtCard = ({
@@ -30,11 +31,10 @@ const CourtCard = ({
     <View className="bg-dark-200 rounded-xl p-4 gap-3 border border-dark-100">
       <View className="flex-row items-center gap-3">
         <View className="size-10 rounded-full bg-primary items-center justify-center">
-          <Image
-            source={icons.court}
-            className="size-5"
-            resizeMode="contain"
-            tintColor="#AB8BFF"
+          <MaterialCommunityIcons
+            name="file-cabinet"
+            size={20}
+            color="#ab8bff"
           />
         </View>
 
@@ -52,12 +52,7 @@ const CourtCard = ({
             accessibilityLabel={`Delete court ${name}`}
             className="size-10 rounded-full bg-primary items-center justify-center"
           >
-            <Image
-              source={icons.trash}
-              className="size-5"
-              resizeMode="contain"
-              tintColor="#ff0000"
-            />
+            <FontAwesome5 name="trash-alt" size={20} color="#ff0000" />
           </Pressable>
         ) : null}
       </View>
@@ -88,16 +83,29 @@ const CourtCard = ({
         </View>
         <View className="flex-row items-center gap-2">
           {playersAssigned === 0 ? (
-            <TouchableOpacity
-              className="bg-accent px-3 py-1.5 rounded-full bg-opacity-50"
-              onPress={onAssignPlayers}
-              accessibilityRole="button"
-              accessibilityLabel="Assign players"
-            >
-              <Text className="text-dark-200 text-sm font-bold">
-                Assign Players
-              </Text>
-            </TouchableOpacity>
+            <>
+              <TouchableOpacity
+                className="bg-accent px-3 py-1.5 rounded-full bg-opacity-50"
+                onPress={onAssignPlayers}
+                accessibilityRole="button"
+                accessibilityLabel="Assign players"
+              >
+                <Text className="text-dark-200 text-sm font-bold">
+                  Assign Random Players
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                className="bg-gray-800 border border-gray-700 px-3 py-1.5 rounded-full bg-opacity-50"
+                onPress={onManuallyAddPlayers}
+                accessibilityRole="button"
+                accessibilityLabel="Manually add players"
+              >
+                <Text className="text-gray-200 text-sm font-bold">
+                  Manually Add Players
+                </Text>
+              </TouchableOpacity>
+            </>
           ) : playersAssigned === playersNeeded ? (
             <TouchableOpacity
               className="bg-yellow-500 px-3 py-1.5 rounded-full bg-opacity-50"
@@ -109,12 +117,12 @@ const CourtCard = ({
             </TouchableOpacity>
           ) : (
             <TouchableOpacity
-              className="bg-accent px-3 py-1.5 rounded-full bg-opacity-50"
+              className="bg-gray-800 border border-gray-700 px-3 py-1.5 rounded-full bg-opacity-50"
               onPress={onManuallyAddPlayers}
               accessibilityRole="button"
               accessibilityLabel="Manually add players"
             >
-              <Text className="text-dark-200 text-sm font-bold">
+              <Text className="text-gray-200 text-sm font-bold">
                 Manually Add Players
               </Text>
             </TouchableOpacity>

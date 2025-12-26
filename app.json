@@ -4,7 +4,7 @@
     "slug": "patatas",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/images/walking-potato.jpg",
     "scheme": "patatas",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
@@ -14,23 +14,23 @@
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/images/patatas.png",
-        "backgroundImage": "./assets/images/patatas.png",
-        "monochromeImage": "./assets/images/patatas.png"
+        "foregroundImage": "./assets/images/walking-potato.jpg",
+        "backgroundImage": "./assets/images/walking-potato.jpg",
+        "monochromeImage": "./assets/images/walking-potato.jpg"
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false
     },
     "web": {
       "output": "static",
-      "favicon": "./assets/images/patatas.png"
+      "favicon": "./assets/images/walking-potato.jpg"
     },
     "plugins": [
       "expo-router",
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/patatas.png",
+          "image": "./assets/images/walking-potato.jpg",
           "imageWidth": 200,
           "resizeMode": "contain",
           "backgroundColor": "#ffffff",

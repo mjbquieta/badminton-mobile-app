@@ -1,6 +1,8 @@
-import { icons } from "@/constants/icons";
+import AntDesign from "@expo/vector-icons/AntDesign";
+import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
+
 import React from "react";
-import { Image, Text, TouchableOpacity, View } from "react-native";
+import { Text, TouchableOpacity, View } from "react-native";
 
 const PlayerCard = ({
   name,
@@ -18,12 +20,7 @@ const PlayerCard = ({
     >
       <View className="flex-row items-center gap-3">
         <View className="size-10 rounded-full bg-primary items-center justify-center">
-          <Image
-            source={icons.player}
-            className="size-5"
-            resizeMode="contain"
-            tintColor="#AB8BFF"
-          />
+          <AntDesign name="user" size={15} color="#ab8bff" />
         </View>
 
         <Text className="flex-1 text-white text-lg font-bold" numberOfLines={1}>
@@ -31,12 +28,19 @@ const PlayerCard = ({
         </Text>
 
         <View className="flex-row items-center gap-2">
-          <Image
-            source={isInGame ? icons.badminton : icons.bench}
-            className="size-5"
-            resizeMode="contain"
-            tintColor={isInGame ? "#FFD600" : "#00A300"}
-          />
+          {isInGame ? (
+            <MaterialCommunityIcons
+              name="badminton"
+              size={15}
+              color="#FFD600"
+            />
+          ) : (
+            <MaterialCommunityIcons
+              name="bench-back"
+              size={15}
+              color="#00A300"
+            />
+          )}
 
           <Text
             className={[

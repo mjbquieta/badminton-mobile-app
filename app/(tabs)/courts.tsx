@@ -3,7 +3,6 @@ import CourtCard from "@/components/CourtCard";
 import MatchTypeSelector, {
   type MatchType,
 } from "@/components/MatchTypeSelector";
-import { icons } from "@/constants/icons";
 import { RootState } from "@/store";
 import {
   addCourt,
@@ -16,14 +15,14 @@ import {
 } from "@/store/courtSlice";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { setPlayersAtEndOfQueue } from "@/store/playersSlice";
+import FontAwesome5 from "@expo/vector-icons/FontAwesome5";
+import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import React, { useEffect, useState } from "react";
 import {
   Alert,
   FlatList,
-  Image,
   LayoutAnimation,
   Platform,
-  Pressable,
   Text,
   TouchableOpacity,
   UIManager,
@@ -104,21 +103,41 @@ const courts = () => {
           accessibilityRole="button"
           accessibilityLabel="Add court"
         >
-          <Image
-            source={icons.add}
-            className="size-6"
-            resizeMode="contain"
-            tintColor="#00A300"
-          />
+          <FontAwesome5 name="plus" size={24} color="#00A300" />
         </TouchableOpacity>
       </View>
 
       {courts.length > 0 && (
         <>
-          <View className="border-t border-accent my-6" />
+          <View className="flex-row items-center my-6">
+            <View className="flex-1 border-t border-accent" />
+            <TouchableOpacity
+              className="flex-row items-center gap-2 bg-primary px-4 py-1 rounded-full border border-accent"
+              onPress={() => {
+                ConfirmationAlert({
+                  title: "Confirm Clearing Courts List",
+                  message: "Are you sure you want to clear the list?",
+                  onConfirm: () => {
+                    LayoutAnimation.configureNext(
+                      LayoutAnimation.Presets.spring
+                    );
+                    dispatch(clearCourts());
+                  },
+                });
+              }}
+              accessibilityRole="button"
+              accessibilityLabel="Clear courts list"
+            >
+              <MaterialCommunityIcons name="broom" size={24} color="#ab8bff" />
+              <Text className="text-white text-sm font-bold text-center">
+                Clear
+              </Text>
+            </TouchableOpacity>
+          </View>
 
           <FlatList
             data={courts}
+            className="mb-20"
             renderItem={({ item }) => (
               <CourtCard
                 name={item.name}
@@ -153,29 +172,6 @@ const courts = () => {
             keyExtractor={(item) => item.id}
             contentContainerStyle={{ gap: 10 }}
           />
-
-          <Pressable
-            className="bg-primary px-5 py-4 flex-row items-center justify-center gap-2 mt-4 w-full mb-2"
-            onPress={() =>
-              ConfirmationAlert({
-                title: "Confirm Clearing Courts List",
-                message: "Are you sure you want to clear the list?",
-                onConfirm: () => {
-                  dispatch(clearCourts());
-                },
-              })
-            }
-          >
-            <Image
-              source={icons.clear}
-              className="size-5"
-              resizeMode="contain"
-              tintColor="#ab8bff"
-            />
-            <Text className="text-white text-lg font-bold text-center">
-              Clear List
-            </Text>
-          </Pressable>
         </>
       )}
     </SafeAreaView>

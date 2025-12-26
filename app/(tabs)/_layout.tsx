@@ -1,36 +1,44 @@
-import { icons } from "@/constants/icons";
+import AntDesign from "@expo/vector-icons/AntDesign";
 import { Tabs } from "expo-router";
 import React from "react";
-import { Image, Text, View } from "react-native";
+import { Text, View } from "react-native";
 
 const TabIcon = ({
   focused,
-  icon,
+  type,
   title,
 }: {
   focused: boolean;
-  icon: any;
+  type: "home" | "activity" | "players" | "courts";
   title: string;
 }) => {
+  let icon = null;
+
+  switch (type) {
+    case "home":
+      icon = <AntDesign name="home" size={20} color="#A8B5DB" />;
+      break;
+    case "activity":
+      icon = <AntDesign name="up-circle" size={20} color="#A8B5DB" />;
+      break;
+    case "players":
+      icon = <AntDesign name="usergroup-add" size={20} color="#A8B5DB" />;
+      break;
+    case "courts":
+      icon = <AntDesign name="box-plot" size={20} color="#A8B5DB" />;
+      break;
+  }
   if (!focused) {
     return (
-      <View className="size-full justify-center items-center mt-4 rounded-full">
-        <Image
-          source={icon}
-          className="size-5"
-          style={{ tintColor: "#A8B5DB" }}
-        />
+      <View className="size-full justify-center items-center mt-6 rounded-full">
+        {icon}
       </View>
     );
   }
 
   return (
-    <View className="flex flex-row w-full flex-1 min-w-[112px] min-h-16 mt-4 justify-center items-center rounded-full overflow-hidden gap-2">
-      <Image
-        source={icon}
-        className="size-5"
-        style={{ tintColor: "#964B00" }}
-      />
+    <View className="flex flex-row w-full flex-1 min-w-[117px] min-h-10 mt-6 justify-center items-center rounded-full overflow-hidden gap-2 border border border-accent">
+      {icon}
       <Text className="text-white text-base font-semibold ml-2">{title}</Text>
     </View>
   );
@@ -53,7 +61,7 @@ const _layout = () => {
           borderRadius: 50,
           marginHorizontal: 20,
           marginBottom: 20,
-          height: 52,
+          height: 55,
           position: "absolute",
           overflow: "hidden",
           borderWidth: 1,
@@ -66,7 +74,7 @@ const _layout = () => {
         options={{
           title: "Overview",
           tabBarIcon: ({ focused }) => (
-            <TabIcon focused={focused} icon={icons.home} title="Overview" />
+            <TabIcon focused={focused} type="home" title="Overview" />
           ),
         }}
       />
@@ -75,11 +83,7 @@ const _layout = () => {
         options={{
           title: "Activity",
           tabBarIcon: ({ focused }) => (
-            <TabIcon
-              focused={focused}
-              icon={icons.badminton}
-              title="Activity"
-            />
+            <TabIcon focused={focused} type="activity" title="Activity" />
           ),
         }}
       />
@@ -88,7 +92,7 @@ const _layout = () => {
         options={{
           title: "Players",
           tabBarIcon: ({ focused }) => (
-            <TabIcon focused={focused} icon={icons.player} title="Players" />
+            <TabIcon focused={focused} type="players" title="Players" />
           ),
         }}
       />
@@ -97,7 +101,7 @@ const _layout = () => {
         options={{
           title: "Courts",
           tabBarIcon: ({ focused }) => (
-            <TabIcon focused={focused} icon={icons.court} title="Courts" />
+            <TabIcon focused={focused} type="courts" title="Courts" />
           ),
         }}
       />
