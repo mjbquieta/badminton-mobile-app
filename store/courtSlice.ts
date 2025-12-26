@@ -148,6 +148,53 @@ const courtSlice = createSlice({
 
 			state.error = null;
 		},
+		addPlayersToCourtManually: (
+			state,
+			action: PayloadAction<{ courtId: string; players: Player[] }>
+		) => {
+			const { courtId, players } = action.payload;
+			const court = state.items.find((c) => c.id === courtId);
+			if (!court) {
+				state.error = "Court not found";
+				return;
+			}
+
+			if (players.length === 0) {
+				state.error = "Please select at least one player.";
+				return;
+			}
+
+			const playersNeeded = court.isSingle ? 2 : 4;
+			const remainingSlots = playersNeeded - court.players.length;
+			if (remainingSlots <= 0) {
+				state.error = `${court.name} is already full.`;
+				return;
+			}
+
+			if (players.length > remainingSlots) {
+				state.error = `Too many players selected. You can add up to ${remainingSlots}.`;
+				return;
+			}
+
+			const playersInCourts = state.items.flatMap((c) => c.players);
+			const playersInCourtsIds = new Set(playersInCourts.map((p) => p.id));
+
+			// Allow players already on this court (no-op), but reject players on OTHER courts.
+			const currentCourtIds = new Set(court.players.map((p) => p.id));
+			for (const p of players) {
+				if (currentCourtIds.has(p.id)) {
+					state.error = `${p.name} is already on ${court.name}.`;
+					return;
+				}
+				if (playersInCourtsIds.has(p.id)) {
+					state.error = `${p.name} is already playing on another court.`;
+					return;
+				}
+			}
+
+			court.players = [...court.players, ...players];
+			state.error = null;
+		},
 		endGame: (state, action: PayloadAction<string[]>) => {
 			state.items = state.items.map((court) => {
 				if (court.players.some((p) => action.payload.includes(p.id))) {
@@ -166,6 +213,7 @@ export const {
 	clearCourtsError,
 	assignPlayersToCourts,
 	assignPlayersToCourt,
+	addPlayersToCourtManually,
 	endGame,
 	removePlayerFromCourt,
 } = courtSlice.actions;

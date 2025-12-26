@@ -1,11 +1,13 @@
 import ConfirmationAlert from "@/components/ConfirmationAlert";
 import CourtCard from "@/components/CourtCard";
+import ManualAddPlayersModal from "@/components/ManualAddPlayersModal";
 import MatchTypeSelector, {
   type MatchType,
 } from "@/components/MatchTypeSelector";
 import { RootState } from "@/store";
 import {
   addCourt,
+  addPlayersToCourtManually,
   assignPlayersToCourt,
   clearCourts,
   clearCourtsError,
@@ -15,6 +17,7 @@ import {
 } from "@/store/courtSlice";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { setPlayersAtEndOfQueue } from "@/store/playersSlice";
+import { type Player } from "@/types/players";
 import FontAwesome5 from "@expo/vector-icons/FontAwesome5";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import React, { useEffect, useState } from "react";
@@ -44,6 +47,10 @@ const courts = () => {
   const [court, setCourt] = useState<CourtForm>({
     isSingle: false,
   });
+  const [manualAdd, setManualAdd] = useState<{
+    visible: boolean;
+    courtId: string | null;
+  }>({ visible: false, courtId: null });
 
   const matchType: MatchType = court.isSingle ? "singles" : "doubles";
 
@@ -79,6 +86,22 @@ const courts = () => {
 
     setCourt({ isSingle: false });
   };
+
+  const activeCourt = manualAdd.courtId
+    ? courts.find((c) => c.id === manualAdd.courtId) ?? null
+    : null;
+
+  const playersOnAnyCourtIds = new Set(
+    courts.flatMap((c) => c.players.map((p) => p.id))
+  );
+
+  const availablePlayers: Player[] = players.filter(
+    (p) => !playersOnAnyCourtIds.has(p.id)
+  );
+
+  const maxToSelect = activeCourt
+    ? Math.max(0, (activeCourt.isSingle ? 2 : 4) - activeCourt.players.length)
+    : 0;
 
   return (
     <SafeAreaView className="flex-1 p-10 bg-primary gap-5">
@@ -167,6 +190,10 @@ const courts = () => {
                 onAssignPlayers={() => {
                   dispatch(assignPlayersToCourt({ courtId: item.id, players }));
                 }}
+                onManuallyAddPlayers={() => {
+                  dispatch(clearCourtsError());
+                  setManualAdd({ visible: true, courtId: item.id });
+                }}
               />
             )}
             keyExtractor={(item) => item.id}
@@ -174,6 +201,32 @@ const courts = () => {
           />
         </>
       )}
+
+      <ManualAddPlayersModal
+        visible={manualAdd.visible}
+        onClose={() => setManualAdd({ visible: false, courtId: null })}
+        title={
+          activeCourt
+            ? `Manually add players to ${activeCourt.name}`
+            : "Manually add players"
+        }
+        players={availablePlayers}
+        maxSelect={maxToSelect}
+        onConfirm={(selectedIds) => {
+          if (!activeCourt) return;
+          const selectedPlayers = availablePlayers.filter((p) =>
+            selectedIds.includes(p.id)
+          );
+
+          dispatch(
+            addPlayersToCourtManually({
+              courtId: activeCourt.id,
+              players: selectedPlayers,
+            })
+          );
+          setManualAdd({ visible: false, courtId: null });
+        }}
+      />
     </SafeAreaView>
   );
 };
