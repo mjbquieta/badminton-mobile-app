@@ -1,3 +1,4 @@
+import { PotatoPalette } from "@/constants/palette";
 import { type Player } from "@/types/players";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import React, { useEffect, useMemo, useState } from "react";
@@ -105,7 +106,11 @@ const ManualAddPlayersModal = ({
                           : "checkbox-blank-outline"
                       }
                       size={22}
-                      color={isSelected ? "#00A300" : "#9CA3AF"}
+                      color={
+                        isSelected
+                          ? PotatoPalette.accent.sprout
+                          : PotatoPalette.text.placeholder
+                      }
                     />
                   </Pressable>
                 );
@@ -115,12 +120,12 @@ const ManualAddPlayersModal = ({
 
           <View className="flex-row items-center justify-end gap-2 pt-2">
             <TouchableOpacity
-              className="px-4 py-2 rounded-full border border-gray-700 bg-gray-800"
+              className="px-4 py-2 rounded-full border border-dark-100 bg-secondary"
               onPress={onClose}
               accessibilityRole="button"
               accessibilityLabel="Close manual add players modal"
             >
-              <Text className="text-gray-200 font-bold">Close</Text>
+              <Text className="text-light-200 font-bold">Close</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -128,7 +133,7 @@ const ManualAddPlayersModal = ({
                 "px-4 py-2 rounded-full border",
                 selectedIds.length > 0
                   ? "bg-accent border-accent"
-                  : "bg-gray-800 border-gray-700",
+                  : "bg-secondary border-dark-100",
               ].join(" ")}
               onPress={() => onConfirm(selectedIds)}
               disabled={selectedIds.length === 0}
@@ -138,7 +143,7 @@ const ManualAddPlayersModal = ({
               <Text
                 className={[
                   "font-bold",
-                  selectedIds.length > 0 ? "text-dark-200" : "text-gray-400",
+                  selectedIds.length > 0 ? "text-primary" : "text-light-300",
                 ].join(" ")}
               >
                 Add Players

@@ -2,6 +2,7 @@ import AntDesign from "@expo/vector-icons/AntDesign";
 import FontAwesome6 from "@expo/vector-icons/FontAwesome6";
 import React from "react";
 import { StyleSheet, TextInput, View } from "react-native";
+import { PotatoPalette } from "@/constants/palette";
 
 interface Props {
   type: "player" | "court";
@@ -23,11 +24,21 @@ const AddInput = ({
   switch (type) {
     case "court":
       icon = (
-        <FontAwesome6 name="ping-pong-paddle-ball" size={15} color="black" />
+        <FontAwesome6
+          name="ping-pong-paddle-ball"
+          size={15}
+          color={PotatoPalette.accent.gold}
+        />
       );
       break;
     default:
-      icon = <AntDesign name="user-add" size={15} color="#ab8bff" />;
+      icon = (
+        <AntDesign
+          name="user-add"
+          size={15}
+          color={PotatoPalette.accent.gold}
+        />
+      );
   }
 
   return (
@@ -38,7 +49,7 @@ const AddInput = ({
         onPress={onPress}
         onChangeText={onChangeText}
         placeholder={placeholder}
-        placeholderTextColor="#ab8bff"
+        placeholderTextColor={PotatoPalette.text.placeholder}
         value={value}
         style={{ fontSize: 16 }}
         className="flex-1 ml-2 text-white h-8"

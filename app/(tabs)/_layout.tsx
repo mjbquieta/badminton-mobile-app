@@ -1,3 +1,4 @@
+import { PotatoPalette } from "@/constants/palette";
 import AntDesign from "@expo/vector-icons/AntDesign";
 import { Tabs } from "expo-router";
 import React from "react";
@@ -13,19 +14,22 @@ const TabIcon = ({
   title: string;
 }) => {
   let icon = null;
+  const iconColor = focused
+    ? PotatoPalette.accent.gold
+    : PotatoPalette.text.placeholder;
 
   switch (type) {
     case "home":
-      icon = <AntDesign name="home" size={20} color="#A8B5DB" />;
+      icon = <AntDesign name="home" size={20} color={iconColor} />;
       break;
     case "activity":
-      icon = <AntDesign name="up-circle" size={20} color="#A8B5DB" />;
+      icon = <AntDesign name="up-circle" size={20} color={iconColor} />;
       break;
     case "players":
-      icon = <AntDesign name="usergroup-add" size={20} color="#A8B5DB" />;
+      icon = <AntDesign name="usergroup-add" size={20} color={iconColor} />;
       break;
     case "courts":
-      icon = <AntDesign name="box-plot" size={20} color="#A8B5DB" />;
+      icon = <AntDesign name="box-plot" size={20} color={iconColor} />;
       break;
   }
   if (!focused) {
@@ -37,9 +41,11 @@ const TabIcon = ({
   }
 
   return (
-    <View className="flex flex-row w-full flex-1 min-w-[117px] min-h-10 mt-6 justify-center items-center rounded-full overflow-hidden gap-2 border border border-accent">
+    <View className="flex flex-row w-full flex-1 min-w-[117px] min-h-10 mt-6 justify-center items-center rounded-full overflow-hidden gap-2 border border-accent bg-dark-200/50">
       {icon}
-      <Text className="text-white text-base font-semibold ml-2">{title}</Text>
+      <Text className="text-light-100 text-base font-semibold ml-2">
+        {title}
+      </Text>
     </View>
   );
 };
@@ -57,7 +63,7 @@ const _layout = () => {
           alignItems: "center",
         },
         tabBarStyle: {
-          backgroundColor: "#0f0D23",
+          backgroundColor: PotatoPalette.bg.surface,
           borderRadius: 50,
           marginHorizontal: 20,
           marginBottom: 20,
@@ -65,7 +71,7 @@ const _layout = () => {
           position: "absolute",
           overflow: "hidden",
           borderWidth: 1,
-          borderColor: "#0f0D23",
+          borderColor: PotatoPalette.bg.border,
         },
       }}
     >

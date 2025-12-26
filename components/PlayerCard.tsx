@@ -3,6 +3,7 @@ import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 
 import React from "react";
 import { Text, TouchableOpacity, View } from "react-native";
+import { PotatoPalette } from "@/constants/palette";
 
 const PlayerCard = ({
   name,
@@ -20,7 +21,7 @@ const PlayerCard = ({
     >
       <View className="flex-row items-center gap-3">
         <View className="size-10 rounded-full bg-primary items-center justify-center">
-          <AntDesign name="user" size={15} color="#ab8bff" />
+          <AntDesign name="user" size={15} color={PotatoPalette.accent.gold} />
         </View>
 
         <Text className="flex-1 text-white text-lg font-bold" numberOfLines={1}>
@@ -32,20 +33,20 @@ const PlayerCard = ({
             <MaterialCommunityIcons
               name="badminton"
               size={15}
-              color="#FFD600"
+              color={PotatoPalette.accent.gold}
             />
           ) : (
             <MaterialCommunityIcons
               name="bench-back"
               size={15}
-              color="#00A300"
+              color={PotatoPalette.accent.sprout}
             />
           )}
 
           <Text
             className={[
               "text-sm font-bold",
-              isInGame ? "text-yellow-400" : "text-green-800",
+              isInGame ? "text-accent" : "text-success",
             ].join(" ")}
           >
             {isInGame ? "In Game" : "Bench"}

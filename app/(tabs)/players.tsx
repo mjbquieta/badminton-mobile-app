@@ -9,6 +9,7 @@ import {
   clearPlayersError,
   removePlayer,
 } from "@/store/playersSlice";
+import { PotatoPalette } from "@/constants/palette";
 import FontAwesome5 from "@expo/vector-icons/FontAwesome5";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import React, { useCallback, useEffect, useState } from "react";
@@ -87,7 +88,11 @@ const players = () => {
           accessibilityRole="button"
           accessibilityLabel="Add player"
         >
-          <FontAwesome5 name="plus" size={24} color="#00A300" />
+          <FontAwesome5
+            name="plus"
+            size={24}
+            color={PotatoPalette.accent.sprout}
+          />
         </TouchableOpacity>
       </View>
 
@@ -114,7 +119,11 @@ const players = () => {
               accessibilityRole="button"
               accessibilityLabel="Clear players list"
             >
-              <MaterialCommunityIcons name="broom" size={24} color="#ab8bff" />
+              <MaterialCommunityIcons
+                name="broom"
+                size={24}
+                color={PotatoPalette.accent.gold}
+              />
               <Text className="text-white text-sm font-bold text-center">
                 Clear
               </Text>

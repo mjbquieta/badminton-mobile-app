@@ -6,18 +6,21 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        primary: "#030014",
-        secondary: "#151412",
+        // "Potato" theme: warm soil browns, creamy highlights, golden accents.
+        primary: "#2B1B12", // deep soil (main background)
+        secondary: "#3C2A1E", // potato sack (secondary surfaces)
         light: {
-          100: "#D6C6FF",
-          200: "#A8B5DB",
-          300: "#9CA4AB",
+          100: "#FFF7ED", // warm cream (high contrast text)
+          200: "#E7D9C2", // muted cream (secondary text)
+          300: "#C4B39C", // dusty tan (placeholders / subtle UI)
         },
         dark: {
-          100: "#221f3d",
-          200: "#0f0d23",
+          100: "#4A3425", // warm brown (borders / chips)
+          200: "#3C2A1E", // warm brown (cards / surfaces)
         },
-        accent: "#AB8BFF",
+        accent: "#D8A34A", // golden potato skin highlight
+        success: "#7AD957", // sprout green (brighter for visibility)
+        danger: "#FF5A3D", // brighter red for visibility
       },
     },
   },

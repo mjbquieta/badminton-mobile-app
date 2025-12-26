@@ -4,6 +4,7 @@ import ManualAddPlayersModal from "@/components/ManualAddPlayersModal";
 import MatchTypeSelector, {
   type MatchType,
 } from "@/components/MatchTypeSelector";
+import { PotatoPalette } from "@/constants/palette";
 import { RootState } from "@/store";
 import {
   addCourt,
@@ -126,7 +127,11 @@ const courts = () => {
           accessibilityRole="button"
           accessibilityLabel="Add court"
         >
-          <FontAwesome5 name="plus" size={24} color="#00A300" />
+          <FontAwesome5
+            name="plus"
+            size={24}
+            color={PotatoPalette.accent.sprout}
+          />
         </TouchableOpacity>
       </View>
 
@@ -151,7 +156,11 @@ const courts = () => {
               accessibilityRole="button"
               accessibilityLabel="Clear courts list"
             >
-              <MaterialCommunityIcons name="broom" size={24} color="#ab8bff" />
+              <MaterialCommunityIcons
+                name="broom"
+                size={24}
+                color={PotatoPalette.accent.gold}
+              />
               <Text className="text-white text-sm font-bold text-center">
                 Clear
               </Text>
