@@ -1,24 +1,20 @@
 import { PotatoPalette } from "@/constants/palette";
-import { assignPlayersToCourts } from "@/store/courtSlice";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import { rollDice } from "@/store/thunks";
 import FontAwesome5 from "@expo/vector-icons/FontAwesome5";
 import React, { useMemo } from "react";
-import { Alert, Text, TouchableOpacity, View } from "react-native";
+import { Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 const index = () => {
   const players = useAppSelector((s) => s.players.items);
   const courts = useAppSelector((s) => s.courts.items);
+  const queueIds = useAppSelector((s) => s.queue.ids);
 
   const dispatch = useAppDispatch();
 
   const masterRollDice = () => {
-    const inGamePlayers = courts.flatMap((court) => court.players);
-    if (!(inGamePlayers.length <= 0)) {
-      Alert.alert("Cannot roll dice, some players must be in game.");
-    } else {
-      dispatch(assignPlayersToCourts({ players }));
-    }
+    dispatch(rollDice());
   };
 
   const numberOfInGamePlayers = useMemo(() => {
@@ -26,11 +22,17 @@ const index = () => {
   }, [courts]);
 
   const benchPlayers = useMemo(() => {
+    const queued = new Set(queueIds);
     return players.filter(
       (player) =>
+        !queued.has(player.id) &&
         !courts.some((court) => court.players.some((p) => p.id === player.id))
     );
-  }, [players, courts]);
+  }, [players, courts, queueIds]);
+
+  const queueGroupsCount = useMemo(() => {
+    return Math.floor(queueIds.length / 4);
+  }, [queueIds.length]);
 
   return (
     <SafeAreaView className="flex-1 p-10 bg-primary ">
@@ -70,6 +72,14 @@ const index = () => {
             </Text>
             <Text className="text-accent text-5xl font-extrabold">
               {benchPlayers.length}
+            </Text>
+          </View>
+          <View className="w-[40%] rounded-2xl bg-dark-200 items-center p-6 shadow-md">
+            <Text className="text-white text-base font-semibold mb-2">
+              Queue
+            </Text>
+            <Text className="text-accent text-5xl font-extrabold">
+              {queueGroupsCount}
             </Text>
           </View>
         </View>

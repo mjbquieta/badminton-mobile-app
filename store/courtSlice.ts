@@ -195,6 +195,39 @@ const courtSlice = createSlice({
 			court.players = [...court.players, ...players];
 			state.error = null;
 		},
+		assignPlayersToCourtsBulk: (
+			state,
+			action: PayloadAction<{
+				assignments: { courtId: string; players: Player[] }[];
+			}>
+		) => {
+			for (const { courtId, players } of action.payload.assignments) {
+				const court = state.items.find((c) => c.id === courtId);
+				if (!court) {
+					state.error = "Court not found";
+					return;
+				}
+
+				if (court.players.length > 0) {
+					state.error = `${court.name} already has players. Please end the game first.`;
+					return;
+				}
+
+				if (court.isSingle) {
+					state.error = `${court.name} is singles. Queue can only assign doubles courts.`;
+					return;
+				}
+
+				if (players.length !== 4) {
+					state.error = `Invalid assignment for ${court.name}. Doubles needs 4 players.`;
+					return;
+				}
+
+				court.players = players;
+			}
+
+			state.error = null;
+		},
 		endGame: (state, action: PayloadAction<string[]>) => {
 			state.items = state.items.map((court) => {
 				if (court.players.some((p) => action.payload.includes(p.id))) {
@@ -214,6 +247,7 @@ export const {
 	assignPlayersToCourts,
 	assignPlayersToCourt,
 	addPlayersToCourtManually,
+	assignPlayersToCourtsBulk,
 	endGame,
 	removePlayerFromCourt,
 } = courtSlice.actions;

@@ -69,5 +69,4 @@ const AddInput = ({
 };
 
 export default AddInput;
-
 const styles = StyleSheet.create({});

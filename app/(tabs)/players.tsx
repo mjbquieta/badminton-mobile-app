@@ -33,6 +33,7 @@ const players = () => {
   const dispatch = useAppDispatch();
   const players = useAppSelector((s: RootState) => s.players.items);
   const courts = useAppSelector((s: RootState) => s.courts.items);
+  const queueIds = useAppSelector((s: RootState) => s.queue.ids);
   const sliceError = useAppSelector((s: RootState) => s.players.error);
 
   useEffect(() => {
@@ -44,11 +45,14 @@ const players = () => {
     }
   }, []);
 
-  const isInGamePlayer = useCallback(
-    (playerId: string): boolean => {
-      return courts.some((c) => c.players.some((p) => p.id === playerId));
+  const getStatus = useCallback(
+    (playerId: string): "in_game" | "in_queue" | "bench" => {
+      const isInGame = courts.some((c) => c.players.some((p) => p.id === playerId));
+      if (isInGame) return "in_game";
+      if (queueIds.includes(playerId)) return "in_queue";
+      return "bench";
     },
-    [courts]
+    [courts, queueIds]
   );
 
   useEffect(() => {
@@ -135,7 +139,7 @@ const players = () => {
             renderItem={({ item }) => (
               <PlayerCard
                 name={item.name}
-                isInGame={isInGamePlayer(item.id)}
+                status={getStatus(item.id)}
                 onDelete={() => {
                   const message = `Are you sure you want to delete this player: ${item.name}?`;
                   ConfirmationAlert({

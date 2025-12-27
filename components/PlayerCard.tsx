@@ -1,19 +1,40 @@
 import AntDesign from "@expo/vector-icons/AntDesign";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 
+import { PotatoPalette } from "@/constants/palette";
 import React from "react";
 import { Text, TouchableOpacity, View } from "react-native";
-import { PotatoPalette } from "@/constants/palette";
+
+export type PlayerStatus = "in_game" | "in_queue" | "bench";
 
 const PlayerCard = ({
   name,
   onDelete,
-  isInGame = false,
+  status,
 }: {
   name: string;
   onDelete?: () => void;
-  isInGame: boolean;
+  status: PlayerStatus;
 }) => {
+  const isInGame = status === "in_game";
+  const isInQueue = status === "in_queue";
+  const iconName = isInGame
+    ? "badminton"
+    : isInQueue
+    ? "timer-sand"
+    : "bench-back";
+  const iconColor = isInGame
+    ? PotatoPalette.accent.danger
+    : isInQueue
+    ? PotatoPalette.accent.sprout
+    : PotatoPalette.text.muted;
+  const label = isInGame ? "In Game" : isInQueue ? "In Queue" : "Bench";
+  const labelClass = isInGame
+    ? "text-danger bg-danger/10 border border-danger"
+    : isInQueue
+    ? "text-success bg-success/10 border border-accent"
+    : "text-light-300 bg-dark-100/50 border border-dark-100";
+
   return (
     <TouchableOpacity
       className="bg-dark-200 rounded-xl p-4 gap-3 border border-dark-100"
@@ -29,45 +50,21 @@ const PlayerCard = ({
         </Text>
 
         <View className="flex-row items-center gap-2">
-          {isInGame ? (
-            <MaterialCommunityIcons
-              name="badminton"
-              size={15}
-              color={PotatoPalette.accent.gold}
-            />
-          ) : (
-            <MaterialCommunityIcons
-              name="bench-back"
-              size={15}
-              color={PotatoPalette.accent.sprout}
-            />
-          )}
+          <MaterialCommunityIcons
+            name={iconName as any}
+            size={15}
+            color={iconColor}
+          />
 
           <Text
             className={[
-              "text-sm font-bold",
-              isInGame ? "text-accent" : "text-success",
+              "text-sm font-bold uppercase text-center rounded-full px-3 py-1",
+              labelClass,
             ].join(" ")}
           >
-            {isInGame ? "In Game" : "Bench"}
+            {label}
           </Text>
         </View>
-
-        {/* {onDelete && !isInGame ? (
-          <Pressable
-            onPress={onDelete}
-            accessibilityRole="button"
-            accessibilityLabel={`Delete player ${name}`}
-            className="size-10 rounded-full bg-primary items-center justify-center"
-          >
-            <Image
-              source={icons.trash}
-              className="size-5"
-              resizeMode="contain"
-              tintColor="#ff0000"
-            />
-          </Pressable>
-        ) : null} */}
       </View>
     </TouchableOpacity>
   );

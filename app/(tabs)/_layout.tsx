@@ -41,14 +41,14 @@ const TabIcon = ({
   }
   if (!focused) {
     return (
-      <View className="size-full justify-center items-center mt-6 rounded-full">
+      <View className="size-full justify-center items-center mt-4 rounded-full">
         {icon}
       </View>
     );
   }
 
   return (
-    <View className="flex flex-row w-full flex-1 min-w-[117px] min-h-10 mt-6 justify-center items-center rounded-full overflow-hidden gap-2 border border-accent bg-dark-200/50">
+    <View className="flex flex-row w-full flex-1 min-w-[117px] min-h-10 mt-4 justify-center items-center rounded-full overflow-hidden gap-2 bg-dark-200/50">
       {icon}
       <Text className="text-light-100 text-base font-semibold ml-2">
         {title}

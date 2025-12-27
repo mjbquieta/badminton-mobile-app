@@ -1,11 +1,13 @@
 import { configureStore } from "@reduxjs/toolkit";
 import { courtsReducer } from "./courtSlice";
 import { playersReducer } from "./playersSlice";
+import { queueReducer } from "./queueSlice";
 
 export const store = configureStore({
 	reducer: {
 		courts: courtsReducer,
 		players: playersReducer,
+		queue: queueReducer,
 	},
 });
 

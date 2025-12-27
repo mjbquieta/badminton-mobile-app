@@ -12,13 +12,13 @@ import {
   assignPlayersToCourt,
   clearCourts,
   clearCourtsError,
-  endGame,
   removeCourt,
   removePlayerFromCourt,
 } from "@/store/courtSlice";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
-import { setPlayersAtEndOfQueue } from "@/store/playersSlice";
+import { endGameAndAdvanceQueue } from "@/store/thunks";
 import { type Player } from "@/types/players";
+import { shuffle } from "@/utils/shuffle";
 import FontAwesome5 from "@expo/vector-icons/FontAwesome5";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import React, { useEffect, useState } from "react";
@@ -44,6 +44,7 @@ const courts = () => {
   const dispatch = useAppDispatch();
   const courts = useAppSelector((s: RootState) => s.courts.items);
   const players = useAppSelector((s: RootState) => s.players.items);
+  const queueIds = useAppSelector((s: RootState) => s.queue.ids);
   const sliceError = useAppSelector((s: RootState) => s.courts.error);
   const [court, setCourt] = useState<CourtForm>({
     isSingle: false,
@@ -54,6 +55,10 @@ const courts = () => {
   }>({ visible: false, courtId: null });
 
   const matchType: MatchType = court.isSingle ? "singles" : "doubles";
+
+  const animatePlayersUpdate = () => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.spring);
+  };
 
   useEffect(() => {
     if (
@@ -96,8 +101,9 @@ const courts = () => {
     courts.flatMap((c) => c.players.map((p) => p.id))
   );
 
+  const queuedIds = new Set(queueIds);
   const availablePlayers: Player[] = players.filter(
-    (p) => !playersOnAnyCourtIds.has(p.id)
+    (p) => !playersOnAnyCourtIds.has(p.id) && !queuedIds.has(p.id)
   );
 
   const maxToSelect = activeCourt
@@ -176,6 +182,7 @@ const courts = () => {
                 players={item.players}
                 isSingle={item.isSingle}
                 onDeleteTag={(playerId) => {
+                  animatePlayersUpdate();
                   dispatch(
                     removePlayerFromCourt({ courtId: item.id, playerId })
                   );
@@ -191,13 +198,25 @@ const courts = () => {
                   });
                 }}
                 onEndGame={() => {
-                  dispatch(
-                    setPlayersAtEndOfQueue(item.players.map((p) => p.id))
-                  );
-                  dispatch(endGame(item.players.map((p) => p.id)));
+                  animatePlayersUpdate();
+                  const result = dispatch(
+                    endGameAndAdvanceQueue(item.id)
+                  ) as any;
+                  if (result?.warnedQueueEmpty) {
+                    Alert.alert(
+                      "Queue almost empty",
+                      "The queue is almost empty. Please go to the Activity page and re-roll the dice to add more players from the bench."
+                    );
+                  }
                 }}
                 onAssignPlayers={() => {
-                  dispatch(assignPlayersToCourt({ courtId: item.id, players }));
+                  animatePlayersUpdate();
+                  dispatch(
+                    assignPlayersToCourt({
+                      courtId: item.id,
+                      players: shuffle([...availablePlayers]),
+                    })
+                  );
                 }}
                 onManuallyAddPlayers={() => {
                   dispatch(clearCourtsError());
@@ -227,6 +246,7 @@ const courts = () => {
             selectedIds.includes(p.id)
           );
 
+          animatePlayersUpdate();
           dispatch(
             addPlayersToCourtManually({
               courtId: activeCourt.id,
