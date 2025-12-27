@@ -9,6 +9,7 @@ import {
   clearPlayersError,
   removePlayer,
 } from "@/store/playersSlice";
+import { clearQueue } from "@/store/queueSlice";
 import { PotatoPalette } from "@/constants/palette";
 import FontAwesome5 from "@expo/vector-icons/FontAwesome5";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
@@ -107,6 +108,16 @@ const players = () => {
             <TouchableOpacity
               className="flex-row items-center gap-2 bg-primary px-4 py-1 rounded-full border border-accent"
               onPress={() => {
+                const courtsWithPlayers = courts.filter((c) => c.players.length > 0);
+                if (courtsWithPlayers.length > 0) {
+                  const names = courtsWithPlayers.map((c) => c.name).join(", ");
+                  Alert.alert(
+                    "Cannot clear players",
+                    `Some players are currently in the game (${names}). Please end the game first.`
+                  );
+                  return;
+                }
+
                 const message =
                   "Are you sure you want to clear the players list?";
                 ConfirmationAlert({
@@ -116,6 +127,8 @@ const players = () => {
                     LayoutAnimation.configureNext(
                       LayoutAnimation.Presets.spring
                     );
+                    // Keep state consistent: clearing players must also clear the queue.
+                    dispatch(clearQueue());
                     dispatch(clearPlayers());
                   },
                 });

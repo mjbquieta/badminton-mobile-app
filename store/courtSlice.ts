@@ -67,6 +67,12 @@ const courtSlice = createSlice({
 			state.error = null;
 		},
 		clearCourts: (state) => {
+			const hasPlayers = state.items.some((c) => c.players.length > 0);
+			if (hasPlayers) {
+				state.error =
+					"Cannot clear courts while some courts still have players. Please end the game first.";
+				return;
+			}
 			state.items = [];
 			state.error = null;
 		},

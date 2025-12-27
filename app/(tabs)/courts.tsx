@@ -148,6 +148,15 @@ const courts = () => {
             <TouchableOpacity
               className="flex-row items-center gap-2 bg-primary px-4 py-1 rounded-full border border-accent"
               onPress={() => {
+                const courtsWithPlayers = courts.filter((c) => c.players.length > 0);
+                if (courtsWithPlayers.length > 0) {
+                  const names = courtsWithPlayers.map((c) => c.name).join(", ");
+                  Alert.alert(
+                    "Cannot clear courts",
+                    `Some courts still have players (${names}). Please end the game first.`
+                  );
+                  return;
+                }
                 ConfirmationAlert({
                   title: "Confirm Clearing Courts List",
                   message: "Are you sure you want to clear the list?",
