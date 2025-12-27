@@ -94,9 +94,9 @@ const _layout = () => {
       <Tabs.Screen
         name="activity"
         options={{
-          title: "Activity",
+          title: "Activities",
           tabBarIcon: ({ focused }) => (
-            <TabIcon focused={focused} type="activity" title="Activity" />
+            <TabIcon focused={focused} type="activity" title="Activities" />
           ),
         }}
       />

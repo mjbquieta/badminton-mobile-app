@@ -2,6 +2,7 @@ import { type Player } from "@/types/players";
 import { shuffle } from "@/utils/shuffle";
 import { assignPlayersToCourtsBulk, endGame } from "./courtSlice";
 import type { AppDispatch, RootState } from "./index";
+import { incrementPlayersGameCount } from "./playersSlice";
 import { setQueue } from "./queueSlice";
 
 const chunkBy = <T>(arr: T[], size: number): T[][] => {
@@ -14,6 +15,32 @@ const buildPlayerMap = (players: Player[]) => {
 	const m = new Map<string, Player>();
 	for (const p of players) m.set(p.id, p);
 	return m;
+};
+
+const sortQueueIdsByGameCountPriority = (
+	ids: string[],
+	playerMap: Map<string, Player>
+): string[] => {
+	// Stable: keep original relative order when gameCount ties (or player missing)
+	const index = new Map<string, number>();
+	for (let i = 0; i < ids.length; i++) {
+		// first occurrence wins, just in case duplicates ever slip in
+		if (!index.has(ids[i])) index.set(ids[i], i);
+	}
+
+	return [...ids].sort((a, b) => {
+		const pa = playerMap.get(a);
+		const pb = playerMap.get(b);
+
+		// Unknown players go last, stable.
+		if (!pa && !pb) return (index.get(a) ?? 0) - (index.get(b) ?? 0);
+		if (!pa) return 1;
+		if (!pb) return -1;
+
+		const diff = pa.gameCount - pb.gameCount;
+		if (diff !== 0) return diff;
+		return (index.get(a) ?? 0) - (index.get(b) ?? 0);
+	});
 };
 
 export const fillDoublesCourtsFromQueue =
@@ -90,8 +117,13 @@ export const rollDice =
 
 		const newQueueIds = shuffledBench.slice(0, fullCount).map((p) => p.id);
 		const nextQueueIds = [...state.queue.ids, ...newQueueIds];
+		const playerMap = buildPlayerMap(players);
+		const prioritizedQueueIds = sortQueueIdsByGameCountPriority(
+			nextQueueIds,
+			playerMap
+		);
 
-		dispatch(setQueue(nextQueueIds));
+		dispatch(setQueue(prioritizedQueueIds));
 		dispatch(fillDoublesCourtsFromQueue());
 	};
 
@@ -109,6 +141,7 @@ export const endGameAndAdvanceQueue =
 			return { warnedQueueEmpty: false };
 
 		const endedIds = court.players.map((p) => p.id);
+		dispatch(incrementPlayersGameCount(endedIds));
 		dispatch(endGame(endedIds));
 		const queueIdsBeforeFill = getState().queue.ids;
 		dispatch(fillDoublesCourtsFromQueue());

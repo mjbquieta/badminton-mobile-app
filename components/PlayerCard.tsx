@@ -11,10 +11,14 @@ const PlayerCard = ({
   name,
   onDelete,
   status,
+  gameCount,
+  courtName,
 }: {
   name: string;
   onDelete?: () => void;
   status: PlayerStatus;
+  gameCount: number;
+  courtName?: string;
 }) => {
   const isInGame = status === "in_game";
   const isInQueue = status === "in_queue";
@@ -28,7 +32,9 @@ const PlayerCard = ({
     : isInQueue
     ? PotatoPalette.accent.sprout
     : PotatoPalette.text.muted;
-  const label = isInGame ? "In Game" : isInQueue ? "In Queue" : "Bench";
+  const baseLabel = isInGame ? "In Game" : isInQueue ? "In Queue" : "Bench";
+  const label =
+    isInGame && courtName ? `${baseLabel} · ${courtName}` : baseLabel;
   const labelClass = isInGame
     ? "text-danger bg-danger/10 border border-danger"
     : isInQueue
@@ -45,9 +51,14 @@ const PlayerCard = ({
           <AntDesign name="user" size={15} color={PotatoPalette.accent.gold} />
         </View>
 
-        <Text className="flex-1 text-white text-lg font-bold" numberOfLines={1}>
-          {name}
-        </Text>
+        <View className="flex-1">
+          <Text className="text-white text-lg font-bold" numberOfLines={1}>
+            {name}
+          </Text>
+          <Text className="text-light-200 text-xs font-bold">
+            Games: {gameCount}
+          </Text>
+        </View>
 
         <View className="flex-row items-center gap-2">
           <MaterialCommunityIcons
@@ -61,6 +72,7 @@ const PlayerCard = ({
               "text-sm font-bold uppercase text-center rounded-full px-3 py-1",
               labelClass,
             ].join(" ")}
+            numberOfLines={1}
           >
             {label}
           </Text>

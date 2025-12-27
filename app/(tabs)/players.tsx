@@ -1,6 +1,7 @@
 import AddPInput from "@/components/AddInput";
 import ConfirmationAlert from "@/components/ConfirmationAlert";
 import PlayerCard from "@/components/PlayerCard";
+import { PotatoPalette } from "@/constants/palette";
 import { RootState } from "@/store";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import {
@@ -10,10 +11,9 @@ import {
   removePlayer,
 } from "@/store/playersSlice";
 import { clearQueue } from "@/store/queueSlice";
-import { PotatoPalette } from "@/constants/palette";
 import FontAwesome5 from "@expo/vector-icons/FontAwesome5";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   Alert,
   FlatList,
@@ -30,6 +30,7 @@ import { v4 as uuidv4 } from "uuid";
 
 const players = () => {
   const [newPlayerName, setNewPlayerName] = useState<string>("");
+  const [searchQuery, setSearchQuery] = useState<string>("");
 
   const dispatch = useAppDispatch();
   const players = useAppSelector((s: RootState) => s.players.items);
@@ -46,15 +47,32 @@ const players = () => {
     }
   }, []);
 
-  const getStatus = useCallback(
-    (playerId: string): "in_game" | "in_queue" | "bench" => {
-      const isInGame = courts.some((c) => c.players.some((p) => p.id === playerId));
-      if (isInGame) return "in_game";
-      if (queueIds.includes(playerId)) return "in_queue";
-      return "bench";
-    },
-    [courts, queueIds]
-  );
+  const statusMetaById = useMemo(() => {
+    const map: Record<
+      string,
+      { status: "in_game" | "in_queue" | "bench"; courtName?: string }
+    > = {};
+
+    for (const p of players) map[p.id] = { status: "bench" };
+
+    for (const id of queueIds) {
+      if (map[id]) map[id] = { status: "in_queue" };
+    }
+
+    for (const c of courts) {
+      for (const p of c.players) {
+        map[p.id] = { status: "in_game", courtName: c.name };
+      }
+    }
+
+    return map;
+  }, [players, queueIds, courts]);
+
+  const filteredPlayers = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return players;
+    return players.filter((p) => p.name.trim().toLowerCase().includes(q));
+  }, [players, searchQuery]);
 
   useEffect(() => {
     if (!sliceError) return;
@@ -108,7 +126,9 @@ const players = () => {
             <TouchableOpacity
               className="flex-row items-center gap-2 bg-primary px-4 py-1 rounded-full border border-accent"
               onPress={() => {
-                const courtsWithPlayers = courts.filter((c) => c.players.length > 0);
+                const courtsWithPlayers = courts.filter(
+                  (c) => c.players.length > 0
+                );
                 if (courtsWithPlayers.length > 0) {
                   const names = courtsWithPlayers.map((c) => c.name).join(", ");
                   Alert.alert(
@@ -147,12 +167,21 @@ const players = () => {
             </TouchableOpacity>
           </View>
 
+          <AddPInput
+            type="search"
+            placeholder="Search player name"
+            value={searchQuery}
+            onChangeText={(text) => setSearchQuery(text)}
+          />
+
           <FlatList
-            data={players}
+            data={filteredPlayers}
             renderItem={({ item }) => (
               <PlayerCard
                 name={item.name}
-                status={getStatus(item.id)}
+                gameCount={item.gameCount}
+                status={statusMetaById[item.id]?.status ?? "bench"}
+                courtName={statusMetaById[item.id]?.courtName}
                 onDelete={() => {
                   const message = `Are you sure you want to delete this player: ${item.name}?`;
                   ConfirmationAlert({
@@ -170,6 +199,13 @@ const players = () => {
             )}
             keyExtractor={(item) => item.id}
             contentContainerStyle={{ gap: 10 }}
+            ListEmptyComponent={
+              <View className="bg-dark-200 border border-dark-100 rounded-2xl p-4">
+                <Text className="text-light-200 text-sm">
+                  No players match "{searchQuery.trim()}".
+                </Text>
+              </View>
+            }
             className="mb-20"
           />
         </>
