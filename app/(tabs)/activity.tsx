@@ -1,8 +1,72 @@
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
-import { rollDice } from "@/store/thunks";
+import { endGameAndAdvanceQueue, rollDice } from "@/store/thunks";
 import React, { useEffect, useMemo, useRef } from "react";
 import { Alert, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+
+type QueueCardVariant = "in_game" | "waiting";
+
+const QueueCard = ({
+  queueNumber,
+  playersText,
+  assignedCourtText,
+  variant,
+  onEndGame,
+}: {
+  queueNumber: number;
+  playersText: string;
+  assignedCourtText: string;
+  variant: QueueCardVariant;
+  onEndGame?: () => void;
+}) => {
+  const isInGame = variant === "in_game";
+  const badgeLabel = isInGame ? "IN GAME" : "WAITING";
+  const containerClass = isInGame
+    ? "bg-dark-100 border border-accent"
+    : "bg-secondary/60 border border-dark-100";
+  const titleClass = isInGame ? "text-white" : "text-light-200";
+  const playersClass = isInGame ? "text-white" : "text-light-200";
+  const badgeClass = isInGame
+    ? "bg-success/15 border-success/40 text-success"
+    : "bg-secondary border-dark-100 text-light-200";
+
+  return (
+    <View className={`rounded-2xl p-4 gap-3 ${containerClass}`}>
+      <View className="flex-row items-start justify-between gap-3">
+        <View className="flex-1 gap-1">
+          <Text className={`${titleClass} text-xl font-extrabold`}>
+            Queue {queueNumber}
+          </Text>
+          <Text className="text-light-200 text-xs font-bold">
+            Assigned Court: {assignedCourtText}
+          </Text>
+        </View>
+
+        <View className={`px-3 py-1 rounded-full border ${badgeClass}`}>
+          <Text className="text-xs font-bold">{badgeLabel}</Text>
+        </View>
+      </View>
+
+      <View className="gap-1">
+        <Text className="text-light-200 text-xs font-bold uppercase">
+          Players
+        </Text>
+        <Text className={`${playersClass} text-sm`}>{playersText}</Text>
+      </View>
+
+      {isInGame && onEndGame ? (
+        <TouchableOpacity
+          className="bg-success/90 px-4 py-2 rounded-full self-start"
+          onPress={onEndGame}
+          accessibilityRole="button"
+          accessibilityLabel={`End game for queue ${queueNumber}`}
+        >
+          <Text className="text-primary text-sm font-bold">End Game</Text>
+        </TouchableOpacity>
+      ) : null}
+    </View>
+  );
+};
 
 const activity = () => {
   const dispatch = useAppDispatch();
@@ -83,7 +147,7 @@ const activity = () => {
           </View>
         ) : null}
 
-        <View className="bg-dark-200 border border-dark-100 rounded-xl p-4 gap-3">
+        <View className="bg-dark-200 border border-dark-100 rounded-2xl p-4 gap-3">
           <View className="flex-row items-center justify-between">
             <Text className="text-white text-lg font-bold">In Game</Text>
             <Text className="text-light-200 text-sm">
@@ -96,20 +160,30 @@ const activity = () => {
             {doublesCourts.map((court, idx) => {
               const names = court.players.map((p) => p.name).join(", ");
               return (
-                <View
+                <QueueCard
                   key={court.id}
-                  className="border border-accent bg-dark-100 rounded-xl p-3 gap-1"
-                >
-                  <Text className="text-light-200 text-sm font-bold">
-                    Queue {idx + 1}
-                  </Text>
-                  <Text className="text-white text-sm">
-                    {court.players.length === 0 ? "No players assigned" : names}
-                  </Text>
-                  <Text className="text-light-200 text-xs font-bold">
-                    Assigned Court: {court.name}
-                  </Text>
-                </View>
+                  queueNumber={idx + 1}
+                  playersText={
+                    court.players.length === 0 ? "No players assigned" : names
+                  }
+                  assignedCourtText={court.name}
+                  variant="in_game"
+                  onEndGame={
+                    court.players.length > 0
+                      ? () => {
+                          const result = dispatch(
+                            endGameAndAdvanceQueue(court.id)
+                          ) as any;
+                          if (result?.warnedQueueEmpty) {
+                            Alert.alert(
+                              "Queue almost empty",
+                              "The queue is almost empty. Please re-roll the dice to add more players from the bench."
+                            );
+                          }
+                        }
+                      : undefined
+                  }
+                />
               );
             })}
 
@@ -123,7 +197,7 @@ const activity = () => {
 
         {/* Waiting queue groups (FIFO) */}
         {queueGroups.length > 0 ? (
-          <View className="gap-2 bg-secondary/40 border border-dark-100 rounded-xl p-3">
+          <View className="gap-3 bg-dark-200 border border-dark-100 rounded-2xl p-4">
             <View className="flex-row items-center justify-between">
               <Text className="text-white text-lg font-bold">Queue</Text>
               <Text className="text-light-200 text-sm">
@@ -135,18 +209,13 @@ const activity = () => {
                 .map((id) => playerMap.get(id)?.name ?? "Unknown")
                 .join(", ");
               return (
-                <View
+                <QueueCard
                   key={`waiting-${g.index}`}
-                  className="border border-dark-100 bg-secondary/60 rounded-xl p-3 gap-1"
-                >
-                  <Text className="text-light-200 text-sm font-bold">
-                    Queue {doublesCourts.length + g.index + 1}
-                  </Text>
-                  <Text className="text-light-200 text-sm">{names}</Text>
-                  <Text className="text-light-200 text-xs font-bold">
-                    Assigned Court: Waiting
-                  </Text>
-                </View>
+                  queueNumber={doublesCourts.length + g.index + 1}
+                  playersText={names}
+                  assignedCourtText="Waiting"
+                  variant="waiting"
+                />
               );
             })}
           </View>
