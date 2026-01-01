@@ -56,7 +56,7 @@ const PlayerCard = ({
             {name}
           </Text>
           <Text className="text-light-200 text-xs font-bold">
-            Games: {gameCount}
+            Completed Games: {gameCount}
           </Text>
         </View>
 

@@ -40,7 +40,11 @@ interface CourtForm {
   isSingle: boolean;
 }
 
-const courts = () => {
+export const CourtsContent = ({
+  contentContainerClassName = "p-10",
+}: {
+  contentContainerClassName?: string;
+}) => {
   const dispatch = useAppDispatch();
   const courts = useAppSelector((s: RootState) => s.courts.items);
   const players = useAppSelector((s: RootState) => s.players.items);
@@ -111,7 +115,7 @@ const courts = () => {
     : 0;
 
   return (
-    <SafeAreaView className="flex-1 p-10 bg-primary gap-5">
+    <View className={`flex-1 bg-primary gap-5 ${contentContainerClassName}`}>
       <Text className="text-white text-2xl font-bold text-center">
         Add Court
       </Text>
@@ -148,7 +152,9 @@ const courts = () => {
             <TouchableOpacity
               className="flex-row items-center gap-2 bg-primary px-4 py-1 rounded-full border border-accent"
               onPress={() => {
-                const courtsWithPlayers = courts.filter((c) => c.players.length > 0);
+                const courtsWithPlayers = courts.filter(
+                  (c) => c.players.length > 0
+                );
                 if (courtsWithPlayers.length > 0) {
                   const names = courtsWithPlayers.map((c) => c.name).join(", ");
                   Alert.alert(
@@ -207,16 +213,22 @@ const courts = () => {
                   });
                 }}
                 onEndGame={() => {
-                  animatePlayersUpdate();
-                  const result = dispatch(
-                    endGameAndAdvanceQueue(item.id)
-                  ) as any;
-                  if (result?.warnedQueueEmpty) {
-                    Alert.alert(
-                      "Queue almost empty",
-                      "The queue is almost empty. Please go to the Activity page and re-roll the dice to add more players from the bench."
-                    );
-                  }
+                  ConfirmationAlert({
+                    title: "Confirm End Game",
+                    message: `Are you sure you want to end the game on ${item.name}?`,
+                    onConfirm: () => {
+                      animatePlayersUpdate();
+                      const result = dispatch(
+                        endGameAndAdvanceQueue(item.id)
+                      ) as any;
+                      if (result?.warnedQueueEmpty) {
+                        Alert.alert(
+                          "Queue almost empty",
+                          "The queue is almost empty. Please go to the Activity page and re-roll the dice to add more players from the bench."
+                        );
+                      }
+                    },
+                  });
                 }}
                 onAssignPlayers={() => {
                   animatePlayersUpdate();
@@ -265,6 +277,14 @@ const courts = () => {
           setManualAdd({ visible: false, courtId: null });
         }}
       />
+    </View>
+  );
+};
+
+const courts = () => {
+  return (
+    <SafeAreaView className="flex-1 bg-primary">
+      <CourtsContent contentContainerClassName="p-10" />
     </SafeAreaView>
   );
 };

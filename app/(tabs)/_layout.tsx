@@ -1,6 +1,6 @@
 import { PotatoPalette } from "@/constants/palette";
 import AntDesign from "@expo/vector-icons/AntDesign";
-import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
+import Feather from "@expo/vector-icons/Feather";
 import { Tabs } from "expo-router";
 import React from "react";
 import { Text, View } from "react-native";
@@ -11,7 +11,7 @@ const TabIcon = ({
   title,
 }: {
   focused: boolean;
-  type: "home" | "activity" | "players" | "courts";
+  type: "home" | "activity" | "players" | "courts" | "settings";
   title: string;
 }) => {
   let icon = null;
@@ -24,19 +24,16 @@ const TabIcon = ({
       icon = <AntDesign name="home" size={20} color={iconColor} />;
       break;
     case "activity":
-      icon = (
-        <MaterialCommunityIcons
-          name="human-queue"
-          size={20}
-          color={iconColor}
-        />
-      );
+      icon = <Feather name="activity" size={20} color={iconColor} />;
       break;
     case "players":
       icon = <AntDesign name="usergroup-add" size={20} color={iconColor} />;
       break;
     case "courts":
       icon = <AntDesign name="box-plot" size={20} color={iconColor} />;
+      break;
+    case "settings":
+      icon = <AntDesign name="setting" size={20} color={iconColor} />;
       break;
   }
   if (!focused) {
@@ -115,6 +112,15 @@ const _layout = () => {
           title: "Courts",
           tabBarIcon: ({ focused }) => (
             <TabIcon focused={focused} type="courts" title="Courts" />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="settings"
+        options={{
+          title: "Settings",
+          tabBarIcon: ({ focused }) => (
+            <TabIcon focused={focused} type="settings" title="Settings" />
           ),
         }}
       />

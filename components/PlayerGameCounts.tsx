@@ -29,7 +29,7 @@ const statusRank: Record<PlayerLiveStatus, number> = {
   bench: 2,
 };
 
-export function PlayerStatusHierarchy({
+export function PlayerGameCounts({
   players,
   statusByPlayerId,
 }: {

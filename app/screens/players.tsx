@@ -10,7 +10,7 @@ import {
   clearPlayersError,
   removePlayer,
 } from "@/store/playersSlice";
-import { clearQueue } from "@/store/queueSlice";
+import { clearQueue, setQueue } from "@/store/queueSlice";
 import FontAwesome5 from "@expo/vector-icons/FontAwesome5";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import React, { useEffect, useMemo, useState } from "react";
@@ -28,7 +28,11 @@ import "react-native-get-random-values";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { v4 as uuidv4 } from "uuid";
 
-const players = () => {
+export const PlayersContent = ({
+  contentContainerClassName = "p-10",
+}: {
+  contentContainerClassName?: string;
+}) => {
   const [newPlayerName, setNewPlayerName] = useState<string>("");
   const [searchQuery, setSearchQuery] = useState<string>("");
 
@@ -82,7 +86,7 @@ const players = () => {
   }, [sliceError, dispatch]);
 
   return (
-    <SafeAreaView className="flex-1 p-10 bg-primary gap-5">
+    <View className={`flex-1 bg-primary gap-5 ${contentContainerClassName}`}>
       <Text className="text-white text-2xl font-bold text-center">
         Add Player
       </Text>
@@ -183,11 +187,41 @@ const players = () => {
                 status={statusMetaById[item.id]?.status ?? "bench"}
                 courtName={statusMetaById[item.id]?.courtName}
                 onDelete={() => {
+                  const meta = statusMetaById[item.id];
+                  const status = meta?.status ?? "bench";
+
+                  // Validation: don't allow deleting players who are currently in a game.
+                  if (status === "in_game") {
+                    Alert.alert(
+                      "Cannot delete player",
+                      `${item.name} is currently in a game${
+                        meta?.courtName ? ` on ${meta.courtName}` : ""
+                      }. Please end the game first.`
+                    );
+                    return;
+                  }
+
                   const message = `Are you sure you want to delete this player: ${item.name}?`;
                   ConfirmationAlert({
                     title: "Confirm Deletion",
-                    message: message,
+                    message,
                     onConfirm: () => {
+                      // If the player is in the queue, dissolve their entire queue group (groups are sets of 4).
+                      if (status === "in_queue") {
+                        const idx = queueIds.indexOf(item.id);
+                        if (idx >= 0) {
+                          const groupStart = Math.floor(idx / 4) * 4;
+                          const groupIds = queueIds.slice(
+                            groupStart,
+                            groupStart + 4
+                          );
+                          const groupSet = new Set(groupIds);
+                          dispatch(
+                            setQueue(queueIds.filter((id) => !groupSet.has(id)))
+                          );
+                        }
+                      }
+
                       LayoutAnimation.configureNext(
                         LayoutAnimation.Presets.spring
                       );
@@ -210,6 +244,14 @@ const players = () => {
           />
         </>
       )}
+    </View>
+  );
+};
+
+const players = () => {
+  return (
+    <SafeAreaView className="flex-1 bg-primary">
+      <PlayersContent contentContainerClassName="p-10" />
     </SafeAreaView>
   );
 };
