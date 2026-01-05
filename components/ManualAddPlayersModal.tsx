@@ -116,11 +116,19 @@ const ManualAddPlayersModal = ({
                       isDisabled ? "opacity-50" : "",
                     ].join(" ")}
                     accessibilityRole="button"
-                    accessibilityLabel={`Select player ${item.name}`}
+                    accessibilityLabel={`Select player ${item.name}. Completed games: ${item.gameCount}`}
                   >
-                    <Text className="text-white font-semibold">
-                      {item.name}
-                    </Text>
+                    <View className="flex-1 pr-3">
+                      <Text
+                        className="text-white font-semibold"
+                        numberOfLines={1}
+                      >
+                        {item.name}
+                      </Text>
+                      <Text className="text-light-200 text-xs font-bold">
+                        Completed Games: {item.gameCount}
+                      </Text>
+                    </View>
                     <MaterialCommunityIcons
                       name={
                         isSelected
