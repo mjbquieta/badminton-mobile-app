@@ -1,6 +1,8 @@
 import AddInput from "@/components/AddInput";
-import { PotatoPalette } from "@/constants/palette";
+import PlayerLevelBadge from "@/components/PlayerLevelBadge";
+import { BadmintonPalette } from "@/constants/palette";
 import { type Player } from "@/types/players";
+import AntDesign from "@expo/vector-icons/AntDesign";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import React, { useEffect, useMemo, useState } from "react";
 import {
@@ -61,122 +63,181 @@ const ManualAddPlayersModal = ({
       onRequestClose={onClose}
     >
       <Pressable
-        className="flex-1 items-center justify-center bg-black/60 px-5"
+        className="flex-1 items-center justify-center bg-black/70 px-5"
         onPress={onClose}
       >
         <Pressable
-          className="w-full max-w-xl rounded-2xl bg-dark-200 border border-dark-100 p-4 gap-3"
+          className="w-full max-w-xl rounded-2xl bg-secondary border border-dark-100 overflow-hidden"
           onPress={() => {}}
         >
-          <View className="gap-1">
-            <Text className="text-white text-lg font-bold">{title}</Text>
-            <Text className="text-light-200 text-sm">
-              Select up to {maxSelect} player{maxSelect === 1 ? "" : "s"} (
-              {selectedIds.length}/{maxSelect})
+          {/* Header */}
+          <View className="p-4 border-b border-dark-100">
+            <Text 
+              className="text-lg font-bold"
+              style={{ color: BadmintonPalette.text.primary }}
+            >
+              {title}
             </Text>
+            <View className="flex-row items-center mt-1">
+              <View className="flex-row items-center px-2 py-0.5 rounded-md bg-accent/15 mr-2">
+                <Text 
+                  className="text-xs font-semibold"
+                  style={{ color: BadmintonPalette.accent.primary }}
+                >
+                  {selectedIds.length}/{maxSelect}
+                </Text>
+              </View>
+              <Text 
+                className="text-sm"
+                style={{ color: BadmintonPalette.text.muted }}
+              >
+                player{maxSelect === 1 ? "" : "s"} selected
+              </Text>
+            </View>
           </View>
 
-          <AddInput
-            type="search"
-            placeholder="Search players"
-            value={query}
-            onChangeText={setQuery}
-          />
-
-          {players.length === 0 ? (
-            <View className="py-6">
-              <Text className="text-light-200 text-sm text-center">
-                No available players (everyone is already on a court).
-              </Text>
-            </View>
-          ) : filteredPlayers.length === 0 ? (
-            <View className="py-6">
-              <Text className="text-light-200 text-sm text-center">
-                No players match "{query.trim()}".
-              </Text>
-            </View>
-          ) : (
-            <FlatList
-              data={filteredPlayers}
-              keyExtractor={(item) => item.id}
-              style={{ maxHeight: 360 }}
-              contentContainerStyle={{ gap: 8, paddingVertical: 4 }}
-              renderItem={({ item }) => {
-                const isSelected = selectedSet.has(item.id);
-                const isDisabled =
-                  !isSelected && selectedIds.length >= maxSelect;
-                return (
-                  <Pressable
-                    onPress={() => (isDisabled ? null : toggle(item.id))}
-                    className={[
-                      "flex-row items-center justify-between rounded-xl border px-3 py-3",
-                      isSelected
-                        ? "bg-primary border-accent"
-                        : "bg-dark-100 border-dark-100",
-                      isDisabled ? "opacity-50" : "",
-                    ].join(" ")}
-                    accessibilityRole="button"
-                    accessibilityLabel={`Select player ${item.name}. Completed games: ${item.gameCount}`}
-                  >
-                    <View className="flex-1 pr-3">
-                      <Text
-                        className="text-white font-semibold"
-                        numberOfLines={1}
-                      >
-                        {item.name}
-                      </Text>
-                      <Text className="text-light-200 text-xs font-bold">
-                        Completed Games: {item.gameCount}
-                      </Text>
-                    </View>
-                    <MaterialCommunityIcons
-                      name={
-                        isSelected
-                          ? "checkbox-marked"
-                          : "checkbox-blank-outline"
-                      }
-                      size={22}
-                      color={
-                        isSelected
-                          ? PotatoPalette.accent.sprout
-                          : PotatoPalette.text.placeholder
-                      }
-                    />
-                  </Pressable>
-                );
-              }}
+          {/* Search */}
+          <View className="p-4 border-b border-dark-100">
+            <AddInput
+              type="search"
+              placeholder="Search players..."
+              value={query}
+              onChangeText={setQuery}
             />
-          )}
+          </View>
 
-          <View className="flex-row items-center justify-end gap-2 pt-2">
+          {/* Player List */}
+          <View className="px-4">
+            {players.length === 0 ? (
+              <View className="py-10">
+                <Text 
+                  className="text-sm text-center"
+                  style={{ color: BadmintonPalette.text.muted }}
+                >
+                  No available players{"\n"}
+                  (everyone is in a game or queue)
+                </Text>
+              </View>
+            ) : filteredPlayers.length === 0 ? (
+              <View className="py-10">
+                <Text 
+                  className="text-sm text-center"
+                  style={{ color: BadmintonPalette.text.muted }}
+                >
+                  No players match "{query.trim()}"
+                </Text>
+              </View>
+            ) : (
+              <FlatList
+                data={filteredPlayers}
+                keyExtractor={(item) => item.id}
+                style={{ maxHeight: 320 }}
+                contentContainerStyle={{ gap: 8, paddingVertical: 12 }}
+                renderItem={({ item }) => {
+                  const isSelected = selectedSet.has(item.id);
+                  const isDisabled =
+                    !isSelected && selectedIds.length >= maxSelect;
+                  return (
+                    <Pressable
+                      onPress={() => (isDisabled ? null : toggle(item.id))}
+                      className={[
+                        "flex-row items-center rounded-xl border p-3",
+                        isSelected
+                          ? "bg-court-deep/20 border-court-lime/40"
+                          : "bg-dark-200 border-dark-100",
+                        isDisabled ? "opacity-40" : "",
+                      ].join(" ")}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Select player ${item.name}`}
+                    >
+                      {/* Avatar */}
+                      <View className="size-10 rounded-lg bg-court-deep/20 items-center justify-center mr-3">
+                        <AntDesign
+                          name="user"
+                          size={16}
+                          color={BadmintonPalette.court.lime}
+                        />
+                      </View>
+
+                      {/* Info */}
+                      <View className="flex-1">
+                        <Text
+                          className="font-semibold"
+                          style={{ color: BadmintonPalette.text.primary }}
+                          numberOfLines={1}
+                        >
+                          {item.name}
+                        </Text>
+                        <View className="flex-row items-center mt-1">
+                          <Text 
+                            className="text-xs mr-2"
+                            style={{ color: BadmintonPalette.text.muted }}
+                          >
+                            {item.gameCount} games
+                          </Text>
+                          <PlayerLevelBadge level={item.level} size="xs" />
+                        </View>
+                      </View>
+
+                      {/* Checkbox */}
+                      <View
+                        className={[
+                          "size-6 rounded-lg items-center justify-center",
+                          isSelected ? "bg-court-lime" : "bg-dark-100 border border-dark-100",
+                        ].join(" ")}
+                      >
+                        {isSelected && (
+                          <MaterialCommunityIcons
+                            name="check"
+                            size={16}
+                            color={BadmintonPalette.bg.base}
+                          />
+                        )}
+                      </View>
+                    </Pressable>
+                  );
+                }}
+              />
+            )}
+          </View>
+
+          {/* Footer */}
+          <View className="flex-row items-center p-4 border-t border-dark-100" style={{ gap: 12 }}>
             <TouchableOpacity
-              className="px-4 py-2 rounded-full border border-dark-100 bg-secondary"
+              className="flex-1 py-3 rounded-xl border border-dark-100 bg-dark-200 items-center active:bg-dark-100"
               onPress={onClose}
               accessibilityRole="button"
-              accessibilityLabel="Close manual add players modal"
+              accessibilityLabel="Cancel"
             >
-              <Text className="text-light-200 font-bold">Close</Text>
+              <Text 
+                className="font-bold"
+                style={{ color: BadmintonPalette.text.secondary }}
+              >
+                Cancel
+              </Text>
             </TouchableOpacity>
 
             <TouchableOpacity
               className={[
-                "px-4 py-2 rounded-full border",
+                "flex-1 py-3 rounded-xl items-center",
                 selectedIds.length > 0
-                  ? "bg-accent border-accent"
-                  : "bg-secondary border-dark-100",
+                  ? "bg-accent active:opacity-80"
+                  : "bg-dark-100",
               ].join(" ")}
               onPress={() => onConfirm(selectedIds)}
               disabled={selectedIds.length === 0}
               accessibilityRole="button"
-              accessibilityLabel="Confirm add selected players"
+              accessibilityLabel="Add selected players"
             >
               <Text
-                className={[
-                  "font-bold",
-                  selectedIds.length > 0 ? "text-primary" : "text-light-300",
-                ].join(" ")}
+                className="font-bold"
+                style={{ 
+                  color: selectedIds.length > 0 
+                    ? BadmintonPalette.bg.base 
+                    : BadmintonPalette.text.muted 
+                }}
               >
-                Add Players
+                Add {selectedIds.length > 0 ? `(${selectedIds.length})` : "Players"}
               </Text>
             </TouchableOpacity>
           </View>

@@ -1,10 +1,8 @@
 import ConfirmationAlert from "@/components/ConfirmationAlert";
 import CourtCard from "@/components/CourtCard";
 import ManualAddPlayersModal from "@/components/ManualAddPlayersModal";
-import MatchTypeSelector, {
-  type MatchType,
-} from "@/components/MatchTypeSelector";
-import { PotatoPalette } from "@/constants/palette";
+import { useToast } from "@/components/Toast";
+import { BadmintonPalette } from "@/constants/palette";
 import { RootState } from "@/store";
 import {
   addCourt,
@@ -19,7 +17,7 @@ import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { endGameAndAdvanceQueue } from "@/store/thunks";
 import { type Player } from "@/types/players";
 import { shuffle } from "@/utils/shuffle";
-import FontAwesome5 from "@expo/vector-icons/FontAwesome5";
+import AntDesign from "@expo/vector-icons/AntDesign";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import React, { useEffect, useState } from "react";
 import {
@@ -27,6 +25,7 @@ import {
   FlatList,
   LayoutAnimation,
   Platform,
+  Pressable,
   Text,
   TouchableOpacity,
   UIManager,
@@ -36,12 +35,10 @@ import "react-native-get-random-values";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { v4 as uuidv4 } from "uuid";
 
-interface CourtForm {
-  isSingle: boolean;
-}
+type CourtType = "singles" | "doubles";
 
 export const CourtsContent = ({
-  contentContainerClassName = "p-10",
+  contentContainerClassName = "p-6",
 }: {
   contentContainerClassName?: string;
 }) => {
@@ -50,15 +47,13 @@ export const CourtsContent = ({
   const players = useAppSelector((s: RootState) => s.players.items);
   const queueIds = useAppSelector((s: RootState) => s.queue.ids);
   const sliceError = useAppSelector((s: RootState) => s.courts.error);
-  const [court, setCourt] = useState<CourtForm>({
-    isSingle: false,
-  });
+  const [selectedType, setSelectedType] = useState<CourtType>("doubles");
   const [manualAdd, setManualAdd] = useState<{
     visible: boolean;
     courtId: string | null;
   }>({ visible: false, courtId: null });
 
-  const matchType: MatchType = court.isSingle ? "singles" : "doubles";
+  const { showToast } = useToast();
 
   const animatePlayersUpdate = () => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.spring);
@@ -81,20 +76,23 @@ export const CourtsContent = ({
   }, [sliceError, dispatch]);
 
   const onAddCourt = () => {
-    // Court naming is managed here automatically (no input):
-    // Court 1, Court 2, ...
     const name = `Court ${courts.length + 1}`;
+    const isSingle = selectedType === "singles";
 
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     dispatch(
       addCourt({
         name,
-        isSingle: court.isSingle,
+        isSingle,
         id: uuidv4(),
         players: [],
       })
     );
 
-    setCourt({ isSingle: false });
+    showToast({
+      message: `${name} added (${isSingle ? "Singles" : "Doubles"})`,
+      type: "success",
+    });
   };
 
   const activeCourt = manualAdd.courtId
@@ -114,43 +112,191 @@ export const CourtsContent = ({
     ? Math.max(0, (activeCourt.isSingle ? 2 : 4) - activeCourt.players.length)
     : 0;
 
-  return (
-    <View className={`flex-1 bg-primary gap-5 ${contentContainerClassName}`}>
-      <Text className="text-white text-2xl font-bold text-center">
-        Add Court
-      </Text>
+  const courtTypeOptions: {
+    type: CourtType;
+    label: string;
+    players: string;
+    icon: string;
+    color: string;
+  }[] = [
+    {
+      type: "singles",
+      label: "Singles",
+      players: "1 vs 1",
+      icon: "account",
+      color: BadmintonPalette.accent.info,
+    },
+    {
+      type: "doubles",
+      label: "Doubles",
+      players: "2 vs 2",
+      icon: "account-group",
+      color: BadmintonPalette.accent.primary,
+    },
+  ];
 
-      <View className="flex-row items-center gap-3">
-        <View className="flex-1">
-          <MatchTypeSelector
-            value={matchType}
-            onChange={(next) => {
-              setCourt((prev) => ({ ...prev, isSingle: next === "singles" }));
-              dispatch(clearCourtsError());
-            }}
-          />
+  return (
+    <View className={`flex-1 bg-primary ${contentContainerClassName}`}>
+      {/* Add Court Section */}
+      <View className="bg-secondary border border-dark-100 rounded-2xl overflow-hidden mb-6">
+        {/* Header */}
+        <View className="p-4 border-b border-dark-100">
+          <Text
+            className="text-base font-bold"
+            style={{ color: BadmintonPalette.text.primary }}
+          >
+            Add New Court
+          </Text>
+          <Text
+            className="text-xs mt-0.5"
+            style={{ color: BadmintonPalette.text.muted }}
+          >
+            Select match type and tap add
+          </Text>
         </View>
 
-        <TouchableOpacity
-          className="size-14 rounded-full bg-primary items-center justify-center border border-accent self-end"
-          onPress={onAddCourt}
-          accessibilityRole="button"
-          accessibilityLabel="Add court"
-        >
-          <FontAwesome5
-            name="plus"
-            size={24}
-            color={PotatoPalette.accent.sprout}
-          />
-        </TouchableOpacity>
+        {/* Court Type Selection */}
+        <View className="p-4">
+          <Text
+            className="text-xs font-medium mb-3"
+            style={{ color: BadmintonPalette.text.secondary }}
+          >
+            Match Type
+          </Text>
+
+          <View className="flex-row" style={{ gap: 12 }}>
+            {courtTypeOptions.map((option) => {
+              const isSelected = selectedType === option.type;
+              return (
+                <Pressable
+                  key={option.type}
+                  onPress={() => setSelectedType(option.type)}
+                  className="flex-1 rounded-xl p-4"
+                  style={{
+                    backgroundColor: isSelected
+                      ? `${option.color}15`
+                      : BadmintonPalette.bg.elevated,
+                    borderWidth: 2,
+                    borderColor: isSelected ? option.color : "transparent",
+                  }}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Select ${option.label}`}
+                  accessibilityState={{ selected: isSelected }}
+                >
+                  {/* Icon */}
+                  <View
+                    className="size-10 rounded-xl items-center justify-center mb-3"
+                    style={{
+                      backgroundColor: isSelected
+                        ? option.color
+                        : `${option.color}20`,
+                    }}
+                  >
+                    <MaterialCommunityIcons
+                      name={option.icon as any}
+                      size={22}
+                      color={isSelected ? BadmintonPalette.bg.base : option.color}
+                    />
+                  </View>
+
+                  {/* Label */}
+                  <Text
+                    className="text-base font-bold"
+                    style={{
+                      color: isSelected
+                        ? option.color
+                        : BadmintonPalette.text.primary,
+                    }}
+                  >
+                    {option.label}
+                  </Text>
+
+                  {/* Player count */}
+                  <Text
+                    className="text-sm mt-0.5"
+                    style={{
+                      color: isSelected
+                        ? option.color
+                        : BadmintonPalette.text.muted,
+                    }}
+                  >
+                    {option.players}
+                  </Text>
+
+                  {/* Selection indicator */}
+                  {isSelected && (
+                    <View
+                      className="absolute top-3 right-3 size-5 rounded-full items-center justify-center"
+                      style={{ backgroundColor: option.color }}
+                    >
+                      <AntDesign
+                        name="check"
+                        size={12}
+                        color={BadmintonPalette.bg.base}
+                      />
+                    </View>
+                  )}
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
+
+        {/* Add Button */}
+        <View className="px-4 pb-4">
+          <TouchableOpacity
+            onPress={onAddCourt}
+            className="flex-row items-center justify-center py-3.5 rounded-xl"
+            style={{
+              backgroundColor:
+                selectedType === "singles"
+                  ? BadmintonPalette.accent.info
+                  : BadmintonPalette.accent.primary,
+            }}
+            accessibilityRole="button"
+            accessibilityLabel="Add court"
+          >
+            <AntDesign
+              name="plus"
+              size={18}
+              color={BadmintonPalette.bg.base}
+            />
+            <Text
+              className="text-sm font-bold ml-2"
+              style={{ color: BadmintonPalette.bg.base }}
+            >
+              Add {selectedType === "singles" ? "Singles" : "Doubles"} Court
+            </Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
+      {/* Courts List */}
       {courts.length > 0 && (
         <>
-          <View className="flex-row items-center my-6">
-            <View className="flex-1 border-t border-accent" />
+          <View className="flex-row items-center justify-between mb-4">
+            <View className="flex-row items-center">
+              <Text
+                className="text-lg font-bold mr-2"
+                style={{ color: BadmintonPalette.text.primary }}
+              >
+                Courts
+              </Text>
+              <View
+                className="px-2 py-0.5 rounded-md"
+                style={{ backgroundColor: `${BadmintonPalette.court.lime}20` }}
+              >
+                <Text
+                  className="text-xs font-bold"
+                  style={{ color: BadmintonPalette.court.lime }}
+                >
+                  {courts.length}
+                </Text>
+              </View>
+            </View>
+
             <TouchableOpacity
-              className="flex-row items-center gap-2 bg-primary px-4 py-1 rounded-full border border-accent"
+              className="flex-row items-center px-3 py-2 rounded-xl bg-danger/10 border border-danger/30 active:bg-danger/20"
               onPress={() => {
                 const courtsWithPlayers = courts.filter(
                   (c) => c.players.length > 0
@@ -159,13 +305,13 @@ export const CourtsContent = ({
                   const names = courtsWithPlayers.map((c) => c.name).join(", ");
                   Alert.alert(
                     "Cannot clear courts",
-                    `Some courts still have players (${names}). Please end the game first.`
+                    `Some courts have active games (${names}). End the games first.`
                   );
                   return;
                 }
                 ConfirmationAlert({
-                  title: "Confirm Clearing Courts List",
-                  message: "Are you sure you want to clear the list?",
+                  title: "Clear All Courts",
+                  message: "Remove all courts?",
                   onConfirm: () => {
                     LayoutAnimation.configureNext(
                       LayoutAnimation.Presets.spring
@@ -175,14 +321,17 @@ export const CourtsContent = ({
                 });
               }}
               accessibilityRole="button"
-              accessibilityLabel="Clear courts list"
+              accessibilityLabel="Clear all courts"
             >
               <MaterialCommunityIcons
-                name="broom"
-                size={24}
-                color={PotatoPalette.accent.gold}
+                name="delete-sweep"
+                size={16}
+                color={BadmintonPalette.accent.danger}
               />
-              <Text className="text-white text-sm font-bold text-center">
+              <Text
+                className="text-xs font-bold ml-1"
+                style={{ color: BadmintonPalette.accent.danger }}
+              >
                 Clear
               </Text>
             </TouchableOpacity>
@@ -203,19 +352,21 @@ export const CourtsContent = ({
                   );
                 }}
                 onDelete={() => {
-                  LayoutAnimation.configureNext(LayoutAnimation.Presets.spring);
                   ConfirmationAlert({
-                    title: "Confirm Deletion",
-                    message: "Are you sure you want to delete this court?",
+                    title: "Delete Court",
+                    message: `Remove ${item.name}?`,
                     onConfirm: () => {
+                      LayoutAnimation.configureNext(
+                        LayoutAnimation.Presets.spring
+                      );
                       dispatch(removeCourt(item.id));
                     },
                   });
                 }}
                 onEndGame={() => {
                   ConfirmationAlert({
-                    title: "Confirm End Game",
-                    message: `Are you sure you want to end the game on ${item.name}?`,
+                    title: "End Game",
+                    message: `End the game on ${item.name}?`,
                     onConfirm: () => {
                       animatePlayersUpdate();
                       const result = dispatch(
@@ -224,7 +375,7 @@ export const CourtsContent = ({
                       if (result?.warnedQueueEmpty) {
                         Alert.alert(
                           "Queue almost empty",
-                          "The queue is almost empty. Please go to the Activity page and re-roll the dice to add more players from the bench."
+                          "Use Auto Assign to add more players from the bench."
                         );
                       }
                     },
@@ -246,18 +397,40 @@ export const CourtsContent = ({
               />
             )}
             keyExtractor={(item) => item.id}
-            contentContainerStyle={{ gap: 10 }}
+            contentContainerStyle={{ gap: 12, paddingBottom: 40 }}
           />
         </>
+      )}
+
+      {courts.length === 0 && (
+        <View className="flex-1 items-center justify-center pb-20">
+          <View className="size-16 rounded-2xl bg-secondary border border-dark-100 items-center justify-center mb-4">
+            <MaterialCommunityIcons
+              name="badminton"
+              size={32}
+              color={BadmintonPalette.text.muted}
+            />
+          </View>
+          <Text
+            className="text-lg font-bold mb-1"
+            style={{ color: BadmintonPalette.text.primary }}
+          >
+            No Courts Yet
+          </Text>
+          <Text
+            className="text-sm text-center"
+            style={{ color: BadmintonPalette.text.muted }}
+          >
+            Select a match type above to add your first court
+          </Text>
+        </View>
       )}
 
       <ManualAddPlayersModal
         visible={manualAdd.visible}
         onClose={() => setManualAdd({ visible: false, courtId: null })}
         title={
-          activeCourt
-            ? `Manually add players to ${activeCourt.name}`
-            : "Manually add players"
+          activeCourt ? `Add players to ${activeCourt.name}` : "Add players"
         }
         players={availablePlayers}
         maxSelect={maxToSelect}
@@ -284,7 +457,7 @@ export const CourtsContent = ({
 const courts = () => {
   return (
     <SafeAreaView className="flex-1 bg-primary">
-      <CourtsContent contentContainerClassName="p-10" />
+      <CourtsContent contentContainerClassName="p-6" />
     </SafeAreaView>
   );
 };

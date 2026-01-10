@@ -1,5 +1,5 @@
 import React from "react";
-import { Modal, Pressable, Text, View } from "react-native";
+import { Modal, Pressable, Text, TouchableOpacity, View } from "react-native";
 
 const ConfirmationModal = ({
   text,
@@ -20,18 +20,35 @@ const ConfirmationModal = ({
       onRequestClose={onClose}
     >
       <Pressable
-        className="flex-1 items-center justify-center bg-black/50"
+        className="flex-1 items-center justify-center bg-black/70"
         onPress={onClose}
       >
-        <Pressable className="w-4/5 rounded-xl bg-white p-5" onPress={() => {}}>
-          <Text className="text-lg font-bold text-primary">{text}</Text>
-          <View className="flex-row justify-between">
-            <Pressable onPress={onClose} className="mt-4 self-end">
-              <Text className="text-lg font-bold text-red-500">Close</Text>
-            </Pressable>
-            <Pressable onPress={onConfirm} className="mt-4 self-end">
-              <Text className="text-lg font-bold text-primary">Confirm</Text>
-            </Pressable>
+        <Pressable
+          className="w-4/5 max-w-sm rounded-2xl bg-secondary border border-dark-100 overflow-hidden"
+          onPress={() => {}}
+        >
+          {/* Content */}
+          <View className="p-5">
+            <Text className="text-light-100 text-lg font-semibold">{text}</Text>
+          </View>
+
+          {/* Actions */}
+          <View className="flex-row border-t border-dark-100">
+            <TouchableOpacity
+              onPress={onClose}
+              className="flex-1 py-4 items-center border-r border-dark-100 active:bg-dark-200"
+            >
+              <Text className="text-light-200 font-bold">Cancel</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => {
+                onConfirm();
+                onClose();
+              }}
+              className="flex-1 py-4 items-center active:bg-dark-200"
+            >
+              <Text className="text-danger font-bold">Confirm</Text>
+            </TouchableOpacity>
           </View>
         </Pressable>
       </Pressable>

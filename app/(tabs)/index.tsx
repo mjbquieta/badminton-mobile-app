@@ -1,10 +1,38 @@
-import { PotatoPalette } from "@/constants/palette";
+import { BadmintonPalette } from "@/constants/palette";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { rollDice } from "@/store/thunks";
-import AntDesign from "@expo/vector-icons/AntDesign";
+import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import React, { useMemo } from "react";
-import { Text, View } from "react-native";
+import { Alert, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+
+type StatCardProps = {
+  label: string;
+  value: string | number;
+  subtitle?: string;
+  color?: string;
+  icon: React.ReactNode;
+};
+
+const StatCard = ({ label, value, subtitle, color, icon }: StatCardProps) => (
+  <View className="w-[47%] rounded-2xl bg-secondary border border-dark-100 p-4">
+    <View className="flex-row items-center justify-between mb-3">
+      <View className="size-10 rounded-xl bg-court-deep/20 items-center justify-center">
+        {icon}
+      </View>
+    </View>
+    <Text
+      className="text-4xl font-extrabold mb-1"
+      style={{ color: color || BadmintonPalette.court.lime }}
+    >
+      {value}
+    </Text>
+    <Text className="text-light-100 text-sm font-semibold">{label}</Text>
+    {subtitle ? (
+      <Text className="text-light-300 text-xs mt-0.5">{subtitle}</Text>
+    ) : null}
+  </View>
+);
 
 const index = () => {
   const players = useAppSelector((s) => s.players.items);
@@ -14,7 +42,17 @@ const index = () => {
   const dispatch = useAppDispatch();
 
   const masterRollDice = () => {
-    dispatch(rollDice());
+    const res = dispatch(rollDice());
+    if (res?.needsConfirmation) {
+      Alert.alert("Confirm mismatched levels", res.message, [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Proceed",
+          style: "destructive",
+          onPress: () => dispatch(rollDice({ allowIncompatible: true })),
+        },
+      ]);
+    }
   };
 
   const numberOfInGamePlayers = useMemo(() => {
@@ -46,84 +84,109 @@ const index = () => {
   }, [queueIds.length]);
 
   return (
-    <SafeAreaView className="flex-1 bg-primary ">
-      <View className="flex-row items-center gap-2 p-4">
-        <AntDesign name="home" size={20} color={PotatoPalette.accent.gold} />
-        <Text className="text-white text-2xl font-bold text-center">
-          Overview
-        </Text>
+    <SafeAreaView className="flex-1 bg-primary">
+      {/* Header */}
+      <View className="px-6 pt-4 pb-2">
+        <View className="flex-row items-center gap-3">
+          <View className="size-12 rounded-2xl bg-court-deep/30 items-center justify-center">
+            <MaterialCommunityIcons
+              name="badminton"
+              size={28}
+              color={BadmintonPalette.court.lime}
+            />
+          </View>
+          <View>
+            <Text className="text-light-100 text-2xl font-bold">
+              Dashboard
+            </Text>
+            <Text className="text-light-300 text-sm">
+              Live session overview
+            </Text>
+          </View>
+        </View>
       </View>
 
-      <View className="flex-1 items-center justify-center">
-        <View className="flex-row flex-wrap gap-6 justify-around px-6">
-          <View className="w-[40%] rounded-2xl bg-dark-200 items-center p-6 shadow-md">
-            <Text className="text-white text-base font-semibold mb-2">
-              Total Players
-            </Text>
-            <Text className="text-accent text-5xl font-extrabold">
-              {players.length}
-            </Text>
-          </View>
-          <View className="w-[40%] rounded-2xl bg-dark-200 items-center p-6 shadow-md">
-            <Text className="text-white text-base font-semibold mb-2">
-              Waiting Players
-            </Text>
-            <Text className="text-accent text-5xl font-extrabold">
-              {waitingPlayersCount}
-            </Text>
-          </View>
-          <View className="w-[40%] rounded-2xl bg-dark-200 items-center p-6 shadow-md">
-            <Text className="text-white text-base font-semibold mb-2">
-              Courts
-            </Text>
-            <Text className="text-accent text-5xl font-extrabold">
-              {availableCourtsCount}/{courts.length}
-            </Text>
-            <Text className="text-light-200 text-xs font-bold mt-2">
-              Available courts / courts
-            </Text>
-          </View>
-          <View className="w-[40%] rounded-2xl bg-dark-200 items-center p-6 shadow-md">
-            <Text className="text-white text-base font-semibold mb-2">
-              In Game
-            </Text>
-            <Text className="text-accent text-5xl font-extrabold">
-              {numberOfInGamePlayers}
-            </Text>
-          </View>
-          <View className="w-[40%] rounded-2xl bg-dark-200 items-center p-6 shadow-md">
-            <Text className="text-white text-base font-semibold mb-2">
-              Bench
-            </Text>
-            <Text className="text-accent text-5xl font-extrabold">
-              {benchPlayers.length}
-            </Text>
-          </View>
-          <View className="w-[40%] rounded-2xl bg-dark-200 items-center p-6 shadow-md">
-            <Text className="text-white text-base font-semibold mb-2">
-              Queue
-            </Text>
-            <Text className="text-accent text-5xl font-extrabold">
-              {queueGroupsCount}
-            </Text>
-          </View>
-
-          {/* Available courts is now included in the Courts tile above as available/total */}
-        </View>
-
-        {/* <TouchableOpacity
-          className="bg-dark-200 h-40 w-40 rounded-full overflow-hidden shadow-md items-center justify-center self-center gap-2 border border-accent"
-          onPress={masterRollDice}
-        >
-          <FontAwesome5
-            name="dice"
-            size={50}
-            color={PotatoPalette.accent.gold}
+      {/* Stats Grid */}
+      <View className="flex-1 px-6 pt-6">
+        <View className="flex-row flex-wrap gap-4 justify-between">
+          <StatCard
+            label="Total Players"
+            value={players.length}
+            icon={
+              <MaterialCommunityIcons
+                name="account-group"
+                size={20}
+                color={BadmintonPalette.court.lime}
+              />
+            }
           />
-          <Text className="text-white text-lg font-semibold text-center">
-            Roll
-          </Text>
-        </TouchableOpacity> */}
+
+          <StatCard
+            label="In Game"
+            value={numberOfInGamePlayers}
+            color={BadmintonPalette.status.inGame}
+            icon={
+              <MaterialCommunityIcons
+                name="badminton"
+                size={20}
+                color={BadmintonPalette.status.inGame}
+              />
+            }
+          />
+
+          <StatCard
+            label="In Queue"
+            value={waitingPlayersCount}
+            color={BadmintonPalette.status.waiting}
+            icon={
+              <MaterialCommunityIcons
+                name="timer-sand"
+                size={20}
+                color={BadmintonPalette.status.waiting}
+              />
+            }
+          />
+
+          <StatCard
+            label="On Bench"
+            value={benchPlayers.length}
+            color={BadmintonPalette.text.secondary}
+            icon={
+              <MaterialCommunityIcons
+                name="seat"
+                size={20}
+                color={BadmintonPalette.text.secondary}
+              />
+            }
+          />
+
+          <StatCard
+            label="Courts"
+            value={`${availableCourtsCount}/${courts.length}`}
+            subtitle="Available / Total"
+            icon={
+              <MaterialCommunityIcons
+                name="table-tennis"
+                size={20}
+                color={BadmintonPalette.court.lime}
+              />
+            }
+          />
+
+          <StatCard
+            label="Queue Groups"
+            value={queueGroupsCount}
+            subtitle="Waiting to play"
+            color={BadmintonPalette.accent.primary}
+            icon={
+              <MaterialCommunityIcons
+                name="format-list-numbered"
+                size={20}
+                color={BadmintonPalette.accent.primary}
+              />
+            }
+          />
+        </View>
       </View>
     </SafeAreaView>
   );

@@ -1,3 +1,4 @@
+import { BadmintonPalette } from "@/constants/palette";
 import type { Player } from "@/types/players";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import React, { useMemo } from "react";
@@ -12,15 +13,15 @@ const statusLabel: Record<PlayerLiveStatus, string> = {
 };
 
 const statusPillClass: Record<PlayerLiveStatus, string> = {
-  in_game: "bg-success/20 border-success/50",
-  waiting: "bg-secondary/80 border-dark-100",
-  bench: "bg-dark-100/60 border-dark-100",
+  in_game: "bg-danger/15 border-danger/40",
+  waiting: "bg-success/15 border-success/40",
+  bench: "bg-dark-100 border-dark-100",
 };
 
 const statusTextClass: Record<PlayerLiveStatus, string> = {
-  in_game: "text-success",
-  waiting: "text-light-100",
-  bench: "text-light-200",
+  in_game: "text-danger",
+  waiting: "text-success",
+  bench: "text-light-300",
 };
 
 const statusRank: Record<PlayerLiveStatus, number> = {
@@ -62,8 +63,8 @@ export function PlayerGameCounts({
 
   if (players.length === 0) {
     return (
-      <View className="bg-dark-200 border border-dark-100 rounded-2xl p-4">
-        <Text className="text-light-200 text-sm">No players yet.</Text>
+      <View className="bg-secondary border border-dark-100 rounded-2xl p-6 items-center">
+        <Text className="text-light-300 text-sm">No players yet.</Text>
       </View>
     );
   }
@@ -71,9 +72,13 @@ export function PlayerGameCounts({
   return (
     <View className="gap-4">
       <View className="flex-row items-center gap-2">
-        <MaterialCommunityIcons name="party-popper" size={24} color="white" />
-        <Text className="text-white text-lg font-extrabold">
-          Player Game Counts
+        <MaterialCommunityIcons
+          name="trophy-outline"
+          size={22}
+          color={BadmintonPalette.court.lime}
+        />
+        <Text className="text-light-100 text-lg font-bold">
+          Game Counts
         </Text>
       </View>
 
@@ -83,40 +88,32 @@ export function PlayerGameCounts({
           return (
             <View
               key={`gamecount-${g.count}`}
-              className="flex-row items-stretch gap-4"
+              className="flex-row items-stretch gap-3"
             >
               {/* Timeline */}
-              <View className="w-14 items-center">
+              <View className="w-12 items-center">
                 {/* Top connector */}
-                {idx === 0 ? (
-                  <View className="h-2 w-0.5 bg-transparent" />
-                ) : (
-                  <View className="h-2 w-0.5 bg-dark-100" />
-                )}
+                <View className={`h-2 w-0.5 ${idx === 0 ? "bg-transparent" : "bg-dark-100"}`} />
 
                 {/* Circle */}
-                <View className="h-12 w-12 rounded-full bg-dark-200 border-4 border-accent items-center justify-center">
-                  <Text className="text-white font-extrabold text-base">
+                <View className="size-10 rounded-xl bg-court-deep items-center justify-center">
+                  <Text className="text-court-lime font-bold text-base">
                     {g.count}
                   </Text>
                 </View>
 
                 {/* Bottom connector */}
-                {!isLast ? (
-                  <View className="flex-1 w-0.5 bg-dark-100" />
-                ) : (
-                  <View className="flex-1 w-0.5 bg-transparent" />
-                )}
+                <View className={`flex-1 w-0.5 ${isLast ? "bg-transparent" : "bg-dark-100"}`} />
               </View>
 
               {/* Card */}
-              <View className="flex-1 bg-dark-200 border border-dark-100 rounded-2xl overflow-hidden">
-                <View className="bg-dark-200 px-4 py-3 border-b border-dark-100">
-                  <Text className="text-white font-extrabold text-base">
+              <View className="flex-1 bg-secondary border border-dark-100 rounded-xl overflow-hidden">
+                <View className="px-4 py-3 border-b border-dark-100">
+                  <Text className="text-light-100 font-bold text-sm">
                     {g.players.length} player{g.players.length === 1 ? "" : "s"}
                   </Text>
-                  <Text className="text-light-200 text-xs font-bold">
-                    Games finished: {g.count}
+                  <Text className="text-light-300 text-xs">
+                    {g.count} game{g.count === 1 ? "" : "s"} completed
                   </Text>
                 </View>
 
@@ -133,14 +130,14 @@ export function PlayerGameCounts({
                         key={p.id}
                         className="flex-row items-center justify-between gap-3"
                       >
-                        <Text className="text-white text-sm font-semibold flex-1">
+                        <Text className="text-light-100 text-sm font-medium flex-1" numberOfLines={1}>
                           {p.name}
                         </Text>
                         <View
-                          className={`px-3 py-1 rounded-full border ${statusPillClass[status]}`}
+                          className={`px-2.5 py-1 rounded-lg border ${statusPillClass[status]}`}
                         >
                           <Text
-                            className={`text-sm font-extrabold ${statusTextClass[status]}`}
+                            className={`text-xs font-bold ${statusTextClass[status]}`}
                           >
                             {pillLabel}
                           </Text>
@@ -149,9 +146,6 @@ export function PlayerGameCounts({
                     );
                   })}
                 </View>
-
-                {/* Right accent bar */}
-                <View className="absolute right-0 top-0 bottom-0 w-2 bg-accent/80" />
               </View>
             </View>
           );

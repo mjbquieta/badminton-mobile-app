@@ -5,7 +5,8 @@ import ManualAddPlayersModal from "@/components/ManualAddPlayersModal";
 import PlayerCard from "@/components/PlayerCard";
 import { PlayerGameCounts } from "@/components/PlayerGameCounts";
 import PlayerTag from "@/components/PlayerTag";
-import { PotatoPalette } from "@/constants/palette";
+import { useToast } from "@/components/Toast";
+import { BadmintonPalette } from "@/constants/palette";
 import {
   addPlayersToCourtManually,
   assignPlayersToCourt,
@@ -16,10 +17,10 @@ import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { removePlayer } from "@/store/playersSlice";
 import { setQueue } from "@/store/queueSlice";
 import { endGameAndAdvanceQueue, rollDice } from "@/store/thunks";
-import { type Player } from "@/types/players";
+import { type Player, type PlayerLevel } from "@/types/players";
 import { shuffle } from "@/utils/shuffle";
 import Feather from "@expo/vector-icons/Feather";
-import FontAwesome5 from "@expo/vector-icons/FontAwesome5";
+import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
@@ -50,7 +51,7 @@ const QueueCard = ({
 }: {
   queueNumber: number;
   playersText: string;
-  players?: { id: string; name: string }[];
+  players?: { id: string; name: string; level?: PlayerLevel }[];
   assignedCourtText: string;
   variant: QueueCardVariant;
   onEndGame?: () => void;
@@ -61,95 +62,98 @@ const QueueCard = ({
 }) => {
   const isInGame = variant === "in_game";
   const badgeLabel = isInGame ? "IN GAME" : "WAITING";
-  const containerClass = isInGame
-    ? "bg-dark-100 border border-accent"
-    : "bg-secondary/60 border border-dark-100";
-  const titleClass = isInGame ? "text-white" : "text-light-200";
-  const playersClass = isInGame ? "text-white" : "text-light-200";
-  const badgeClass = isInGame
-    ? "bg-success/15 border-success/40 text-success"
-    : "bg-secondary border-dark-100 text-light-200";
 
   return (
-    <View className={`rounded-2xl p-4 gap-3 ${containerClass}`}>
-      <View className="flex-row items-start justify-between gap-3">
-        <View className="flex-1 gap-1">
-          <Text className={`${titleClass} text-xl font-extrabold`}>
+    <View
+      className={`rounded-2xl overflow-hidden border ${
+        isInGame
+          ? "bg-secondary border-danger/30"
+          : "bg-dark-200 border-dark-100"
+      }`}
+    >
+      {/* Header */}
+      <View className="flex-row items-center justify-between p-4 border-b border-dark-100">
+        <View className="flex-1 gap-0.5">
+          <Text className="text-light-100 text-lg font-bold">
             Queue {queueNumber}
           </Text>
-          <Text className="text-light-200 text-xs font-bold">
-            Assigned Court: {assignedCourtText}
+          <Text className="text-light-300 text-xs">
+            Court: {assignedCourtText}
           </Text>
         </View>
 
-        <View className={`px-3 py-1 rounded-full border ${badgeClass}`}>
-          <Text className="text-xs font-bold text-white">{badgeLabel}</Text>
+        <View
+          className={`flex-row items-center gap-1.5 px-3 py-1.5 rounded-full ${
+            isInGame ? "bg-danger/15" : "bg-success/15"
+          }`}
+        >
+          <View
+            className={`size-2 rounded-full ${
+              isInGame ? "bg-danger" : "bg-success"
+            }`}
+          />
+          <Text
+            className={`text-xs font-bold ${
+              isInGame ? "text-danger" : "text-success"
+            }`}
+          >
+            {badgeLabel}
+          </Text>
         </View>
       </View>
 
-      <View className="gap-1">
-        <Text className="text-light-200 text-xs font-bold uppercase">
+      {/* Players */}
+      <View className="p-4 gap-3">
+        <Text className="text-light-300 text-xs font-semibold uppercase tracking-wide">
           Players
         </Text>
         {players ? (
           players.length === 0 ? (
-            <Text className={`${playersClass} text-sm`}>No players</Text>
+            <Text className="text-light-300 text-sm">No players assigned</Text>
           ) : (
             <View className="flex-row flex-wrap gap-2">
               {players.map((p) => (
                 <PlayerTag
                   key={p.id}
                   name={p.name}
+                  level={p.level}
                   onDeleteTag={
-                    onRemovePlayer ? () => onRemovePlayer(p.id) : undefined
+                    onRemovePlayer && !isInGame
+                      ? () => onRemovePlayer(p.id)
+                      : undefined
                   }
                 />
               ))}
             </View>
           )
         ) : (
-          <Text className={`${playersClass} text-sm`}>{playersText}</Text>
+          <Text className="text-light-200 text-sm">{playersText}</Text>
         )}
       </View>
 
-      {/* {isInGame && onEndGame ? (
-        <TouchableOpacity
-          className="bg-success/90 px-4 py-2 rounded-full self-start"
-          onPress={onEndGame}
-          accessibilityRole="button"
-          accessibilityLabel={`End game for queue ${queueNumber}`}
-        >
-          <Text className="text-primary text-sm font-bold">End Game</Text>
-        </TouchableOpacity>
-      ) : null} */}
-
+      {/* Actions for waiting queues */}
       {!isInGame ? (
-        <View className="flex-row flex-wrap items-center gap-2">
+        <View className="flex-row items-center gap-2 px-4 pb-4">
           {onDissolve ? (
             <TouchableOpacity
-              className="bg-secondary border border-dark-100 px-4 py-2 rounded-full"
+              className="bg-danger/10 border border-danger/30 px-4 py-2.5 rounded-xl active:bg-danger/20"
               onPress={onDissolve}
               accessibilityRole="button"
               accessibilityLabel={`Dissolve queue ${queueNumber}`}
             >
-              <Text
-                className="text-sm font-bold"
-                style={{ color: PotatoPalette.accent.danger }}
-              >
-                Dissolve
-              </Text>
+              <Text className="text-danger text-sm font-bold">Dissolve</Text>
             </TouchableOpacity>
           ) : null}
 
           {showManuallyAddPlayers && onManuallyAddPlayers ? (
             <TouchableOpacity
-              className="bg-secondary border border-dark-100 px-4 py-2 rounded-full"
+              className="flex-1 bg-dark-100 border border-dark-100 px-4 py-2.5 rounded-xl items-center active:bg-dark-200"
               onPress={onManuallyAddPlayers}
               accessibilityRole="button"
               accessibilityLabel={`Manually add players to queue ${queueNumber}`}
             >
               <Text className="text-light-200 text-sm font-bold">
-                Manually Add Players
+                Add Players
               </Text>
             </TouchableOpacity>
           ) : null}
@@ -161,6 +165,7 @@ const QueueCard = ({
 
 const activity = () => {
   const dispatch = useAppDispatch();
+  const { showToast } = useToast();
   const players = useAppSelector((s) => s.players.items);
   const courts = useAppSelector((s) => s.courts.items);
   const queueIds = useAppSelector((s) => s.queue.ids);
@@ -211,10 +216,42 @@ const activity = () => {
       "The queue is almost empty. Please re-roll the dice to add more players from the bench.",
       [
         { text: "Not now", style: "cancel" },
-        { text: "Roll Dice", onPress: () => dispatch(rollDice()) },
+        { text: "Auto Assign", onPress: () => handleRollDice() },
       ]
     );
   }, [isQueueAlmostEmpty, dispatch]);
+
+  const handleRollDice = () => {
+    const res = dispatch(rollDice()) as any;
+    if (res?.needsConfirmation) {
+      Alert.alert("Confirm mismatched levels", res.message, [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Proceed",
+          style: "destructive",
+          onPress: () => {
+            dispatch(rollDice({ allowIncompatible: true }));
+            showToast({
+              type: "success",
+              message: "Players auto-assigned to queue",
+            });
+          },
+        },
+      ]);
+    } else if (res?.playersAdded && res.playersAdded > 0) {
+      showToast({
+        type: "success",
+        message: `${res.playersAdded} player${
+          res.playersAdded > 1 ? "s" : ""
+        } added to queue`,
+      });
+    } else if (!res?.needsConfirmation) {
+      showToast({
+        type: "info",
+        message: "No available players to assign",
+      });
+    }
+  };
 
   const playerMap = useMemo(() => {
     const m = new Map(players.map((p) => [p.id, p]));
@@ -225,7 +262,6 @@ const activity = () => {
     const groups: { ids: string[]; index: number; start: number }[] = [];
     for (let i = 0; i < queueIds.length; i += 4) {
       const ids = queueIds.slice(i, i + 4);
-      // Show partial last group as well (needed for manual add).
       if (ids.length > 0) groups.push({ ids, index: i / 4, start: i });
     }
     return groups;
@@ -275,15 +311,12 @@ const activity = () => {
       { status: "in_game" | "waiting" | "bench"; courtName?: string }
     > = {};
 
-    // Default: bench
     for (const p of players) map[p.id] = { status: "bench" };
 
-    // Waiting: if in queue and not in game
     for (const id of queueIds) {
       if (map[id]) map[id] = { status: "waiting" };
     }
 
-    // In game: override and attach court name
     for (const c of courts) {
       for (const p of c.players) {
         map[p.id] = { status: "in_game", courtName: c.name };
@@ -321,8 +354,6 @@ const activity = () => {
   }, [players, playersSearchQuery]);
 
   const inGameCourts = useMemo(() => {
-    // Match courts.tsx behavior: show courts list with the same card actions.
-    // (This tab is still labeled "IN GAMES", but the list behaves like courts.tsx.)
     return courts;
   }, [courts]);
 
@@ -335,93 +366,64 @@ const activity = () => {
     });
   }, [inGameCourts, inGamesSearchQuery]);
 
+  const tabs = [
+    { key: "queueing", label: "Queue" },
+    { key: "players", label: "Players" },
+    { key: "in_games", label: "Courts" },
+  ] as const;
+
   return (
     <SafeAreaView className="flex-1 bg-primary">
-      <View className="flex-row items-center gap-2 p-4">
-        <Feather name="activity" size={20} color={PotatoPalette.accent.gold} />
-        <Text className="text-white text-2xl font-bold text-center">
-          Activities
-        </Text>
+      {/* Header */}
+      <View className="px-6 pt-4 pb-2">
+        <View className="flex-row items-center gap-3">
+          <View className="size-12 rounded-2xl bg-court-deep/30 items-center justify-center">
+            <Feather
+              name="activity"
+              size={24}
+              color={BadmintonPalette.court.lime}
+            />
+          </View>
+          <View>
+            <Text className="text-light-100 text-2xl font-bold">Activity</Text>
+            <Text className="text-light-300 text-sm">
+              Manage matches and queues
+            </Text>
+          </View>
+        </View>
       </View>
 
-      <View className="px-6 pt-4">
-        <View className="flex-row bg-dark-200 border border-dark-100 rounded-full p-1">
-          <TouchableOpacity
-            className={`flex-1 px-3 py-2 rounded-full ${
-              activeTab === "queueing" ? "bg-accent/90" : "bg-transparent"
-            }`}
-            onPress={() => setActiveTab("queueing")}
-            accessibilityRole="button"
-            accessibilityLabel="Show Queueing tab"
-          >
-            <Text
-              className={`text-center text-sm font-bold ${
-                activeTab === "queueing" ? "text-primary" : "text-light-200"
+      {/* Tab Bar */}
+      <View className="px-6 py-4">
+        <View className="flex-row bg-secondary border border-dark-100 rounded-xl p-1">
+          {tabs.map((tab) => (
+            <TouchableOpacity
+              key={tab.key}
+              className={`flex-1 py-2.5 rounded-lg ${
+                activeTab === tab.key ? "bg-court-deep" : "bg-transparent"
               }`}
+              onPress={() => setActiveTab(tab.key)}
+              accessibilityRole="button"
+              accessibilityLabel={`Show ${tab.label} tab`}
             >
-              QUEUEING
-            </Text>
-          </TouchableOpacity>
-
-          {/* <TouchableOpacity
-            className={`flex-1 px-3 py-2 rounded-full ${
-              activeTab === "status" ? "bg-accent/90" : "bg-transparent"
-            }`}
-            onPress={() => setActiveTab("status")}
-            accessibilityRole="button"
-            accessibilityLabel="Show Player Game Counts tab"
-          >
-            <Text
-              className={`text-center text-sm font-bold ${
-                activeTab === "status" ? "text-primary" : "text-light-200"
-              }`}
-            >
-              PLAYER GAME COUNTS
-            </Text>
-          </TouchableOpacity> */}
-
-          <TouchableOpacity
-            className={`flex-1 px-3 py-2 rounded-full ${
-              activeTab === "players" ? "bg-accent/90" : "bg-transparent"
-            }`}
-            onPress={() => setActiveTab("players")}
-            accessibilityRole="button"
-            accessibilityLabel="Show Players tab"
-          >
-            <Text
-              className={`text-center text-sm font-bold ${
-                activeTab === "players" ? "text-primary" : "text-light-200"
-              }`}
-            >
-              PLAYERS
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            className={`flex-1 px-3 py-2 rounded-full ${
-              activeTab === "in_games" ? "bg-accent/90" : "bg-transparent"
-            }`}
-            onPress={() => setActiveTab("in_games")}
-            accessibilityRole="button"
-            accessibilityLabel="Show In Games tab"
-          >
-            <Text
-              className={`text-center text-sm font-bold ${
-                activeTab === "in_games" ? "text-primary" : "text-light-200"
-              }`}
-            >
-              IN GAMES
-            </Text>
-          </TouchableOpacity>
+              <Text
+                className={`text-center text-sm font-bold ${
+                  activeTab === tab.key ? "text-court-lime" : "text-light-300"
+                }`}
+              >
+                {tab.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
         </View>
       </View>
 
       {activeTab === "players" ? (
-        <View className="flex-1 px-6 pt-4">
-          <View className="flex-row items-center justify-between mb-4">
+        <View className="flex-1 px-6">
+          <View className="mb-4">
             <AddPInput
               type="search"
-              placeholder="Search player name"
+              placeholder="Search players..."
               value={playersSearchQuery}
               onChangeText={(text) => setPlayersSearchQuery(text)}
             />
@@ -433,13 +435,13 @@ const activity = () => {
               <PlayerCard
                 name={item.name}
                 gameCount={item.gameCount}
+                level={item.level}
                 status={playerCardMetaById[item.id]?.status ?? "bench"}
                 courtName={playerCardMetaById[item.id]?.courtName}
                 onDelete={() => {
                   const meta = playerCardMetaById[item.id];
                   const status = meta?.status ?? "bench";
 
-                  // Validation: don't allow deleting players who are currently in a game.
                   if (status === "in_game") {
                     Alert.alert(
                       "Cannot delete player",
@@ -450,7 +452,6 @@ const activity = () => {
                     return;
                   }
 
-                  // If the player is in the queue, dissolve their entire queue group (groups are sets of 4).
                   if (status === "in_queue") {
                     const idx = queueIds.indexOf(item.id);
                     if (idx >= 0) {
@@ -474,13 +475,12 @@ const activity = () => {
             keyExtractor={(item) => item.id}
             contentContainerStyle={{
               gap: 10,
-              paddingTop: 16,
               paddingBottom: 140,
             }}
             ListEmptyComponent={
-              <View className="bg-dark-200 border border-dark-100 rounded-2xl p-4">
-                <Text className="text-light-200 text-sm">
-                  No players match "{playersSearchQuery.trim()}".
+              <View className="bg-secondary border border-dark-100 rounded-2xl p-6 items-center">
+                <Text className="text-light-300 text-sm text-center">
+                  No players match "{playersSearchQuery.trim()}"
                 </Text>
               </View>
             }
@@ -488,11 +488,11 @@ const activity = () => {
           />
         </View>
       ) : activeTab === "in_games" ? (
-        <View className="flex-1 px-6 pt-4">
-          <View className="flex-row items-center justify-between mb-4">
+        <View className="flex-1 px-6">
+          <View className="mb-4">
             <AddPInput
               type="search"
-              placeholder="Search court or player"
+              placeholder="Search courts..."
               value={inGamesSearchQuery}
               onChangeText={(text) => setInGamesSearchQuery(text)}
             />
@@ -514,17 +514,21 @@ const activity = () => {
                 }}
                 onEndGame={() => {
                   ConfirmationAlert({
-                    title: "Confirm End Game",
-                    message: `Are you sure you want to end the game on ${item.name}?`,
+                    title: "End Game",
+                    message: `End the game on ${item.name}?`,
                     onConfirm: () => {
                       animatePlayersUpdate();
                       const result = dispatch(
                         endGameAndAdvanceQueue(item.id)
                       ) as any;
+                      showToast({
+                        type: "success",
+                        message: `Game ended on ${item.name}`,
+                      });
                       if (result?.warnedQueueEmpty) {
                         Alert.alert(
                           "Queue almost empty",
-                          "The queue is almost empty. Please re-roll the dice to add more players from the bench."
+                          "Use Auto Assign to add more players from the bench."
                         );
                       }
                     },
@@ -546,11 +550,16 @@ const activity = () => {
               />
             )}
             keyExtractor={(item) => item.id}
-            contentContainerStyle={{ gap: 10, paddingBottom: 140 }}
+            contentContainerStyle={{ gap: 12, paddingBottom: 140 }}
             ListEmptyComponent={
-              <View className="bg-dark-200 border border-dark-100 rounded-2xl p-4">
-                <Text className="text-light-200 text-sm">
-                  No in-game courts match.
+              <View className="bg-secondary border border-dark-100 rounded-2xl p-6 items-center">
+                <MaterialCommunityIcons
+                  name="badminton"
+                  size={40}
+                  color={BadmintonPalette.text.muted}
+                />
+                <Text className="text-light-300 text-sm mt-3 text-center">
+                  No courts yet.{"\n"}Add courts in Settings.
                 </Text>
               </View>
             }
@@ -559,7 +568,7 @@ const activity = () => {
       ) : (
         <ScrollView
           className="flex-1"
-          contentContainerStyle={{ padding: 24, gap: 20, paddingBottom: 140 }}
+          contentContainerStyle={{ padding: 24, gap: 16, paddingBottom: 140 }}
         >
           {activeTab === "status" ? (
             <PlayerGameCounts
@@ -570,177 +579,342 @@ const activity = () => {
 
           {activeTab === "queueing" ? (
             <>
-              {isQueueAlmostEmpty ? (
-                <View className="bg-dark-200 border border-accent rounded-xl p-4 gap-3">
-                  <Text className="text-white font-bold">
-                    Queue is almost empty — re-roll dice to add more players.
-                  </Text>
-                  <View className="flex-row items-center gap-2">
-                    <TouchableOpacity
-                      className="flex-row items-center gap-2 bg-accent/90 px-3 py-2 rounded-full"
-                      onPress={() => dispatch(rollDice())}
-                      accessibilityRole="button"
-                      accessibilityLabel="Roll dice"
+              {/* Quick Actions - Redesigned */}
+              <View className="bg-secondary border border-dark-100 rounded-2xl overflow-hidden">
+                {/* Stats Row */}
+                <View className="flex-row border-b border-dark-100">
+                  <View className="flex-1 p-3 items-center border-r border-dark-100">
+                    <Text
+                      className="text-2xl font-bold"
+                      style={{ color: BadmintonPalette.court.lime }}
                     >
-                      <FontAwesome5
-                        name="dice"
-                        size={20}
-                        className="text-primary"
-                      />
-                      <Text className="text-primary text-sm font-bold text-center">
-                        Roll Dice
-                      </Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                      className="bg-secondary border border-dark-100 px-3 py-2 rounded-full"
-                      onPress={() => {
-                        const remainder = queueIds.length % 4;
-                        const missingCount =
-                          remainder === 0 ? 4 : 4 - remainder;
-                        const groupIndex = Math.floor(queueIds.length / 4);
-                        const queueNumber =
-                          doublesCourts.length + groupIndex + 1;
-                        setManualAddQueue({
-                          visible: true,
-                          insertIndex: queueIds.length,
-                          missingCount,
-                          queueNumber,
-                        });
-                      }}
-                      accessibilityRole="button"
-                      accessibilityLabel="Manually add players to queue"
+                      {availablePlayers.length}
+                    </Text>
+                    <Text
+                      className="text-xs"
+                      style={{ color: BadmintonPalette.text.muted }}
                     >
-                      <Text className="text-light-200 text-sm font-bold">
-                        Manually Add Players
-                      </Text>
-                    </TouchableOpacity>
+                      On Bench
+                    </Text>
+                  </View>
+                  <View className="flex-1 p-3 items-center border-r border-dark-100">
+                    <Text
+                      className="text-2xl font-bold"
+                      style={{ color: BadmintonPalette.status.waiting }}
+                    >
+                      {queueGroups.length}
+                    </Text>
+                    <Text
+                      className="text-xs"
+                      style={{ color: BadmintonPalette.text.muted }}
+                    >
+                      In Queue
+                    </Text>
+                  </View>
+                  <View className="flex-1 p-3 items-center">
+                    <Text
+                      className="text-2xl font-bold"
+                      style={{ color: BadmintonPalette.court.lime }}
+                    >
+                      {
+                        doublesCourts.filter((c) => c.players.length === 0)
+                          .length
+                      }
+                    </Text>
+                    <Text
+                      className="text-xs"
+                      style={{ color: BadmintonPalette.text.muted }}
+                    >
+                      Available Courts
+                    </Text>
                   </View>
                 </View>
-              ) : null}
 
-              <View className="bg-dark-200 border border-dark-100 rounded-2xl p-4 gap-3">
-                <View className="flex-row items-center justify-between">
-                  <Text className="text-white text-lg font-bold">In Game</Text>
-                  <Text className="text-light-200 text-sm">
-                    {doublesCourts.length} courts assigned
-                  </Text>
-                </View>
-
-                <View className="gap-3">
-                  {/* Assigned (in-game) groups on doubles courts */}
-                  {doublesCourts.map((court, idx) => {
-                    const names = court.players.map((p) => p.name).join(", ");
-                    return (
-                      <QueueCard
-                        key={court.id}
-                        queueNumber={idx + 1}
-                        playersText={
-                          court.players.length === 0
-                            ? "No players assigned"
-                            : names
-                        }
-                        assignedCourtText={court.name}
-                        variant="in_game"
-                        onEndGame={
-                          court.players.length > 0
-                            ? () => {
-                                const result = dispatch(
-                                  endGameAndAdvanceQueue(court.id)
-                                ) as any;
-                                if (result?.warnedQueueEmpty) {
-                                  Alert.alert(
-                                    "Queue almost empty",
-                                    "The queue is almost empty. Please re-roll the dice to add more players from the bench."
-                                  );
-                                }
-                              }
-                            : undefined
-                        }
+                {/* Actions */}
+                <View className="p-4">
+                  {/* Low queue warning */}
+                  {isQueueAlmostEmpty && (
+                    <View
+                      className="flex-row items-center p-3 rounded-xl mb-3"
+                      style={{
+                        backgroundColor: `${BadmintonPalette.accent.primary}15`,
+                      }}
+                    >
+                      <MaterialCommunityIcons
+                        name="alert-circle-outline"
+                        size={18}
+                        color={BadmintonPalette.accent.primary}
                       />
-                    );
-                  })}
+                      <Text
+                        className="text-xs font-medium ml-2 flex-1"
+                        style={{ color: BadmintonPalette.accent.primary }}
+                      >
+                        Queue is running low. Auto assign to add more players!
+                      </Text>
+                    </View>
+                  )}
 
-                  {doublesCourts.length === 0 && queueGroups.length === 0 ? (
-                    <Text className="text-light-200 text-sm">
-                      No doubles courts and no queues yet.
-                    </Text>
-                  ) : null}
+                  {/* Auto Assign - Primary Action */}
+                  <TouchableOpacity
+                    onPress={handleRollDice}
+                    className="flex-row items-center p-4 rounded-xl mb-3"
+                    style={{ backgroundColor: BadmintonPalette.accent.primary }}
+                    accessibilityRole="button"
+                    accessibilityLabel="Auto assign players to queue"
+                  >
+                    <View
+                      className="size-10 rounded-xl items-center justify-center mr-3"
+                      style={{ backgroundColor: "rgba(0,0,0,0.15)" }}
+                    >
+                      <MaterialCommunityIcons
+                        name="shuffle-variant"
+                        size={22}
+                        color={BadmintonPalette.bg.base}
+                      />
+                    </View>
+                    <View className="flex-1">
+                      <Text
+                        className="text-base font-bold"
+                        style={{ color: BadmintonPalette.bg.base }}
+                      >
+                        Auto Assign
+                      </Text>
+                      <Text
+                        className="text-xs"
+                        style={{ color: "rgba(0,0,0,0.6)" }}
+                      >
+                        Randomly assign bench players to queue
+                      </Text>
+                    </View>
+                    <MaterialCommunityIcons
+                      name="chevron-right"
+                      size={24}
+                      color={BadmintonPalette.bg.base}
+                    />
+                  </TouchableOpacity>
+
+                  {/* Manual Add - Secondary Action */}
+                  <TouchableOpacity
+                    onPress={() => {
+                      const remainder = queueIds.length % 4;
+                      const missingCount = remainder === 0 ? 4 : 4 - remainder;
+                      const groupIndex = Math.floor(queueIds.length / 4);
+                      const queueNumber = doublesCourts.length + groupIndex + 1;
+                      setManualAddQueue({
+                        visible: true,
+                        insertIndex: queueIds.length,
+                        missingCount,
+                        queueNumber,
+                      });
+                    }}
+                    className="flex-row items-center p-4 rounded-xl border border-dark-100"
+                    style={{ backgroundColor: BadmintonPalette.bg.elevated }}
+                    accessibilityRole="button"
+                    accessibilityLabel="Manually select players for queue"
+                  >
+                    <View
+                      className="size-10 rounded-xl items-center justify-center mr-3"
+                      style={{
+                        backgroundColor: `${BadmintonPalette.court.lime}20`,
+                      }}
+                    >
+                      <MaterialCommunityIcons
+                        name="account-plus"
+                        size={20}
+                        color={BadmintonPalette.court.lime}
+                      />
+                    </View>
+                    <View className="flex-1">
+                      <Text
+                        className="text-base font-bold"
+                        style={{ color: BadmintonPalette.text.primary }}
+                      >
+                        Manual Add
+                      </Text>
+                      <Text
+                        className="text-xs"
+                        style={{ color: BadmintonPalette.text.muted }}
+                      >
+                        Choose specific players to add
+                      </Text>
+                    </View>
+                    <MaterialCommunityIcons
+                      name="chevron-right"
+                      size={24}
+                      color={BadmintonPalette.text.muted}
+                    />
+                  </TouchableOpacity>
                 </View>
               </View>
 
-              {/* Waiting queue groups (FIFO) */}
-              {queueGroups.length > 0 ? (
-                <View className="gap-3 bg-dark-200 border border-dark-100 rounded-2xl p-4">
-                  <View className="flex-row items-center justify-between">
-                    <Text className="text-white text-lg font-bold">Queue</Text>
-                    <Text className="text-light-200 text-sm">
-                      {queueGroups.length} groups waiting
+              {/* In Game Section */}
+              <View className="bg-secondary border border-dark-100 rounded-2xl overflow-hidden">
+                <View className="flex-row items-center justify-between p-4 border-b border-dark-100">
+                  <View className="flex-row items-center gap-2">
+                    <View className="size-2 rounded-full bg-danger" />
+                    <Text className="text-light-100 text-lg font-bold">
+                      In Game
                     </Text>
                   </View>
-                  {queueGroups.map((g) => {
-                    const groupPlayers = g.ids.map((id) => ({
-                      id,
-                      name: playerMap.get(id)?.name ?? "Unknown",
-                    }));
-                    const names = groupPlayers.map((p) => p.name).join(", ");
-                    const isIncomplete = g.ids.length < 4;
-                    return (
-                      <QueueCard
-                        key={`waiting-${g.index}`}
-                        queueNumber={doublesCourts.length + g.index + 1}
-                        playersText={names}
-                        players={groupPlayers}
-                        assignedCourtText="Waiting"
-                        variant="waiting"
-                        onRemovePlayer={(playerId) => {
-                          animatePlayersUpdate();
-                          dispatch(
-                            setQueue(removeFirstOccurrence(queueIds, playerId))
-                          );
-                        }}
-                        onDissolve={() => {
-                          const queueNumber =
-                            doublesCourts.length + g.index + 1;
-                          Alert.alert(
-                            "Dissolve queue",
-                            `Dissolve Queue ${queueNumber}? All players in this queue will return to the bench.`,
-                            [
-                              { text: "Cancel", style: "cancel" },
-                              {
-                                text: "Dissolve",
-                                style: "destructive",
-                                onPress: () => {
-                                  const groupSet = new Set(g.ids);
-                                  animatePlayersUpdate();
-                                  dispatch(
-                                    setQueue(
-                                      queueIds.filter((id) => !groupSet.has(id))
-                                    )
-                                  );
-                                },
-                              },
-                            ]
-                          );
-                        }}
-                        showManuallyAddPlayers={isIncomplete}
-                        onManuallyAddPlayers={() => {
-                          const queueNumber =
-                            doublesCourts.length + g.index + 1;
-                          const missingCount = Math.max(0, 4 - g.ids.length);
-                          const insertIndex = g.start + g.ids.length;
-                          setManualAddQueue({
-                            visible: true,
-                            insertIndex,
-                            missingCount,
-                            queueNumber,
-                          });
-                        }}
-                      />
-                    );
-                  })}
+                  <Text className="text-light-300 text-sm">
+                    {doublesCourts.length} courts
+                  </Text>
                 </View>
-              ) : null}
+
+                <View className="p-4 gap-3">
+                  {doublesCourts.length === 0 ? (
+                    <Text className="text-light-300 text-sm text-center py-4">
+                      No doubles courts configured
+                    </Text>
+                  ) : (
+                    doublesCourts.map((court, idx) => {
+                      const courtPlayers = court.players.map((p) => {
+                        const fullPlayer = playerMap.get(p.id);
+                        return {
+                          id: p.id,
+                          name: p.name,
+                          level: fullPlayer?.level,
+                        };
+                      });
+                      const names = court.players.map((p) => p.name).join(", ");
+                      return (
+                        <QueueCard
+                          key={court.id}
+                          queueNumber={idx + 1}
+                          playersText={
+                            court.players.length === 0
+                              ? "No players assigned"
+                              : names
+                          }
+                          players={courtPlayers}
+                          assignedCourtText={court.name}
+                          variant="in_game"
+                          onEndGame={
+                            court.players.length > 0
+                              ? () => {
+                                  const result = dispatch(
+                                    endGameAndAdvanceQueue(court.id)
+                                  ) as any;
+                                  showToast({
+                                    type: "success",
+                                    message: `Game ended on ${court.name}`,
+                                  });
+                                  if (result?.warnedQueueEmpty) {
+                                    Alert.alert(
+                                      "Queue almost empty",
+                                      "Use Auto Assign to add more players."
+                                    );
+                                  }
+                                }
+                              : undefined
+                          }
+                        />
+                      );
+                    })
+                  )}
+                </View>
+              </View>
+
+              {/* Waiting Queue Section */}
+              {queueGroups.length > 0 ? (
+                <View className="bg-secondary border border-dark-100 rounded-2xl overflow-hidden">
+                  <View className="flex-row items-center justify-between p-4 border-b border-dark-100">
+                    <View className="flex-row items-center gap-2">
+                      <View className="size-2 rounded-full bg-success" />
+                      <Text className="text-light-100 text-lg font-bold">
+                        Waiting Queue
+                      </Text>
+                    </View>
+                    <Text className="text-light-300 text-sm">
+                      {queueGroups.length} groups
+                    </Text>
+                  </View>
+
+                  <View className="p-4 gap-3">
+                    {queueGroups.map((g) => {
+                      const groupPlayers = g.ids.map((id) => {
+                        const player = playerMap.get(id);
+                        return {
+                          id,
+                          name: player?.name ?? "Unknown",
+                          level: player?.level,
+                        };
+                      });
+                      const isIncomplete = g.ids.length < 4;
+                      return (
+                        <QueueCard
+                          key={`waiting-${g.index}`}
+                          queueNumber={doublesCourts.length + g.index + 1}
+                          playersText={groupPlayers
+                            .map((p) => p.name)
+                            .join(", ")}
+                          players={groupPlayers}
+                          assignedCourtText="Waiting"
+                          variant="waiting"
+                          onRemovePlayer={(playerId) => {
+                            animatePlayersUpdate();
+                            dispatch(
+                              setQueue(
+                                removeFirstOccurrence(queueIds, playerId)
+                              )
+                            );
+                          }}
+                          onDissolve={() => {
+                            const queueNumber =
+                              doublesCourts.length + g.index + 1;
+                            Alert.alert(
+                              "Dissolve Queue",
+                              `Return Queue ${queueNumber} players to bench?`,
+                              [
+                                { text: "Cancel", style: "cancel" },
+                                {
+                                  text: "Dissolve",
+                                  style: "destructive",
+                                  onPress: () => {
+                                    const groupSet = new Set(g.ids);
+                                    animatePlayersUpdate();
+                                    dispatch(
+                                      setQueue(
+                                        queueIds.filter(
+                                          (id) => !groupSet.has(id)
+                                        )
+                                      )
+                                    );
+                                  },
+                                },
+                              ]
+                            );
+                          }}
+                          showManuallyAddPlayers={isIncomplete}
+                          onManuallyAddPlayers={() => {
+                            const queueNumber =
+                              doublesCourts.length + g.index + 1;
+                            const missingCount = Math.max(0, 4 - g.ids.length);
+                            const insertIndex = g.start + g.ids.length;
+                            setManualAddQueue({
+                              visible: true,
+                              insertIndex,
+                              missingCount,
+                              queueNumber,
+                            });
+                          }}
+                        />
+                      );
+                    })}
+                  </View>
+                </View>
+              ) : (
+                <View className="bg-secondary border border-dark-100 rounded-2xl p-8 items-center">
+                  <MaterialCommunityIcons
+                    name="timer-sand-empty"
+                    size={48}
+                    color={BadmintonPalette.text.muted}
+                  />
+                  <Text className="text-light-300 text-sm mt-3 text-center">
+                    No players in queue{"\n"}Tap Auto Assign to start
+                  </Text>
+                </View>
+              )}
             </>
           ) : null}
         </ScrollView>
@@ -750,9 +924,7 @@ const activity = () => {
         visible={manualAdd.visible}
         onClose={() => setManualAdd({ visible: false, courtId: null })}
         title={
-          activeCourt
-            ? `Manually add players to ${activeCourt.name}`
-            : "Manually add players"
+          activeCourt ? `Add players to ${activeCourt.name}` : "Add players"
         }
         players={availablePlayers}
         maxSelect={maxToSelect}
@@ -768,6 +940,12 @@ const activity = () => {
               players: selectedPlayers,
             })
           );
+          showToast({
+            type: "success",
+            message: `${selectedPlayers.length} player${
+              selectedPlayers.length > 1 ? "s" : ""
+            } added to ${activeCourt.name}`,
+          });
           setManualAdd({ visible: false, courtId: null });
         }}
       />
@@ -782,7 +960,7 @@ const activity = () => {
             queueNumber: 0,
           })
         }
-        title={`Manually add players to Queue ${manualAddQueue.queueNumber}`}
+        title={`Add to Queue ${manualAddQueue.queueNumber}`}
         players={availablePlayers}
         maxSelect={manualAddQueue.missingCount}
         onConfirm={(selectedIds) => {
@@ -791,6 +969,12 @@ const activity = () => {
           const next = [...queueIds];
           next.splice(manualAddQueue.insertIndex, 0, ...selectedIds);
           dispatch(setQueue(next));
+          showToast({
+            type: "success",
+            message: `${selectedIds.length} player${
+              selectedIds.length > 1 ? "s" : ""
+            } added to queue`,
+          });
           setManualAddQueue({
             visible: false,
             insertIndex: 0,
@@ -799,22 +983,6 @@ const activity = () => {
           });
         }}
       />
-
-      {/* <TouchableOpacity
-        className="absolute bottom-24 right-6 bg-dark-200 h-16 w-16 rounded-full overflow-hidden shadow-md items-center justify-center border border-accent"
-        onPress={() => dispatch(rollDice())}
-        accessibilityRole="button"
-        accessibilityLabel="Roll dice"
-        style={{
-          shadowColor: "#000",
-          shadowOffset: { width: 0, height: 6 },
-          shadowOpacity: 0.25,
-          shadowRadius: 10,
-          elevation: 10,
-        }}
-      >
-        <FontAwesome5 name="dice" size={26} color={PotatoPalette.accent.gold} />
-      </TouchableOpacity> */}
     </SafeAreaView>
   );
 };

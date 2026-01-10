@@ -1,4 +1,4 @@
-import { type Player } from "@/types/players";
+import { PlayerLevel, type Player } from "@/types/players";
 import { shuffle } from "@/utils/shuffle";
 import { assignPlayersToCourtsBulk, endGame } from "./courtSlice";
 import type { AppDispatch, RootState } from "./index";
@@ -17,30 +17,124 @@ const buildPlayerMap = (players: Player[]) => {
 	return m;
 };
 
+const levelIndex: Record<PlayerLevel, number> = {
+	BEGINNER: 0,
+	INTERMEDIATE: 1,
+	ADVANCED: 2,
+	PRO: 3,
+};
+
+const canPlayTogether = (players: Player[]): boolean => {
+	if (players.length === 0) return true;
+	let min = Infinity;
+	let max = -Infinity;
+	for (const p of players) {
+		const idx = levelIndex[p.level];
+		if (idx < min) min = idx;
+		if (idx > max) max = idx;
+	}
+	// Only adjacent bands are allowed:
+	// Beginner↔Intermediate, Intermediate↔Advanced, Advanced↔Pro
+	return max - min <= 1;
+};
+
+const buildCompatibleBenchQueueIds = (benchPlayers: Player[]): string[] => {
+	// Build maximum number of compatible doubles groups (size 4) from bench players.
+	// Compatibility rule: each group must fit in a window of 2 adjacent levels.
+	const beginners = benchPlayers.filter((p) => p.level === PlayerLevel.BEGINNER);
+	const intermediates = benchPlayers.filter(
+		(p) => p.level === PlayerLevel.INTERMEDIATE
+	);
+	const advanceds = benchPlayers.filter((p) => p.level === PlayerLevel.ADVANCED);
+	const pros = benchPlayers.filter((p) => p.level === PlayerLevel.PRO);
+
+	// Preserve randomness by shuffling within buckets.
+	shuffle(beginners);
+	shuffle(intermediates);
+	shuffle(advanceds);
+	shuffle(pros);
+
+	const B = beginners.length;
+	const I = intermediates.length;
+	const A = advanceds.length;
+	const P = pros.length;
+
+	let best = {
+		totalGroups: 0,
+		iToBI: 0, // intermediates allocated to [Beginner,Intermediate] window
+		aToAP: 0, // advanceds allocated to [Advanced,Pro] window
+		leftover: Infinity,
+	};
+
+	for (let iToBI = 0; iToBI <= I; iToBI++) {
+		for (let aToAP = 0; aToAP <= A; aToAP++) {
+			const gBI = Math.floor((B + iToBI) / 4);
+			const gAP = Math.floor((P + aToAP) / 4);
+			const gIA = Math.floor((I - iToBI + (A - aToAP)) / 4);
+			const totalGroups = gBI + gAP + gIA;
+
+			// Prefer more groups; tie-break by fewer leftovers.
+			const used = totalGroups * 4;
+			const leftover = B + I + A + P - used;
+			if (
+				totalGroups > best.totalGroups ||
+				(totalGroups === best.totalGroups && leftover < best.leftover)
+			) {
+				best = { totalGroups, iToBI, aToAP, leftover };
+			}
+		}
+	}
+
+	if (best.totalGroups === 0) return [];
+
+	const iToBIPlayers = intermediates.slice(0, best.iToBI);
+	const iToIAPlayers = intermediates.slice(best.iToBI);
+	const aToAPPlayers = advanceds.slice(0, best.aToAP);
+	const aToIAPlayers = advanceds.slice(best.aToAP);
+
+	const windowBI = shuffle([...beginners, ...iToBIPlayers]);
+	const windowIA = shuffle([...iToIAPlayers, ...aToIAPlayers]);
+	const windowAP = shuffle([...aToAPPlayers, ...pros]);
+
+	const ids: string[] = [];
+	for (const group of chunkBy(windowBI, 4)) {
+		if (group.length === 4 && canPlayTogether(group)) ids.push(...group.map((p) => p.id));
+	}
+	for (const group of chunkBy(windowIA, 4)) {
+		if (group.length === 4 && canPlayTogether(group)) ids.push(...group.map((p) => p.id));
+	}
+	for (const group of chunkBy(windowAP, 4)) {
+		if (group.length === 4 && canPlayTogether(group)) ids.push(...group.map((p) => p.id));
+	}
+
+	// Ensure we only return full groups.
+	const fullLen = Math.floor(ids.length / 4) * 4;
+	return ids.slice(0, fullLen);
+};
+
 const sortQueueIdsByGameCountPriority = (
 	ids: string[],
 	playerMap: Map<string, Player>
 ): string[] => {
-	// Stable: keep original relative order when gameCount ties (or player missing)
-	const index = new Map<string, number>();
-	for (let i = 0; i < ids.length; i++) {
-		// first occurrence wins, just in case duplicates ever slip in
-		if (!index.has(ids[i])) index.set(ids[i], i);
-	}
+	// IMPORTANT: Preserve groups of 4 as atomic units; sorting individual IDs would
+	// reshuffle group composition and can break level-based matching.
+	const fullLen = Math.floor(ids.length / 4) * 4;
+	const fullIds = ids.slice(0, fullLen);
+	const remainder = ids.slice(fullLen);
 
-	return [...ids].sort((a, b) => {
-		const pa = playerMap.get(a);
-		const pb = playerMap.get(b);
+	const groups = chunkBy(fullIds, 4).map((group, idx) => ({
+		group,
+		idx,
+		score: group.reduce((acc, id) => acc + (playerMap.get(id)?.gameCount ?? 999), 0),
+	}));
 
-		// Unknown players go last, stable.
-		if (!pa && !pb) return (index.get(a) ?? 0) - (index.get(b) ?? 0);
-		if (!pa) return 1;
-		if (!pb) return -1;
-
-		const diff = pa.gameCount - pb.gameCount;
+	groups.sort((a, b) => {
+		const diff = a.score - b.score;
 		if (diff !== 0) return diff;
-		return (index.get(a) ?? 0) - (index.get(b) ?? 0);
+		return a.idx - b.idx; // stable
 	});
+
+	return [...groups.flatMap((g) => g.group), ...remainder];
 };
 
 export const fillDoublesCourtsFromQueue =
@@ -87,7 +181,8 @@ export const fillDoublesCourtsFromQueue =
 	};
 
 export const rollDice =
-	() => (dispatch: AppDispatch, getState: () => RootState) => {
+	(options?: { allowIncompatible?: boolean }) =>
+	(dispatch: AppDispatch, getState: () => RootState) => {
 		const state = getState();
 		const courts = state.courts.items;
 		const players = state.players.items;
@@ -103,19 +198,37 @@ export const rollDice =
 		if (benchPlayers.length === 0) {
 			// nothing to add; still try to fill any empty doubles courts from existing queue
 			dispatch(fillDoublesCourtsFromQueue());
-			return;
+			return { needsConfirmation: false as const, playersAdded: 0 };
 		}
 
-		// Randomly group BENCH players into sets of 4. Any remainder (<4) stays on the bench.
+		// Prefer forming compatible groups (adjacent skill bands only). Any remainder (<4)
+		// stays on the bench.
 		const shuffledBench = shuffle([...benchPlayers]);
+		const compatibleQueueIds = buildCompatibleBenchQueueIds(shuffledBench);
+
+		// If we can't form ANY compatible game but we *can* form a doubles group,
+		// ask the UI to confirm before proceeding with mismatched levels.
 		const fullCount = Math.floor(shuffledBench.length / 4) * 4;
+		if (!options?.allowIncompatible && compatibleQueueIds.length === 0 && fullCount > 0) {
+			dispatch(fillDoublesCourtsFromQueue());
+			return {
+				needsConfirmation: true as const,
+				playersAdded: 0,
+				message:
+					"Not enough compatible bench players to form a fair game.\n\nAllowed pairings:\n- Beginner + Intermediate\n- Intermediate + Advanced\n- Advanced + Pro\n\nProceed anyway?",
+			};
+		}
+
 		if (fullCount === 0) {
 			// Not enough bench players to form a doubles queue.
 			dispatch(fillDoublesCourtsFromQueue());
-			return;
+			return { needsConfirmation: false as const, playersAdded: 0 };
 		}
 
-		const newQueueIds = shuffledBench.slice(0, fullCount).map((p) => p.id);
+		const newQueueIds =
+			!options?.allowIncompatible && compatibleQueueIds.length > 0
+				? compatibleQueueIds
+				: shuffledBench.slice(0, fullCount).map((p) => p.id);
 		const nextQueueIds = [...state.queue.ids, ...newQueueIds];
 		const playerMap = buildPlayerMap(players);
 		const prioritizedQueueIds = sortQueueIdsByGameCountPriority(
@@ -125,6 +238,7 @@ export const rollDice =
 
 		dispatch(setQueue(prioritizedQueueIds));
 		dispatch(fillDoublesCourtsFromQueue());
+		return { needsConfirmation: false as const, playersAdded: newQueueIds.length };
 	};
 
 export const endGameAndAdvanceQueue =

@@ -1,80 +1,119 @@
 import AntDesign from "@expo/vector-icons/AntDesign";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 
-import { PotatoPalette } from "@/constants/palette";
+import PlayerLevelBadge from "@/components/PlayerLevelBadge";
+import { BadmintonPalette } from "@/constants/palette";
+import type { PlayerLevel } from "@/types/players";
 import React from "react";
 import { Text, TouchableOpacity, View } from "react-native";
 
 export type PlayerStatus = "in_game" | "in_queue" | "bench";
+
+const statusConfig = {
+  in_game: {
+    icon: "badminton" as const,
+    color: BadmintonPalette.status.inGame,
+    label: "In Game",
+    bgClass: "bg-danger/10",
+    borderClass: "border-danger/30",
+  },
+  in_queue: {
+    icon: "timer-sand" as const,
+    color: BadmintonPalette.status.waiting,
+    label: "In Queue",
+    bgClass: "bg-success/10",
+    borderClass: "border-success/30",
+  },
+  bench: {
+    icon: "account-outline" as const,
+    color: BadmintonPalette.status.bench,
+    label: "Bench",
+    bgClass: "bg-dark-100",
+    borderClass: "border-dark-100",
+  },
+};
 
 const PlayerCard = ({
   name,
   onDelete,
   status,
   gameCount,
+  level,
   courtName,
 }: {
   name: string;
   onDelete?: () => void;
   status: PlayerStatus;
   gameCount: number;
+  level: PlayerLevel;
   courtName?: string;
 }) => {
-  const isInGame = status === "in_game";
-  const isInQueue = status === "in_queue";
-  const iconName = isInGame
-    ? "badminton"
-    : isInQueue
-    ? "timer-sand"
-    : "bench-back";
-  const iconColor = isInGame
-    ? PotatoPalette.accent.danger
-    : isInQueue
-    ? PotatoPalette.accent.sprout
-    : PotatoPalette.text.muted;
-  const baseLabel = isInGame ? "In Game" : isInQueue ? "In Queue" : "Bench";
-  const label =
-    isInGame && courtName ? `${baseLabel} · ${courtName}` : baseLabel;
-  const labelClass = isInGame
-    ? "text-danger bg-danger/10 border border-danger"
-    : isInQueue
-    ? "text-success bg-success/10 border border-accent"
-    : "text-light-300 bg-dark-100/50 border border-dark-100";
+  const config = statusConfig[status];
+  const displayLabel =
+    status === "in_game" && courtName
+      ? `${config.label} · ${courtName}`
+      : config.label;
 
   return (
     <TouchableOpacity
-      className="bg-dark-200 rounded-xl p-4 gap-3 border border-dark-100"
+      className="bg-secondary rounded-2xl overflow-hidden border border-dark-100 active:bg-dark-200"
       onPress={onDelete}
+      activeOpacity={0.7}
     >
-      <View className="flex-row items-center gap-3">
-        <View className="size-10 rounded-full bg-primary items-center justify-center">
-          <AntDesign name="user" size={15} color={PotatoPalette.accent.gold} />
-        </View>
-
-        <View className="flex-1">
-          <Text className="text-white text-lg font-bold" numberOfLines={1}>
-            {name}
-          </Text>
-          <Text className="text-light-200 text-xs font-bold">
-            Completed Games: {gameCount}
-          </Text>
-        </View>
-
-        <View className="flex-row items-center gap-2">
-          <MaterialCommunityIcons
-            name={iconName as any}
-            size={15}
-            color={iconColor}
+      <View className="flex-row items-center p-4">
+        {/* Avatar */}
+        <View className="size-12 rounded-xl bg-court-deep/20 items-center justify-center mr-4">
+          <AntDesign
+            name="user"
+            size={20}
+            color={BadmintonPalette.court.lime}
           />
+        </View>
 
+        {/* Info */}
+        <View className="flex-1">
           <Text
-            className={[
-              "text-sm font-bold uppercase text-center rounded-full px-3 py-1",
-              labelClass,
-            ].join(" ")}
+            className="text-base font-bold"
+            style={{ color: BadmintonPalette.text.primary }}
             numberOfLines={1}
           >
-            {label}
+            {name}
+          </Text>
+
+          <View className="flex-row items-center mt-1">
+            <View className="flex-row items-center mr-3">
+              <MaterialCommunityIcons
+                name="trophy-outline"
+                size={12}
+                color={BadmintonPalette.text.secondary}
+              />
+              <Text
+                className="text-xs ml-1"
+                style={{ color: BadmintonPalette.text.secondary }}
+              >
+                {gameCount} {gameCount === 1 ? "game" : "games"}
+              </Text>
+            </View>
+
+            <PlayerLevelBadge level={level} size="xs" />
+          </View>
+        </View>
+
+        {/* Status Badge */}
+        <View
+          className={`flex-row items-center px-2.5 py-1 rounded-full border ${config.bgClass} ${config.borderClass} ml-2`}
+        >
+          <MaterialCommunityIcons
+            name={config.icon}
+            size={12}
+            color={config.color}
+          />
+          <Text
+            className="text-xs font-semibold ml-1.5"
+            style={{ color: config.color }}
+            numberOfLines={1}
+          >
+            {displayLabel}
           </Text>
         </View>
       </View>

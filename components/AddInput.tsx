@@ -1,9 +1,9 @@
-import { PotatoPalette } from "@/constants/palette";
+import { BadmintonPalette } from "@/constants/palette";
 import AntDesign from "@expo/vector-icons/AntDesign";
 import FontAwesome5 from "@expo/vector-icons/FontAwesome5";
-import FontAwesome6 from "@expo/vector-icons/FontAwesome6";
+import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import React from "react";
-import { StyleSheet, TextInput, View } from "react-native";
+import { TextInput, View } from "react-native";
 
 interface Props {
   type: "player" | "court" | "search";
@@ -20,15 +20,16 @@ const AddInput = ({
   value,
   onChangeText,
 }: Props) => {
+  const iconColor = BadmintonPalette.court.lime;
+  
   let icon = null;
-
   switch (type) {
     case "court":
       icon = (
-        <FontAwesome6
-          name="ping-pong-paddle-ball"
-          size={15}
-          color={PotatoPalette.accent.gold}
+        <MaterialCommunityIcons
+          name="badminton"
+          size={18}
+          color={iconColor}
         />
       );
       break;
@@ -36,37 +37,41 @@ const AddInput = ({
       icon = (
         <FontAwesome5
           name="search"
-          size={15}
-          color={PotatoPalette.accent.gold}
+          size={16}
+          color={BadmintonPalette.text.muted}
         />
       );
       break;
     default:
       icon = (
         <AntDesign
-          name="user-add"
-          size={15}
-          color={PotatoPalette.accent.gold}
+          name="user"
+          size={18}
+          color={iconColor}
         />
       );
   }
 
   return (
-    <View className="flex-row items-center justify-center bg-dark-200 rounded-full px-5 py-4">
-      {icon}
+    <View className="flex-row items-center bg-dark-200 rounded-xl px-4 py-3 border border-dark-100">
+      <View className="size-8 rounded-lg bg-court-deep/20 items-center justify-center mr-3">
+        {icon}
+      </View>
 
       <TextInput
         onPress={onPress}
         onChangeText={onChangeText}
         placeholder={placeholder}
-        placeholderTextColor={PotatoPalette.text.placeholder}
+        placeholderTextColor={BadmintonPalette.text.muted}
         value={value}
-        style={{ fontSize: 16 }}
-        className="flex-1 ml-2 text-white h-8"
+        className="flex-1"
+        style={{ 
+          fontSize: 16, 
+          color: BadmintonPalette.text.primary,
+        }}
       />
     </View>
   );
 };
 
 export default AddInput;
-const styles = StyleSheet.create({});

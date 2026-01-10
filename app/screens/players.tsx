@@ -1,7 +1,8 @@
 import AddPInput from "@/components/AddInput";
 import ConfirmationAlert from "@/components/ConfirmationAlert";
 import PlayerCard from "@/components/PlayerCard";
-import { PotatoPalette } from "@/constants/palette";
+import { useToast } from "@/components/Toast";
+import { BadmintonPalette } from "@/constants/palette";
 import { RootState } from "@/store";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import {
@@ -11,7 +12,8 @@ import {
   removePlayer,
 } from "@/store/playersSlice";
 import { clearQueue, setQueue } from "@/store/queueSlice";
-import FontAwesome5 from "@expo/vector-icons/FontAwesome5";
+import { PlayerLevel } from "@/types/players";
+import AntDesign from "@expo/vector-icons/AntDesign";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import React, { useEffect, useMemo, useState } from "react";
 import {
@@ -19,6 +21,7 @@ import {
   FlatList,
   LayoutAnimation,
   Platform,
+  Pressable,
   Text,
   TouchableOpacity,
   UIManager,
@@ -28,15 +31,46 @@ import "react-native-get-random-values";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { v4 as uuidv4 } from "uuid";
 
+// Compact inline level selector
+const levelOptions: { value: PlayerLevel; label: string; color: string }[] = [
+  {
+    value: PlayerLevel.BEGINNER,
+    label: "B",
+    color: BadmintonPalette.levels.beginner,
+  },
+  {
+    value: PlayerLevel.INTERMEDIATE,
+    label: "I",
+    color: BadmintonPalette.levels.intermediate,
+  },
+  {
+    value: PlayerLevel.ADVANCED,
+    label: "A",
+    color: BadmintonPalette.levels.advanced,
+  },
+  { value: PlayerLevel.PRO, label: "P", color: BadmintonPalette.levels.pro },
+];
+
+const levelLabels: Record<PlayerLevel, string> = {
+  [PlayerLevel.BEGINNER]: "Beginner",
+  [PlayerLevel.INTERMEDIATE]: "Intermediate",
+  [PlayerLevel.ADVANCED]: "Advanced",
+  [PlayerLevel.PRO]: "Pro",
+};
+
 export const PlayersContent = ({
-  contentContainerClassName = "p-10",
+  contentContainerClassName = "p-6",
 }: {
   contentContainerClassName?: string;
 }) => {
   const [newPlayerName, setNewPlayerName] = useState<string>("");
+  const [selectedLevel, setSelectedLevel] = useState<PlayerLevel>(
+    PlayerLevel.BEGINNER
+  );
   const [searchQuery, setSearchQuery] = useState<string>("");
 
   const dispatch = useAppDispatch();
+  const { showToast } = useToast();
   const players = useAppSelector((s: RootState) => s.players.items);
   const courts = useAppSelector((s: RootState) => s.courts.items);
   const queueIds = useAppSelector((s: RootState) => s.queue.ids);
@@ -85,17 +119,32 @@ export const PlayersContent = ({
     ]);
   }, [sliceError, dispatch]);
 
-  return (
-    <View className={`flex-1 bg-primary gap-5 ${contentContainerClassName}`}>
-      <Text className="text-white text-2xl font-bold text-center">
-        Add Player
-      </Text>
+  const handleAddPlayer = () => {
+    const trimmed = newPlayerName.trim();
+    if (!trimmed) return;
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    dispatch(addPlayer({ id: uuidv4(), name: trimmed, level: selectedLevel }));
+    setNewPlayerName("");
+    showToast({
+      message: `${trimmed} added as ${levelLabels[selectedLevel]}`,
+      type: "success",
+    });
+  };
 
-      <View className="flex-row items-center gap-3">
-        <View className="flex-1">
+  const canAdd = newPlayerName.trim().length > 0;
+  const selectedLevelColor =
+    levelOptions.find((l) => l.value === selectedLevel)?.color ||
+    BadmintonPalette.court.lime;
+
+  return (
+    <View className={`flex-1 bg-primary ${contentContainerClassName}`}>
+      {/* Simplified Add Player Form */}
+      <View className="bg-secondary border border-dark-100 rounded-2xl overflow-hidden mb-6">
+        {/* Input Row */}
+        <View className="p-4">
           <AddPInput
             type="player"
-            placeholder="Player Name"
+            placeholder="Enter player name..."
             value={newPlayerName}
             onChangeText={(text) => {
               setNewPlayerName(text);
@@ -104,31 +153,123 @@ export const PlayersContent = ({
           />
         </View>
 
-        <TouchableOpacity
-          className="size-14 rounded-full bg-primary items-center justify-center border border-accent"
-          onPress={() => {
-            const trimmed = newPlayerName.trim();
-            if (!trimmed) return;
-            dispatch(addPlayer({ id: uuidv4(), name: trimmed }));
-            setNewPlayerName("");
-          }}
-          accessibilityRole="button"
-          accessibilityLabel="Add player"
-        >
-          <FontAwesome5
-            name="plus"
-            size={24}
-            color={PotatoPalette.accent.sprout}
-          />
-        </TouchableOpacity>
+        {/* Level & Add Row */}
+        <View className="flex-row items-center px-4 pb-4">
+          {/* Level Pills */}
+          <View className="flex-1">
+            <View className="flex-row items-center">
+              <Text
+                className="text-xs font-medium mr-3"
+                style={{ color: BadmintonPalette.text.muted }}
+              >
+                Level:
+              </Text>
+              <View className="flex-row" style={{ gap: 8 }}>
+                {levelOptions.map((option) => {
+                  const isSelected = selectedLevel === option.value;
+                  return (
+                    <Pressable
+                      key={option.value}
+                      onPress={() => setSelectedLevel(option.value)}
+                      className="items-center justify-center rounded-lg"
+                      style={{
+                        width: 36,
+                        height: 36,
+                        backgroundColor: isSelected
+                          ? option.color
+                          : `${option.color}15`,
+                        borderWidth: isSelected ? 0 : 1,
+                        borderColor: `${option.color}40`,
+                      }}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Select ${
+                        levelLabels[option.value]
+                      } level`}
+                      accessibilityState={{ selected: isSelected }}
+                    >
+                      <Text
+                        className="text-sm font-bold"
+                        style={{
+                          color: isSelected
+                            ? BadmintonPalette.bg.base
+                            : option.color,
+                        }}
+                      >
+                        {option.label}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
+            <Text
+              className="text-xs font-medium mt-1.5 ml-10"
+              style={{ color: selectedLevelColor }}
+            >
+              {levelLabels[selectedLevel]}
+            </Text>
+          </View>
+
+          {/* Add Button */}
+          <TouchableOpacity
+            onPress={handleAddPlayer}
+            disabled={!canAdd}
+            className="flex-row items-center px-4 py-2 rounded-xl"
+            style={{
+              backgroundColor: canAdd
+                ? BadmintonPalette.accent.primary
+                : BadmintonPalette.bg.elevated,
+            }}
+            accessibilityRole="button"
+            accessibilityLabel="Add player"
+          >
+            <AntDesign
+              name="plus"
+              size={16}
+              color={
+                canAdd ? BadmintonPalette.bg.base : BadmintonPalette.text.muted
+              }
+            />
+            <Text
+              className="text-sm font-bold ml-1"
+              style={{
+                color: canAdd
+                  ? BadmintonPalette.bg.base
+                  : BadmintonPalette.text.muted,
+              }}
+            >
+              Add
+            </Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
+      {/* Players List */}
       {players.length > 0 && (
         <>
-          <View className="flex-row items-center my-6">
-            <View className="flex-1 border-t border-accent" />
+          <View className="flex-row items-center justify-between mb-4">
+            <View className="flex-row items-center">
+              <Text
+                className="text-lg font-bold mr-2"
+                style={{ color: BadmintonPalette.text.primary }}
+              >
+                Players
+              </Text>
+              <View
+                className="px-2 py-0.5 rounded-md"
+                style={{ backgroundColor: `${BadmintonPalette.court.lime}20` }}
+              >
+                <Text
+                  className="text-xs font-bold"
+                  style={{ color: BadmintonPalette.court.lime }}
+                >
+                  {players.length}
+                </Text>
+              </View>
+            </View>
+
             <TouchableOpacity
-              className="flex-row items-center gap-2 bg-primary px-4 py-1 rounded-full border border-accent"
+              className="flex-row items-center px-3 py-2 rounded-xl bg-danger/10 border border-danger/30 active:bg-danger/20"
               onPress={() => {
                 const courtsWithPlayers = courts.filter(
                   (c) => c.players.length > 0
@@ -137,46 +278,48 @@ export const PlayersContent = ({
                   const names = courtsWithPlayers.map((c) => c.name).join(", ");
                   Alert.alert(
                     "Cannot clear players",
-                    `Some players are currently in the game (${names}). Please end the game first.`
+                    `Some players are in games (${names}). End the games first.`
                   );
                   return;
                 }
 
-                const message =
-                  "Are you sure you want to clear the players list?";
                 ConfirmationAlert({
-                  title: "Confirm Clearing Players List",
-                  message: message,
+                  title: "Clear All Players",
+                  message: "Remove all players from the list?",
                   onConfirm: () => {
                     LayoutAnimation.configureNext(
                       LayoutAnimation.Presets.spring
                     );
-                    // Keep state consistent: clearing players must also clear the queue.
                     dispatch(clearQueue());
                     dispatch(clearPlayers());
                   },
                 });
               }}
               accessibilityRole="button"
-              accessibilityLabel="Clear players list"
+              accessibilityLabel="Clear all players"
             >
               <MaterialCommunityIcons
-                name="broom"
-                size={24}
-                color={PotatoPalette.accent.gold}
+                name="delete-sweep"
+                size={16}
+                color={BadmintonPalette.accent.danger}
               />
-              <Text className="text-white text-sm font-bold text-center">
+              <Text
+                className="text-xs font-bold ml-1"
+                style={{ color: BadmintonPalette.accent.danger }}
+              >
                 Clear
               </Text>
             </TouchableOpacity>
           </View>
 
-          <AddPInput
-            type="search"
-            placeholder="Search player name"
-            value={searchQuery}
-            onChangeText={(text) => setSearchQuery(text)}
-          />
+          <View className="mb-4">
+            <AddPInput
+              type="search"
+              placeholder="Search players..."
+              value={searchQuery}
+              onChangeText={(text) => setSearchQuery(text)}
+            />
+          </View>
 
           <FlatList
             data={filteredPlayers}
@@ -184,29 +327,27 @@ export const PlayersContent = ({
               <PlayerCard
                 name={item.name}
                 gameCount={item.gameCount}
+                level={item.level}
                 status={statusMetaById[item.id]?.status ?? "bench"}
                 courtName={statusMetaById[item.id]?.courtName}
                 onDelete={() => {
                   const meta = statusMetaById[item.id];
                   const status = meta?.status ?? "bench";
 
-                  // Validation: don't allow deleting players who are currently in a game.
                   if (status === "in_game") {
                     Alert.alert(
-                      "Cannot delete player",
-                      `${item.name} is currently in a game${
+                      "Cannot delete",
+                      `${item.name} is in a game${
                         meta?.courtName ? ` on ${meta.courtName}` : ""
-                      }. Please end the game first.`
+                      }. End the game first.`
                     );
                     return;
                   }
 
-                  const message = `Are you sure you want to delete this player: ${item.name}?`;
                   ConfirmationAlert({
-                    title: "Confirm Deletion",
-                    message,
+                    title: "Delete Player",
+                    message: `Remove ${item.name}?`,
                     onConfirm: () => {
-                      // If the player is in the queue, dissolve their entire queue group (groups are sets of 4).
                       if (status === "in_queue") {
                         const idx = queueIds.indexOf(item.id);
                         if (idx >= 0) {
@@ -232,17 +373,44 @@ export const PlayersContent = ({
               />
             )}
             keyExtractor={(item) => item.id}
-            contentContainerStyle={{ gap: 10 }}
+            contentContainerStyle={{ gap: 10, paddingBottom: 40 }}
             ListEmptyComponent={
-              <View className="bg-dark-200 border border-dark-100 rounded-2xl p-4">
-                <Text className="text-light-200 text-sm">
-                  No players match "{searchQuery.trim()}".
+              <View className="bg-secondary border border-dark-100 rounded-2xl p-6 items-center">
+                <Text
+                  className="text-sm text-center"
+                  style={{ color: BadmintonPalette.text.muted }}
+                >
+                  No players match "{searchQuery.trim()}"
                 </Text>
               </View>
             }
             className="mb-20"
           />
         </>
+      )}
+
+      {players.length === 0 && (
+        <View className="flex-1 items-center justify-center pb-20">
+          <View className="size-16 rounded-2xl bg-secondary border border-dark-100 items-center justify-center mb-4">
+            <AntDesign
+              name="team"
+              size={32}
+              color={BadmintonPalette.text.muted}
+            />
+          </View>
+          <Text
+            className="text-lg font-bold mb-1"
+            style={{ color: BadmintonPalette.text.primary }}
+          >
+            No Players Yet
+          </Text>
+          <Text
+            className="text-sm text-center"
+            style={{ color: BadmintonPalette.text.muted }}
+          >
+            Enter a name above to add your first player
+          </Text>
+        </View>
       )}
     </View>
   );
@@ -251,7 +419,7 @@ export const PlayersContent = ({
 const players = () => {
   return (
     <SafeAreaView className="flex-1 bg-primary">
-      <PlayersContent contentContainerClassName="p-10" />
+      <PlayersContent contentContainerClassName="p-6" />
     </SafeAreaView>
   );
 };

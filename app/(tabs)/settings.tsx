@@ -1,5 +1,6 @@
-import { PotatoPalette } from "@/constants/palette";
+import { BadmintonPalette } from "@/constants/palette";
 import AntDesign from "@expo/vector-icons/AntDesign";
+import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import React, { useState } from "react";
 import { Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -11,62 +12,86 @@ const settings = () => {
     "manage_players"
   );
 
+  const tabs = [
+    {
+      key: "manage_players",
+      label: "Players",
+      icon: (focused: boolean) => (
+        <AntDesign
+          name="team"
+          size={18}
+          color={focused ? BadmintonPalette.court.lime : BadmintonPalette.text.muted}
+        />
+      ),
+    },
+    {
+      key: "courts",
+      label: "Courts",
+      icon: (focused: boolean) => (
+        <MaterialCommunityIcons
+          name="badminton"
+          size={18}
+          color={focused ? BadmintonPalette.court.lime : BadmintonPalette.text.muted}
+        />
+      ),
+    },
+  ] as const;
+
   return (
     <SafeAreaView className="flex-1 bg-primary">
-      <View className="flex-row items-center gap-2 p-4">
-        <AntDesign name="setting" size={20} color={PotatoPalette.accent.gold} />
-        <Text className="text-white text-2xl font-bold text-center">
-          Settings
-        </Text>
+      {/* Header */}
+      <View className="px-6 pt-4 pb-2">
+        <View className="flex-row items-center gap-3">
+          <View className="size-12 rounded-2xl bg-court-deep/30 items-center justify-center">
+            <AntDesign
+              name="setting"
+              size={24}
+              color={BadmintonPalette.court.lime}
+            />
+          </View>
+          <View>
+            <Text className="text-light-100 text-2xl font-bold">Settings</Text>
+            <Text className="text-light-300 text-sm">
+              Manage players and courts
+            </Text>
+          </View>
+        </View>
       </View>
 
-      <View className="px-6 pt-4">
-        <View className="flex-row border-b border-dark-100">
-          <TouchableOpacity
-            className="flex-1 items-center py-3"
-            onPress={() => setActiveTab("manage_players")}
-            accessibilityRole="button"
-            accessibilityLabel="Show Manage Players tab"
-          >
-            <Text
-              className={`text-sm font-semibold ${
-                activeTab === "manage_players"
-                  ? "text-accent"
-                  : "text-light-200"
-              }`}
-            >
-              Manage Players
-            </Text>
-            {activeTab === "manage_players" ? (
-              <View className="absolute bottom-0 h-0.5 w-12 bg-accent rounded-full" />
-            ) : null}
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            className="flex-1 items-center py-3"
-            onPress={() => setActiveTab("courts")}
-            accessibilityRole="button"
-            accessibilityLabel="Show Courts tab"
-          >
-            <Text
-              className={`text-sm font-semibold ${
-                activeTab === "courts" ? "text-accent" : "text-light-200"
-              }`}
-            >
-              Courts
-            </Text>
-            {activeTab === "courts" ? (
-              <View className="absolute bottom-0 h-0.5 w-12 bg-accent rounded-full" />
-            ) : null}
-          </TouchableOpacity>
+      {/* Tab Bar */}
+      <View className="px-6 py-4">
+        <View className="flex-row bg-secondary border border-dark-100 rounded-xl p-1">
+          {tabs.map((tab) => {
+            const isActive = activeTab === tab.key;
+            return (
+              <TouchableOpacity
+                key={tab.key}
+                className={`flex-1 flex-row items-center justify-center gap-2 py-3 rounded-lg ${
+                  isActive ? "bg-court-deep" : "bg-transparent"
+                }`}
+                onPress={() => setActiveTab(tab.key)}
+                accessibilityRole="button"
+                accessibilityLabel={`Show ${tab.label} tab`}
+              >
+                {tab.icon(isActive)}
+                <Text
+                  className={`text-sm font-bold ${
+                    isActive ? "text-court-lime" : "text-light-300"
+                  }`}
+                >
+                  {tab.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
         </View>
       </View>
 
       <View className="flex-1">
         {activeTab === "manage_players" ? (
-          <PlayersContent contentContainerClassName="p-10" />
+          <PlayersContent contentContainerClassName="px-6" />
         ) : (
-          <CourtsContent contentContainerClassName="p-10" />
+          <CourtsContent contentContainerClassName="px-6" />
         )}
       </View>
     </SafeAreaView>

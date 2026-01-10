@@ -1,6 +1,7 @@
-import { PotatoPalette } from "@/constants/palette";
+import { BadmintonPalette } from "@/constants/palette";
 import AntDesign from "@expo/vector-icons/AntDesign";
 import Feather from "@expo/vector-icons/Feather";
+import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { Tabs } from "expo-router";
 import React from "react";
 import { Text, View } from "react-native";
@@ -14,11 +15,11 @@ const TabIcon = ({
   type: "home" | "activity" | "players" | "courts" | "settings";
   title: string;
 }) => {
-  let icon = null;
   const iconColor = focused
-    ? PotatoPalette.accent.gold
-    : PotatoPalette.text.placeholder;
+    ? BadmintonPalette.court.lime
+    : BadmintonPalette.text.muted;
 
+  let icon = null;
   switch (type) {
     case "home":
       icon = <AntDesign name="home" size={20} color={iconColor} />;
@@ -27,27 +28,28 @@ const TabIcon = ({
       icon = <Feather name="activity" size={20} color={iconColor} />;
       break;
     case "players":
-      icon = <AntDesign name="usergroup-add" size={20} color={iconColor} />;
+      icon = <AntDesign name="team" size={20} color={iconColor} />;
       break;
     case "courts":
-      icon = <AntDesign name="box-plot" size={20} color={iconColor} />;
+      icon = <MaterialCommunityIcons name="badminton" size={20} color={iconColor} />;
       break;
     case "settings":
       icon = <AntDesign name="setting" size={20} color={iconColor} />;
       break;
   }
+
   if (!focused) {
     return (
-      <View className="size-full justify-center items-center mt-4 rounded-full">
+      <View className="size-full justify-center items-center mt-4">
         {icon}
       </View>
     );
   }
 
   return (
-    <View className="flex flex-row w-full flex-1 min-w-[117px] min-h-10 mt-4 justify-center items-center rounded-full overflow-hidden gap-2 bg-dark-200/50">
+    <View className="flex flex-row w-full flex-1 min-w-[112px] min-h-10 mt-4 justify-center items-center rounded-xl overflow-hidden gap-2 bg-court-deep/30">
       {icon}
-      <Text className="text-light-100 text-base font-semibold ml-2">
+      <Text className="text-court-lime text-sm font-semibold">
         {title}
       </Text>
     </View>
@@ -67,15 +69,15 @@ const _layout = () => {
           alignItems: "center",
         },
         tabBarStyle: {
-          backgroundColor: PotatoPalette.bg.surface,
-          borderRadius: 50,
-          marginHorizontal: 20,
-          marginBottom: 20,
-          height: 55,
+          backgroundColor: BadmintonPalette.bg.surface,
+          borderRadius: 20,
+          marginHorizontal: 16,
+          marginBottom: 16,
+          height: 60,
           position: "absolute",
           overflow: "hidden",
           borderWidth: 1,
-          borderColor: PotatoPalette.bg.border,
+          borderColor: BadmintonPalette.bg.border,
         },
       }}
     >
@@ -91,27 +93,9 @@ const _layout = () => {
       <Tabs.Screen
         name="activity"
         options={{
-          title: "Activities",
+          title: "Activity",
           tabBarIcon: ({ focused }) => (
-            <TabIcon focused={focused} type="activity" title="Activities" />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="players"
-        options={{
-          title: "Players",
-          tabBarIcon: ({ focused }) => (
-            <TabIcon focused={focused} type="players" title="Players" />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="courts"
-        options={{
-          title: "Courts",
-          tabBarIcon: ({ focused }) => (
-            <TabIcon focused={focused} type="courts" title="Courts" />
+            <TabIcon focused={focused} type="activity" title="Activity" />
           ),
         }}
       />
