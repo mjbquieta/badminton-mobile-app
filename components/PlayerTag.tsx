@@ -8,10 +8,12 @@ import PlayerLevelBadge from "./PlayerLevelBadge";
 const PlayerTag = ({
   name,
   level,
+  gameCount,
   onDeleteTag,
 }: {
   name: string;
   level?: PlayerLevel;
+  gameCount?: number;
   onDeleteTag?: () => void;
 }) => {
   return (
@@ -21,13 +23,28 @@ const PlayerTag = ({
       </View>
 
       <View className="flex-shrink">
-        <Text
-          className="text-sm font-semibold"
-          style={{ color: BadmintonPalette.text.primary }}
-          numberOfLines={1}
-        >
-          {name}
-        </Text>
+        <View className="flex-row items-center">
+          <Text
+            className="text-sm font-semibold"
+            style={{ color: BadmintonPalette.text.primary }}
+            numberOfLines={1}
+          >
+            {name}
+          </Text>
+          {typeof gameCount === "number" && (
+            <View
+              className="ml-1.5 px-1.5 py-0.5 rounded"
+              style={{ backgroundColor: `${BadmintonPalette.court.lime}20` }}
+            >
+              <Text
+                className="text-[10px] font-bold"
+                style={{ color: BadmintonPalette.court.lime }}
+              >
+                {gameCount}
+              </Text>
+            </View>
+          )}
+        </View>
         {level ? <PlayerLevelBadge level={level} size="xs" /> : null}
       </View>
 

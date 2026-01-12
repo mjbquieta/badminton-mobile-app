@@ -3,7 +3,7 @@ import AntDesign from "@expo/vector-icons/AntDesign";
 import FontAwesome5 from "@expo/vector-icons/FontAwesome5";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import React from "react";
-import { TextInput, View } from "react-native";
+import { Keyboard, TextInput, View } from "react-native";
 
 interface Props {
   type: "player" | "court" | "search";
@@ -11,6 +11,8 @@ interface Props {
   onPress?: () => void;
   value?: string;
   onChangeText?: (text: string) => void;
+  onSubmitEditing?: () => void;
+  blurOnSubmit?: boolean;
 }
 
 const AddInput = ({
@@ -19,18 +21,16 @@ const AddInput = ({
   onPress,
   value,
   onChangeText,
+  onSubmitEditing,
+  blurOnSubmit = true,
 }: Props) => {
   const iconColor = BadmintonPalette.court.lime;
-  
+
   let icon = null;
   switch (type) {
     case "court":
       icon = (
-        <MaterialCommunityIcons
-          name="badminton"
-          size={18}
-          color={iconColor}
-        />
+        <MaterialCommunityIcons name="badminton" size={18} color={iconColor} />
       );
       break;
     case "search":
@@ -43,13 +43,7 @@ const AddInput = ({
       );
       break;
     default:
-      icon = (
-        <AntDesign
-          name="user"
-          size={18}
-          color={iconColor}
-        />
-      );
+      icon = <AntDesign name="user" size={18} color={iconColor} />;
   }
 
   return (
@@ -61,12 +55,19 @@ const AddInput = ({
       <TextInput
         onPress={onPress}
         onChangeText={onChangeText}
+        onSubmitEditing={() => {
+          if (blurOnSubmit) {
+            Keyboard.dismiss();
+          }
+          onSubmitEditing?.();
+        }}
+        returnKeyType={type === "search" ? "search" : "done"}
         placeholder={placeholder}
         placeholderTextColor={BadmintonPalette.text.muted}
         value={value}
         className="flex-1"
-        style={{ 
-          fontSize: 16, 
+        style={{
+          fontSize: 16,
           color: BadmintonPalette.text.primary,
         }}
       />

@@ -35,6 +35,7 @@ export const BadmintonPalette = {
   accent: {
     primary: "#FFD400",   // Primary CTA, shuttlecock yellow
     success: "#22C55E",   // Confirmations, "End Game", queue ready
+    warning: "#F97316",   // Warnings, dissolve, non-destructive caution
     danger: "#EF4444",    // Errors, faults, removals
     info: "#3B82F6",      // Informational states
   },

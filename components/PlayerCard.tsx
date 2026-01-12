@@ -1,4 +1,5 @@
 import AntDesign from "@expo/vector-icons/AntDesign";
+import FontAwesome5 from "@expo/vector-icons/FontAwesome5";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 
 import PlayerLevelBadge from "@/components/PlayerLevelBadge";
@@ -36,6 +37,7 @@ const statusConfig = {
 const PlayerCard = ({
   name,
   onDelete,
+  onEditLevel,
   status,
   gameCount,
   level,
@@ -43,6 +45,7 @@ const PlayerCard = ({
 }: {
   name: string;
   onDelete?: () => void;
+  onEditLevel?: () => void;
   status: PlayerStatus;
   gameCount: number;
   level: PlayerLevel;
@@ -55,11 +58,8 @@ const PlayerCard = ({
       : config.label;
 
   return (
-    <TouchableOpacity
-      className="bg-secondary rounded-2xl overflow-hidden border border-dark-100 active:bg-dark-200"
-      onPress={onDelete}
-      activeOpacity={0.7}
-    >
+    <View className="bg-secondary rounded-2xl overflow-hidden border border-dark-100">
+      {/* Player Info Section */}
       <View className="flex-row items-center p-4">
         {/* Avatar */}
         <View className="size-12 rounded-xl bg-court-deep/20 items-center justify-center mr-4">
@@ -117,7 +117,54 @@ const PlayerCard = ({
           </Text>
         </View>
       </View>
-    </TouchableOpacity>
+
+      {/* Actions Section */}
+      <View className="flex-row items-center px-4 pb-4" style={{ gap: 8 }}>
+        {/* Edit Level Button */}
+        {onEditLevel && (
+          <TouchableOpacity
+            className="flex-1 flex-row items-center justify-center py-2.5 rounded-xl bg-info/10 border border-info/30 active:bg-info/20"
+            onPress={onEditLevel}
+            accessibilityRole="button"
+            accessibilityLabel={`Edit level for ${name}`}
+          >
+            <MaterialCommunityIcons
+              name="pencil"
+              size={14}
+              color={BadmintonPalette.accent.info}
+            />
+            <Text
+              className="text-sm font-bold ml-1.5"
+              style={{ color: BadmintonPalette.accent.info }}
+            >
+              Edit Level
+            </Text>
+          </TouchableOpacity>
+        )}
+
+        {/* Delete Button */}
+        {onDelete && (
+          <TouchableOpacity
+            className="flex-1 flex-row items-center justify-center py-2.5 rounded-xl bg-danger/10 border border-danger/30 active:bg-danger/20"
+            onPress={onDelete}
+            accessibilityRole="button"
+            accessibilityLabel={`Delete ${name}`}
+          >
+            <FontAwesome5
+              name="trash-alt"
+              size={12}
+              color={BadmintonPalette.accent.danger}
+            />
+            <Text
+              className="text-sm font-bold ml-1.5"
+              style={{ color: BadmintonPalette.accent.danger }}
+            >
+              Delete
+            </Text>
+          </TouchableOpacity>
+        )}
+      </View>
+    </View>
   );
 };
 

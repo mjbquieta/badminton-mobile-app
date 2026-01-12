@@ -7,6 +7,7 @@ import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import React, { useEffect, useMemo, useState } from "react";
 import {
   FlatList,
+  Keyboard,
   Modal,
   Pressable,
   Text,
@@ -64,7 +65,10 @@ const ManualAddPlayersModal = ({
     >
       <Pressable
         className="flex-1 items-center justify-center bg-black/70 px-5"
-        onPress={onClose}
+        onPress={() => {
+          Keyboard.dismiss();
+          onClose();
+        }}
       >
         <Pressable
           className="w-full max-w-xl rounded-2xl bg-secondary border border-dark-100 overflow-hidden"
@@ -131,6 +135,7 @@ const ManualAddPlayersModal = ({
               <FlatList
                 data={filteredPlayers}
                 keyExtractor={(item) => item.id}
+                keyboardShouldPersistTaps="handled"
                 style={{ maxHeight: 320 }}
                 contentContainerStyle={{ gap: 8, paddingVertical: 12 }}
                 renderItem={({ item }) => {
@@ -205,11 +210,14 @@ const ManualAddPlayersModal = ({
           <View className="flex-row items-center p-4 border-t border-dark-100" style={{ gap: 12 }}>
             <TouchableOpacity
               className="flex-1 py-3 rounded-xl border border-dark-100 bg-dark-200 items-center active:bg-dark-100"
-              onPress={onClose}
+              onPress={() => {
+                Keyboard.dismiss();
+                onClose();
+              }}
               accessibilityRole="button"
               accessibilityLabel="Cancel"
             >
-              <Text 
+              <Text
                 className="font-bold"
                 style={{ color: BadmintonPalette.text.secondary }}
               >
@@ -224,7 +232,10 @@ const ManualAddPlayersModal = ({
                   ? "bg-accent active:opacity-80"
                   : "bg-dark-100",
               ].join(" ")}
-              onPress={() => onConfirm(selectedIds)}
+              onPress={() => {
+                Keyboard.dismiss();
+                onConfirm(selectedIds);
+              }}
               disabled={selectedIds.length === 0}
               accessibilityRole="button"
               accessibilityLabel="Add selected players"

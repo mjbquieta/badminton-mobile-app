@@ -39,7 +39,11 @@ const toastConfig: Record<
 > = {
   success: {
     icon: (
-      <AntDesign name="checkcircle" size={18} color={BadmintonPalette.accent.success} />
+      <AntDesign
+        name="check-circle"
+        size={18}
+        color={BadmintonPalette.accent.success}
+      />
     ),
     bgColor: `${BadmintonPalette.accent.success}15`,
     borderColor: `${BadmintonPalette.accent.success}40`,
@@ -57,7 +61,11 @@ const toastConfig: Record<
   },
   info: {
     icon: (
-      <AntDesign name="infocirlce" size={18} color={BadmintonPalette.accent.info} />
+      <AntDesign
+        name="info-circle"
+        size={18}
+        color={BadmintonPalette.accent.info}
+      />
     ),
     bgColor: `${BadmintonPalette.accent.info}15`,
     borderColor: `${BadmintonPalette.accent.info}40`,
@@ -70,7 +78,7 @@ export const ToastProvider = ({ children }: { children: React.ReactNode }) => {
   const [visible, setVisible] = useState(false);
   const translateY = useRef(new Animated.Value(-100)).current;
   const opacity = useRef(new Animated.Value(0)).current;
-  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const showToast = useCallback(
     ({ message, type = "success", duration = 2500 }: ToastConfig) => {
@@ -119,7 +127,9 @@ export const ToastProvider = ({ children }: { children: React.ReactNode }) => {
     [translateY, opacity]
   );
 
-  const config = toast ? toastConfig[toast.type || "success"] : toastConfig.success;
+  const config = toast
+    ? toastConfig[toast.type || "success"]
+    : toastConfig.success;
 
   return (
     <ToastContext.Provider value={{ showToast }}>

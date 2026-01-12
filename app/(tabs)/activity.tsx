@@ -16,7 +16,11 @@ import {
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { removePlayer } from "@/store/playersSlice";
 import { setQueue } from "@/store/queueSlice";
-import { endGameAndAdvanceQueue, rollDice } from "@/store/thunks";
+import {
+  dissolveCourt,
+  endGameAndAdvanceQueue,
+  rollDice,
+} from "@/store/thunks";
 import { type Player, type PlayerLevel } from "@/types/players";
 import { shuffle } from "@/utils/shuffle";
 import Feather from "@expo/vector-icons/Feather";
@@ -51,7 +55,12 @@ const QueueCard = ({
 }: {
   queueNumber: number;
   playersText: string;
-  players?: { id: string; name: string; level?: PlayerLevel }[];
+  players?: {
+    id: string;
+    name: string;
+    level?: PlayerLevel;
+    gameCount?: number;
+  }[];
   assignedCourtText: string;
   variant: QueueCardVariant;
   onEndGame?: () => void;
@@ -117,6 +126,7 @@ const QueueCard = ({
                   key={p.id}
                   name={p.name}
                   level={p.level}
+                  gameCount={p.gameCount}
                   onDeleteTag={
                     onRemovePlayer && !isInGame
                       ? () => onRemovePlayer(p.id)
@@ -368,8 +378,8 @@ const activity = () => {
 
   const tabs = [
     { key: "queueing", label: "Queue" },
-    { key: "players", label: "Players" },
-    { key: "in_games", label: "Courts" },
+    // { key: "players", label: "Players" },
+    { key: "in_games", label: "In Games" },
   ] as const;
 
   return (
@@ -515,7 +525,7 @@ const activity = () => {
                 onEndGame={() => {
                   ConfirmationAlert({
                     title: "End Game",
-                    message: `End the game on ${item.name}?`,
+                    message: `Mark the game on ${item.name} as finished and count the players' games?`,
                     onConfirm: () => {
                       animatePlayersUpdate();
                       const result = dispatch(
@@ -531,6 +541,20 @@ const activity = () => {
                           "Use Auto Assign to add more players from the bench."
                         );
                       }
+                    },
+                  });
+                }}
+                onDissolve={() => {
+                  ConfirmationAlert({
+                    title: "Dissolve Game",
+                    message: `Send players on ${item.name} back to the bench? Games will NOT be counted.`,
+                    onConfirm: () => {
+                      animatePlayersUpdate();
+                      dispatch(dissolveCourt(item.id));
+                      showToast({
+                        type: "info",
+                        message: `${item.name} dissolved`,
+                      });
                     },
                   });
                 }}
@@ -774,6 +798,7 @@ const activity = () => {
                           id: p.id,
                           name: p.name,
                           level: fullPlayer?.level,
+                          gameCount: fullPlayer?.gameCount,
                         };
                       });
                       const names = court.players.map((p) => p.name).join(", ");
@@ -838,6 +863,7 @@ const activity = () => {
                           id,
                           name: player?.name ?? "Unknown",
                           level: player?.level,
+                          gameCount: player?.gameCount,
                         };
                       });
                       const isIncomplete = g.ids.length < 4;

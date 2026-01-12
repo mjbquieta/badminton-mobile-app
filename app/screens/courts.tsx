@@ -1,3 +1,4 @@
+import AddCourtModal from "@/components/AddCourtModal";
 import ConfirmationAlert from "@/components/ConfirmationAlert";
 import CourtCard from "@/components/CourtCard";
 import ManualAddPlayersModal from "@/components/ManualAddPlayersModal";
@@ -14,7 +15,7 @@ import {
   removePlayerFromCourt,
 } from "@/store/courtSlice";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
-import { endGameAndAdvanceQueue } from "@/store/thunks";
+import { dissolveCourt, endGameAndAdvanceQueue } from "@/store/thunks";
 import { type Player } from "@/types/players";
 import { shuffle } from "@/utils/shuffle";
 import AntDesign from "@expo/vector-icons/AntDesign";
@@ -25,7 +26,6 @@ import {
   FlatList,
   LayoutAnimation,
   Platform,
-  Pressable,
   Text,
   TouchableOpacity,
   UIManager,
@@ -34,8 +34,6 @@ import {
 import "react-native-get-random-values";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { v4 as uuidv4 } from "uuid";
-
-type CourtType = "singles" | "doubles";
 
 export const CourtsContent = ({
   contentContainerClassName = "p-6",
@@ -47,7 +45,7 @@ export const CourtsContent = ({
   const players = useAppSelector((s: RootState) => s.players.items);
   const queueIds = useAppSelector((s: RootState) => s.queue.ids);
   const sliceError = useAppSelector((s: RootState) => s.courts.error);
-  const [selectedType, setSelectedType] = useState<CourtType>("doubles");
+  const [showAddModal, setShowAddModal] = useState<boolean>(false);
   const [manualAdd, setManualAdd] = useState<{
     visible: boolean;
     courtId: string | null;
@@ -75,9 +73,8 @@ export const CourtsContent = ({
     ]);
   }, [sliceError, dispatch]);
 
-  const onAddCourt = () => {
+  const onAddCourt = (isSingle: boolean) => {
     const name = `Court ${courts.length + 1}`;
-    const isSingle = selectedType === "singles";
 
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     dispatch(
@@ -112,164 +109,24 @@ export const CourtsContent = ({
     ? Math.max(0, (activeCourt.isSingle ? 2 : 4) - activeCourt.players.length)
     : 0;
 
-  const courtTypeOptions: {
-    type: CourtType;
-    label: string;
-    players: string;
-    icon: string;
-    color: string;
-  }[] = [
-    {
-      type: "singles",
-      label: "Singles",
-      players: "1 vs 1",
-      icon: "account",
-      color: BadmintonPalette.accent.info,
-    },
-    {
-      type: "doubles",
-      label: "Doubles",
-      players: "2 vs 2",
-      icon: "account-group",
-      color: BadmintonPalette.accent.primary,
-    },
-  ];
-
   return (
     <View className={`flex-1 bg-primary ${contentContainerClassName}`}>
-      {/* Add Court Section */}
-      <View className="bg-secondary border border-dark-100 rounded-2xl overflow-hidden mb-6">
-        {/* Header */}
-        <View className="p-4 border-b border-dark-100">
-          <Text
-            className="text-base font-bold"
-            style={{ color: BadmintonPalette.text.primary }}
-          >
-            Add New Court
-          </Text>
-          <Text
-            className="text-xs mt-0.5"
-            style={{ color: BadmintonPalette.text.muted }}
-          >
-            Select match type and tap add
-          </Text>
-        </View>
-
-        {/* Court Type Selection */}
-        <View className="p-4">
-          <Text
-            className="text-xs font-medium mb-3"
-            style={{ color: BadmintonPalette.text.secondary }}
-          >
-            Match Type
-          </Text>
-
-          <View className="flex-row" style={{ gap: 12 }}>
-            {courtTypeOptions.map((option) => {
-              const isSelected = selectedType === option.type;
-              return (
-                <Pressable
-                  key={option.type}
-                  onPress={() => setSelectedType(option.type)}
-                  className="flex-1 rounded-xl p-4"
-                  style={{
-                    backgroundColor: isSelected
-                      ? `${option.color}15`
-                      : BadmintonPalette.bg.elevated,
-                    borderWidth: 2,
-                    borderColor: isSelected ? option.color : "transparent",
-                  }}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Select ${option.label}`}
-                  accessibilityState={{ selected: isSelected }}
-                >
-                  {/* Icon */}
-                  <View
-                    className="size-10 rounded-xl items-center justify-center mb-3"
-                    style={{
-                      backgroundColor: isSelected
-                        ? option.color
-                        : `${option.color}20`,
-                    }}
-                  >
-                    <MaterialCommunityIcons
-                      name={option.icon as any}
-                      size={22}
-                      color={isSelected ? BadmintonPalette.bg.base : option.color}
-                    />
-                  </View>
-
-                  {/* Label */}
-                  <Text
-                    className="text-base font-bold"
-                    style={{
-                      color: isSelected
-                        ? option.color
-                        : BadmintonPalette.text.primary,
-                    }}
-                  >
-                    {option.label}
-                  </Text>
-
-                  {/* Player count */}
-                  <Text
-                    className="text-sm mt-0.5"
-                    style={{
-                      color: isSelected
-                        ? option.color
-                        : BadmintonPalette.text.muted,
-                    }}
-                  >
-                    {option.players}
-                  </Text>
-
-                  {/* Selection indicator */}
-                  {isSelected && (
-                    <View
-                      className="absolute top-3 right-3 size-5 rounded-full items-center justify-center"
-                      style={{ backgroundColor: option.color }}
-                    >
-                      <AntDesign
-                        name="check"
-                        size={12}
-                        color={BadmintonPalette.bg.base}
-                      />
-                    </View>
-                  )}
-                </Pressable>
-              );
-            })}
-          </View>
-        </View>
-
-        {/* Add Button */}
-        <View className="px-4 pb-4">
-          <TouchableOpacity
-            onPress={onAddCourt}
-            className="flex-row items-center justify-center py-3.5 rounded-xl"
-            style={{
-              backgroundColor:
-                selectedType === "singles"
-                  ? BadmintonPalette.accent.info
-                  : BadmintonPalette.accent.primary,
-            }}
-            accessibilityRole="button"
-            accessibilityLabel="Add court"
-          >
-            <AntDesign
-              name="plus"
-              size={18}
-              color={BadmintonPalette.bg.base}
-            />
-            <Text
-              className="text-sm font-bold ml-2"
-              style={{ color: BadmintonPalette.bg.base }}
-            >
-              Add {selectedType === "singles" ? "Singles" : "Doubles"} Court
-            </Text>
-          </TouchableOpacity>
-        </View>
-      </View>
+      {/* Add Court Button */}
+      <TouchableOpacity
+        onPress={() => setShowAddModal(true)}
+        className="flex-row items-center justify-center py-3.5 rounded-2xl mb-6"
+        style={{ backgroundColor: BadmintonPalette.accent.primary }}
+        accessibilityRole="button"
+        accessibilityLabel="Add court"
+      >
+        <AntDesign name="plus" size={18} color={BadmintonPalette.bg.base} />
+        <Text
+          className="text-base font-bold ml-2"
+          style={{ color: BadmintonPalette.bg.base }}
+        >
+          Add Court
+        </Text>
+      </TouchableOpacity>
 
       {/* Courts List */}
       {courts.length > 0 && (
@@ -366,7 +223,7 @@ export const CourtsContent = ({
                 onEndGame={() => {
                   ConfirmationAlert({
                     title: "End Game",
-                    message: `End the game on ${item.name}?`,
+                    message: `Mark the game on ${item.name} as finished and count the players' games?`,
                     onConfirm: () => {
                       animatePlayersUpdate();
                       const result = dispatch(
@@ -378,6 +235,16 @@ export const CourtsContent = ({
                           "Use Auto Assign to add more players from the bench."
                         );
                       }
+                    },
+                  });
+                }}
+                onDissolve={() => {
+                  ConfirmationAlert({
+                    title: "Dissolve Game",
+                    message: `Send players on ${item.name} back to the bench? Games will NOT be counted.`,
+                    onConfirm: () => {
+                      animatePlayersUpdate();
+                      dispatch(dissolveCourt(item.id));
                     },
                   });
                 }}
@@ -421,10 +288,16 @@ export const CourtsContent = ({
             className="text-sm text-center"
             style={{ color: BadmintonPalette.text.muted }}
           >
-            Select a match type above to add your first court
+            Tap "Add Court" to add your first court
           </Text>
         </View>
       )}
+
+      <AddCourtModal
+        visible={showAddModal}
+        onClose={() => setShowAddModal(false)}
+        onAdd={onAddCourt}
+      />
 
       <ManualAddPlayersModal
         visible={manualAdd.visible}

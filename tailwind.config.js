@@ -43,7 +43,7 @@ module.exports = {
         success: "#22C55E",
         danger: "#EF4444",
         info: "#3B82F6",
-        warning: "#F59E0B",
+        warning: "#F97316",
         
         // Player levels
         beginner: "#22C55E",

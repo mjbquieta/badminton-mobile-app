@@ -1,5 +1,7 @@
 import AddPInput from "@/components/AddInput";
+import AddPlayerModal from "@/components/AddPlayerModal";
 import ConfirmationAlert from "@/components/ConfirmationAlert";
+import EditPlayerLevelModal from "@/components/EditPlayerLevelModal";
 import PlayerCard from "@/components/PlayerCard";
 import { useToast } from "@/components/Toast";
 import { BadmintonPalette } from "@/constants/palette";
@@ -10,9 +12,10 @@ import {
   clearPlayers,
   clearPlayersError,
   removePlayer,
+  updatePlayerLevel,
 } from "@/store/playersSlice";
 import { clearQueue, setQueue } from "@/store/queueSlice";
-import { PlayerLevel } from "@/types/players";
+import { Player, PlayerLevel } from "@/types/players";
 import AntDesign from "@expo/vector-icons/AntDesign";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import React, { useEffect, useMemo, useState } from "react";
@@ -21,7 +24,6 @@ import {
   FlatList,
   LayoutAnimation,
   Platform,
-  Pressable,
   Text,
   TouchableOpacity,
   UIManager,
@@ -30,26 +32,6 @@ import {
 import "react-native-get-random-values";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { v4 as uuidv4 } from "uuid";
-
-// Compact inline level selector
-const levelOptions: { value: PlayerLevel; label: string; color: string }[] = [
-  {
-    value: PlayerLevel.BEGINNER,
-    label: "B",
-    color: BadmintonPalette.levels.beginner,
-  },
-  {
-    value: PlayerLevel.INTERMEDIATE,
-    label: "I",
-    color: BadmintonPalette.levels.intermediate,
-  },
-  {
-    value: PlayerLevel.ADVANCED,
-    label: "A",
-    color: BadmintonPalette.levels.advanced,
-  },
-  { value: PlayerLevel.PRO, label: "P", color: BadmintonPalette.levels.pro },
-];
 
 const levelLabels: Record<PlayerLevel, string> = {
   [PlayerLevel.BEGINNER]: "Beginner",
@@ -63,11 +45,9 @@ export const PlayersContent = ({
 }: {
   contentContainerClassName?: string;
 }) => {
-  const [newPlayerName, setNewPlayerName] = useState<string>("");
-  const [selectedLevel, setSelectedLevel] = useState<PlayerLevel>(
-    PlayerLevel.BEGINNER
-  );
   const [searchQuery, setSearchQuery] = useState<string>("");
+  const [showAddModal, setShowAddModal] = useState<boolean>(false);
+  const [editingPlayer, setEditingPlayer] = useState<Player | null>(null);
 
   const dispatch = useAppDispatch();
   const { showToast } = useToast();
@@ -119,130 +99,44 @@ export const PlayersContent = ({
     ]);
   }, [sliceError, dispatch]);
 
-  const handleAddPlayer = () => {
-    const trimmed = newPlayerName.trim();
-    if (!trimmed) return;
+  const handleAddPlayer = (name: string, level: PlayerLevel) => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    dispatch(addPlayer({ id: uuidv4(), name: trimmed, level: selectedLevel }));
-    setNewPlayerName("");
+    dispatch(addPlayer({ id: uuidv4(), name, level }));
     showToast({
-      message: `${trimmed} added as ${levelLabels[selectedLevel]}`,
+      message: `${name} added as ${levelLabels[level]}`,
       type: "success",
     });
   };
 
-  const canAdd = newPlayerName.trim().length > 0;
-  const selectedLevelColor =
-    levelOptions.find((l) => l.value === selectedLevel)?.color ||
-    BadmintonPalette.court.lime;
+  const handleUpdateLevel = (playerId: string, newLevel: PlayerLevel) => {
+    const player = players.find((p) => p.id === playerId);
+    if (!player) return;
+
+    dispatch(updatePlayerLevel({ id: playerId, level: newLevel }));
+    showToast({
+      message: `${player.name} updated to ${levelLabels[newLevel]}`,
+      type: "success",
+    });
+  };
 
   return (
     <View className={`flex-1 bg-primary ${contentContainerClassName}`}>
-      {/* Simplified Add Player Form */}
-      <View className="bg-secondary border border-dark-100 rounded-2xl overflow-hidden mb-6">
-        {/* Input Row */}
-        <View className="p-4">
-          <AddPInput
-            type="player"
-            placeholder="Enter player name..."
-            value={newPlayerName}
-            onChangeText={(text) => {
-              setNewPlayerName(text);
-              dispatch(clearPlayersError());
-            }}
-          />
-        </View>
-
-        {/* Level & Add Row */}
-        <View className="flex-row items-center px-4 pb-4">
-          {/* Level Pills */}
-          <View className="flex-1">
-            <View className="flex-row items-center">
-              <Text
-                className="text-xs font-medium mr-3"
-                style={{ color: BadmintonPalette.text.muted }}
-              >
-                Level:
-              </Text>
-              <View className="flex-row" style={{ gap: 8 }}>
-                {levelOptions.map((option) => {
-                  const isSelected = selectedLevel === option.value;
-                  return (
-                    <Pressable
-                      key={option.value}
-                      onPress={() => setSelectedLevel(option.value)}
-                      className="items-center justify-center rounded-lg"
-                      style={{
-                        width: 36,
-                        height: 36,
-                        backgroundColor: isSelected
-                          ? option.color
-                          : `${option.color}15`,
-                        borderWidth: isSelected ? 0 : 1,
-                        borderColor: `${option.color}40`,
-                      }}
-                      accessibilityRole="button"
-                      accessibilityLabel={`Select ${
-                        levelLabels[option.value]
-                      } level`}
-                      accessibilityState={{ selected: isSelected }}
-                    >
-                      <Text
-                        className="text-sm font-bold"
-                        style={{
-                          color: isSelected
-                            ? BadmintonPalette.bg.base
-                            : option.color,
-                        }}
-                      >
-                        {option.label}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
-            </View>
-            <Text
-              className="text-xs font-medium mt-1.5 ml-10"
-              style={{ color: selectedLevelColor }}
-            >
-              {levelLabels[selectedLevel]}
-            </Text>
-          </View>
-
-          {/* Add Button */}
-          <TouchableOpacity
-            onPress={handleAddPlayer}
-            disabled={!canAdd}
-            className="flex-row items-center px-4 py-2 rounded-xl"
-            style={{
-              backgroundColor: canAdd
-                ? BadmintonPalette.accent.primary
-                : BadmintonPalette.bg.elevated,
-            }}
-            accessibilityRole="button"
-            accessibilityLabel="Add player"
-          >
-            <AntDesign
-              name="plus"
-              size={16}
-              color={
-                canAdd ? BadmintonPalette.bg.base : BadmintonPalette.text.muted
-              }
-            />
-            <Text
-              className="text-sm font-bold ml-1"
-              style={{
-                color: canAdd
-                  ? BadmintonPalette.bg.base
-                  : BadmintonPalette.text.muted,
-              }}
-            >
-              Add
-            </Text>
-          </TouchableOpacity>
-        </View>
-      </View>
+      {/* Add Player Button */}
+      <TouchableOpacity
+        onPress={() => setShowAddModal(true)}
+        className="flex-row items-center justify-center py-3.5 rounded-2xl mb-6"
+        style={{ backgroundColor: BadmintonPalette.accent.primary }}
+        accessibilityRole="button"
+        accessibilityLabel="Add player"
+      >
+        <AntDesign name="plus" size={18} color={BadmintonPalette.bg.base} />
+        <Text
+          className="text-base font-bold ml-2"
+          style={{ color: BadmintonPalette.bg.base }}
+        >
+          Add Player
+        </Text>
+      </TouchableOpacity>
 
       {/* Players List */}
       {players.length > 0 && (
@@ -330,6 +224,7 @@ export const PlayersContent = ({
                 level={item.level}
                 status={statusMetaById[item.id]?.status ?? "bench"}
                 courtName={statusMetaById[item.id]?.courtName}
+                onEditLevel={() => setEditingPlayer(item)}
                 onDelete={() => {
                   const meta = statusMetaById[item.id];
                   const status = meta?.status ?? "bench";
@@ -408,10 +303,28 @@ export const PlayersContent = ({
             className="text-sm text-center"
             style={{ color: BadmintonPalette.text.muted }}
           >
-            Enter a name above to add your first player
+            Tap "Add Player" to add your first player
           </Text>
         </View>
       )}
+
+      <AddPlayerModal
+        visible={showAddModal}
+        onClose={() => setShowAddModal(false)}
+        onAdd={handleAddPlayer}
+      />
+
+      <EditPlayerLevelModal
+        visible={editingPlayer !== null}
+        onClose={() => setEditingPlayer(null)}
+        onSave={(newLevel) => {
+          if (editingPlayer) {
+            handleUpdateLevel(editingPlayer.id, newLevel);
+          }
+        }}
+        playerName={editingPlayer?.name ?? ""}
+        currentLevel={editingPlayer?.level ?? PlayerLevel.BEGINNER}
+      />
     </View>
   );
 };

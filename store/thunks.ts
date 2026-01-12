@@ -266,3 +266,17 @@ export const endGameAndAdvanceQueue =
 		const warnedQueueEmpty = false;
 		return { warnedQueueEmpty };
 	};
+
+/**
+ * Dissolves a court by removing all players and sending them back to the bench.
+ * Does NOT count games - use this when the game didn't happen or was cancelled.
+ */
+export const dissolveCourt =
+	(courtId: string) => (dispatch: AppDispatch, getState: () => RootState) => {
+		const state = getState();
+		const court = state.courts.items.find((c) => c.id === courtId);
+		if (!court || court.players.length === 0) return;
+
+		const playerIds = court.players.map((p) => p.id);
+		dispatch(endGame(playerIds));
+	};

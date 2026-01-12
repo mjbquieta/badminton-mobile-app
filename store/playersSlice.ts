@@ -194,6 +194,16 @@ const playersSlice = createSlice({
 			state.items = [];
 			state.error = null;
 		},
+		updatePlayerLevel: (
+			state,
+			action: PayloadAction<{ id: string; level: PlayerLevel }>
+		) => {
+			const player = state.items.find((p) => p.id === action.payload.id);
+			if (player) {
+				player.level = action.payload.level;
+			}
+			state.error = null;
+		},
 	},
 });
 
@@ -205,5 +215,6 @@ export const {
 	setPlayersError,
 	clearPlayersError,
 	clearPlayers,
+	updatePlayerLevel,
 } = playersSlice.actions;
 export const playersReducer = playersSlice.reducer;
