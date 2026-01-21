@@ -1,8 +1,23 @@
-# Welcome to your Expo app 👋
+# Patatas
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+A mobile app for managing badminton sessions. It tracks players and their skill levels, organizes them into fair matchups, and rotates them through available courts using a smart queue system. The app helps organizers ensure everyone gets equal playing time while being matched with players of similar skill.
 
-## Get started
+## Features
+
+- **Player Management** - Add players with skill levels ranging from Beginner to Pro and track their game counts
+- **Court Management** - Create and manage multiple courts for singles or doubles play
+- **Smart Queue System** - Automatically groups players and matches them based on compatible skill levels
+- **Dashboard** - View real-time stats on players in game, in queue, on bench, and court availability
+
+## Tech Stack
+
+- React Native with Expo
+- Redux Toolkit for state management
+- Expo Router for navigation
+- NativeWind (TailwindCSS) for styling
+- TypeScript
+
+## Get Started
 
 1. Install dependencies
 
@@ -16,35 +31,9 @@ This is an [Expo](https://expo.dev) project created with [`create-expo-app`](htt
    npx expo start
    ```
 
-In the output, you'll find options to open the app in a
+You can then open the app in:
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
+- [Development build](https://docs.expo.dev/develop/development-builds/introduction/)
 - [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
 - [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
-
-```bash
-npm run reset-project
-```
-
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
-
-## Learn more
-
-To learn more about developing your project with Expo, look at the following resources:
-
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+- [Expo Go](https://expo.dev/go)
