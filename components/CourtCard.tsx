@@ -14,7 +14,9 @@ const CourtCard = ({
   onDelete,
   onEndGame,
   onDissolve,
+  onBackToQueue,
   onAssignPlayers,
+  onAssignFromQueue,
   onDeleteTag,
   onManuallyAddPlayers,
 }: {
@@ -25,7 +27,9 @@ const CourtCard = ({
   onDeleteTag?: (playerId: string) => void;
   onEndGame?: () => void;
   onDissolve?: () => void;
+  onBackToQueue?: () => void;
   onAssignPlayers?: () => void;
+  onAssignFromQueue?: () => void;
   onManuallyAddPlayers?: () => void;
 }) => {
   const matchLabel = isSingle ? "Singles" : "Doubles";
@@ -38,8 +42,8 @@ const CourtCard = ({
   const borderClass = isCourtFull
     ? "border-success/50"
     : isCourtEmpty
-    ? "border-dark-100"
-    : "border-accent/50";
+      ? "border-dark-100"
+      : "border-accent/50";
 
   const matchTypeColor = isSingle
     ? BadmintonPalette.accent.info
@@ -110,7 +114,7 @@ const CourtCard = ({
         </Text>
 
         {players.length === 0 ? (
-          <View className="py-3 px-3 rounded-xl bg-dark-200 border border-dashed border-dark-100">
+          <View className="py-3 px-3 rounded-xl bg-dark-200 border-4 border-dashed border-dark-100">
             <Text
               className="text-sm text-center"
               style={{ color: BadmintonPalette.text.muted }}
@@ -145,91 +149,139 @@ const CourtCard = ({
         <View style={{ gap: 8 }}>
           {/* Primary Actions Row */}
           {isCourtFull ? (
-            // When court is full: Finish Game and Dissolve buttons
-            <View className="flex-row" style={{ gap: 8 }}>
-              {onEndGame && (
-                <TouchableOpacity
-                  onPress={onEndGame}
-                  className="flex-1 flex-row items-center justify-center py-2.5 rounded-xl bg-success active:opacity-80"
-                  accessibilityRole="button"
-                  accessibilityLabel="Finish game"
-                >
-                  <AntDesign
-                    name="check"
-                    size={16}
-                    color={BadmintonPalette.bg.base}
-                  />
-                  <Text
-                    className="text-sm font-bold ml-1.5"
-                    style={{ color: BadmintonPalette.bg.base }}
+            // When court is full: Finish Game, Dissolve, and Back to Queue buttons
+            <View style={{ gap: 8 }}>
+              <View className="flex-row" style={{ gap: 8 }}>
+                {onEndGame && (
+                  <TouchableOpacity
+                    onPress={onEndGame}
+                    className="flex-1 flex-row items-center justify-center py-2.5 rounded-xl bg-success active:opacity-80"
+                    accessibilityRole="button"
+                    accessibilityLabel="Finish game"
                   >
-                    Finish Game
-                  </Text>
-                </TouchableOpacity>
-              )}
+                    <AntDesign
+                      name="check"
+                      size={16}
+                      color={BadmintonPalette.bg.base}
+                    />
+                    <Text
+                      className="text-sm font-bold ml-1.5"
+                      style={{ color: BadmintonPalette.bg.base }}
+                    >
+                      Finish Game
+                    </Text>
+                  </TouchableOpacity>
+                )}
 
-              {onDissolve && (
+                {onDissolve && (
+                  <TouchableOpacity
+                    onPress={onDissolve}
+                    className="flex-1 flex-row items-center justify-center py-2.5 rounded-xl bg-warning/15 border border-warning/30 active:bg-warning/25"
+                    accessibilityRole="button"
+                    accessibilityLabel="Dissolve game"
+                  >
+                    <MaterialCommunityIcons
+                      name="account-off"
+                      size={16}
+                      color={BadmintonPalette.accent.warning}
+                    />
+                    <Text
+                      className="text-sm font-bold ml-1.5"
+                      style={{ color: BadmintonPalette.accent.warning }}
+                    >
+                      Dissolve
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+
+              {onBackToQueue && (
                 <TouchableOpacity
-                  onPress={onDissolve}
-                  className="flex-1 flex-row items-center justify-center py-2.5 rounded-xl bg-warning/15 border border-warning/30 active:bg-warning/25"
+                  onPress={onBackToQueue}
+                  className="flex-row items-center justify-center py-2.5 rounded-xl bg-accent/15 border border-accent/30 active:bg-accent/25"
                   accessibilityRole="button"
-                  accessibilityLabel="Dissolve game"
+                  accessibilityLabel="Back to queue"
                 >
                   <MaterialCommunityIcons
-                    name="account-off"
+                    name="reload"
                     size={16}
-                    color={BadmintonPalette.accent.warning}
+                    color={BadmintonPalette.accent.info}
                   />
                   <Text
                     className="text-sm font-bold ml-1.5"
-                    style={{ color: BadmintonPalette.accent.warning }}
+                    style={{ color: BadmintonPalette.accent.info }}
                   >
-                    Dissolve
+                    Back to Queue
                   </Text>
                 </TouchableOpacity>
               )}
             </View>
           ) : isCourtEmpty ? (
-            // When court is empty: Auto and Manual buttons
-            <View className="flex-row" style={{ gap: 8 }}>
-              {onAssignPlayers && (
+            // When court is empty: Auto, Manual, and From Queue buttons
+            <View style={{ gap: 8 }}>
+              {/* Auto Assign and Manual buttons hidden for now
+              <View className="flex-row" style={{ gap: 8 }}>
+                {onAssignPlayers && (
+                  <TouchableOpacity
+                    className="flex-1 flex-row items-center justify-center bg-accent py-2.5 rounded-xl active:opacity-80"
+                    onPress={onAssignPlayers}
+                    accessibilityRole="button"
+                    accessibilityLabel="Assign random players"
+                  >
+                    <MaterialCommunityIcons
+                      name="shuffle-variant"
+                      size={16}
+                      color={BadmintonPalette.bg.base}
+                    />
+                    <Text
+                      className="text-sm font-bold ml-1.5"
+                      style={{ color: BadmintonPalette.bg.base }}
+                    >
+                      Auto Assign
+                    </Text>
+                  </TouchableOpacity>
+                )}
+
+                {onManuallyAddPlayers && (
+                  <TouchableOpacity
+                    className="flex-1 flex-row items-center justify-center bg-dark-200 border border-dark-100 py-2.5 rounded-xl active:bg-dark-100"
+                    onPress={onManuallyAddPlayers}
+                    accessibilityRole="button"
+                    accessibilityLabel="Manually add players"
+                  >
+                    <AntDesign
+                      name="plus"
+                      size={14}
+                      color={BadmintonPalette.text.secondary}
+                    />
+                    <Text
+                      className="text-sm font-bold ml-1.5"
+                      style={{ color: BadmintonPalette.text.secondary }}
+                    >
+                      Manual
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+              */}
+
+              {onAssignFromQueue && (
                 <TouchableOpacity
-                  className="flex-1 flex-row items-center justify-center bg-accent py-2.5 rounded-xl active:opacity-80"
-                  onPress={onAssignPlayers}
+                  onPress={onAssignFromQueue}
+                  className="flex-row items-center justify-center py-2.5 rounded-xl bg-court-deep/20 border border-court-lime/30 active:bg-court-deep/30"
                   accessibilityRole="button"
-                  accessibilityLabel="Assign random players"
+                  accessibilityLabel="Assign from queue"
                 >
                   <MaterialCommunityIcons
-                    name="shuffle-variant"
+                    name="account-group"
                     size={16}
-                    color={BadmintonPalette.bg.base}
+                    color={BadmintonPalette.court.lime}
                   />
                   <Text
                     className="text-sm font-bold ml-1.5"
-                    style={{ color: BadmintonPalette.bg.base }}
+                    style={{ color: BadmintonPalette.court.lime }}
                   >
-                    Auto Assign
-                  </Text>
-                </TouchableOpacity>
-              )}
-
-              {onManuallyAddPlayers && (
-                <TouchableOpacity
-                  className="flex-1 flex-row items-center justify-center bg-dark-200 border border-dark-100 py-2.5 rounded-xl active:bg-dark-100"
-                  onPress={onManuallyAddPlayers}
-                  accessibilityRole="button"
-                  accessibilityLabel="Manually add players"
-                >
-                  <AntDesign
-                    name="plus"
-                    size={14}
-                    color={BadmintonPalette.text.secondary}
-                  />
-                  <Text
-                    className="text-sm font-bold ml-1.5"
-                    style={{ color: BadmintonPalette.text.secondary }}
-                  >
-                    Manual
+                    From Queue
                   </Text>
                 </TouchableOpacity>
               )}

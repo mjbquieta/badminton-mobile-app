@@ -2,6 +2,7 @@ import AddCourtModal from "@/components/AddCourtModal";
 import ConfirmationAlert from "@/components/ConfirmationAlert";
 import CourtCard from "@/components/CourtCard";
 import ManualAddPlayersModal from "@/components/ManualAddPlayersModal";
+import SelectQueueGroupModal, { type QueueGroup } from "@/components/SelectQueueGroupModal";
 import { useToast } from "@/components/Toast";
 import { BadmintonPalette } from "@/constants/palette";
 import { RootState } from "@/store";
@@ -15,7 +16,8 @@ import {
   removePlayerFromCourt,
 } from "@/store/courtSlice";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
-import { dissolveCourt, endGameAndAdvanceQueue } from "@/store/thunks";
+import { setQueue } from "@/store/queueSlice";
+import { backToQueue, dissolveCourt, endGameAndAdvanceQueue } from "@/store/thunks";
 import { type Player } from "@/types/players";
 import { shuffle } from "@/utils/shuffle";
 import AntDesign from "@expo/vector-icons/AntDesign";
@@ -47,6 +49,10 @@ export const CourtsContent = ({
   const sliceError = useAppSelector((s: RootState) => s.courts.error);
   const [showAddModal, setShowAddModal] = useState<boolean>(false);
   const [manualAdd, setManualAdd] = useState<{
+    visible: boolean;
+    courtId: string | null;
+  }>({ visible: false, courtId: null });
+  const [assignFromQueue, setAssignFromQueue] = useState<{
     visible: boolean;
     courtId: string | null;
   }>({ visible: false, courtId: null });
@@ -108,6 +114,31 @@ export const CourtsContent = ({
   const maxToSelect = activeCourt
     ? Math.max(0, (activeCourt.isSingle ? 2 : 4) - activeCourt.players.length)
     : 0;
+
+  const playerMap = new Map(players.map((p) => [p.id, p]));
+
+  const fullQueueGroups: QueueGroup[] = (() => {
+    const groups: QueueGroup[] = [];
+    for (let i = 0; i < queueIds.length; i += 4) {
+      const ids = queueIds.slice(i, i + 4);
+      if (ids.length === 4) {
+        groups.push({
+          index: i / 4,
+          ids,
+          players: ids.map((id) => {
+            const p = playerMap.get(id);
+            return {
+              id,
+              name: p?.name ?? "Unknown",
+              level: p?.level,
+              gameCount: p?.gameCount,
+            };
+          }),
+        });
+      }
+    }
+    return groups;
+  })();
 
   return (
     <View className={`flex-1 bg-primary ${contentContainerClassName}`}>
@@ -248,6 +279,16 @@ export const CourtsContent = ({
                     },
                   });
                 }}
+                onBackToQueue={() => {
+                  ConfirmationAlert({
+                    title: "Back to Queue",
+                    message: `Send players on ${item.name} back to the queue? Games will NOT be counted.`,
+                    onConfirm: () => {
+                      animatePlayersUpdate();
+                      dispatch(backToQueue(item.id));
+                    },
+                  });
+                }}
                 onAssignPlayers={() => {
                   animatePlayersUpdate();
                   dispatch(
@@ -261,6 +302,11 @@ export const CourtsContent = ({
                   dispatch(clearCourtsError());
                   setManualAdd({ visible: true, courtId: item.id });
                 }}
+                onAssignFromQueue={
+                  fullQueueGroups.length > 0
+                    ? () => setAssignFromQueue({ visible: true, courtId: item.id })
+                    : undefined
+                }
               />
             )}
             keyExtractor={(item) => item.id}
@@ -321,6 +367,38 @@ export const CourtsContent = ({
             })
           );
           setManualAdd({ visible: false, courtId: null });
+        }}
+      />
+
+      <SelectQueueGroupModal
+        visible={assignFromQueue.visible}
+        onClose={() => setAssignFromQueue({ visible: false, courtId: null })}
+        courtName={
+          courts.find((c) => c.id === assignFromQueue.courtId)?.name ?? ""
+        }
+        queueGroups={fullQueueGroups}
+        onSelect={(group) => {
+          if (!assignFromQueue.courtId) return;
+          const selectedPlayers = group.ids
+            .map((id) => playerMap.get(id))
+            .filter(Boolean) as Player[];
+          if (selectedPlayers.length === 0) return;
+
+          animatePlayersUpdate();
+          const groupSet = new Set(group.ids);
+          dispatch(setQueue(queueIds.filter((id) => !groupSet.has(id))));
+          dispatch(
+            addPlayersToCourtManually({
+              courtId: assignFromQueue.courtId,
+              players: selectedPlayers,
+            })
+          );
+
+          showToast({
+            type: "success",
+            message: `Queue ${group.index + 1} assigned to court`,
+          });
+          setAssignFromQueue({ visible: false, courtId: null });
         }}
       />
     </View>

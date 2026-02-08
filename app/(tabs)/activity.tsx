@@ -1,10 +1,10 @@
-import AddPInput from "@/components/AddInput";
 import ConfirmationAlert from "@/components/ConfirmationAlert";
 import CourtCard from "@/components/CourtCard";
 import ManualAddPlayersModal from "@/components/ManualAddPlayersModal";
-import PlayerCard from "@/components/PlayerCard";
-import { PlayerGameCounts } from "@/components/PlayerGameCounts";
 import PlayerTag from "@/components/PlayerTag";
+import SelectQueueGroupModal, {
+  type QueueGroup,
+} from "@/components/SelectQueueGroupModal";
 import { useToast } from "@/components/Toast";
 import { BadmintonPalette } from "@/constants/palette";
 import {
@@ -14,9 +14,9 @@ import {
   removePlayerFromCourt,
 } from "@/store/courtSlice";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
-import { removePlayer } from "@/store/playersSlice";
 import { setQueue } from "@/store/queueSlice";
 import {
+  backToQueue,
   dissolveCourt,
   endGameAndAdvanceQueue,
   rollDice,
@@ -28,7 +28,6 @@ import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
-  FlatList,
   LayoutAnimation,
   Platform,
   ScrollView,
@@ -74,10 +73,10 @@ const QueueCard = ({
 
   return (
     <View
-      className={`rounded-2xl overflow-hidden border ${
+      className={`rounded-2xl overflow-hidden ${
         isInGame
-          ? "bg-secondary border-danger/30"
-          : "bg-dark-200 border-dark-100"
+          ? "bg-secondary border border-danger/30"
+          : "bg-dark-200 border-4 border-dashed border-dark-100"
       }`}
     >
       {/* Header */}
@@ -179,12 +178,11 @@ const activity = () => {
   const players = useAppSelector((s) => s.players.items);
   const courts = useAppSelector((s) => s.courts.items);
   const queueIds = useAppSelector((s) => s.queue.ids);
-  const [activeTab, setActiveTab] = useState<
-    "queueing" | "status" | "players" | "in_games"
-  >("queueing");
-  const [playersSearchQuery, setPlayersSearchQuery] = useState<string>("");
-  const [inGamesSearchQuery, setInGamesSearchQuery] = useState<string>("");
   const [manualAdd, setManualAdd] = useState<{
+    visible: boolean;
+    courtId: string | null;
+  }>({ visible: false, courtId: null });
+  const [assignFromQueue, setAssignFromQueue] = useState<{
     visible: boolean;
     courtId: string | null;
   }>({ visible: false, courtId: null });
@@ -206,7 +204,7 @@ const activity = () => {
 
   const doublesCourtsCount = useMemo(
     () => courts.filter((c) => !c.isSingle).length,
-    [courts]
+    [courts],
   );
 
   const fullGroupsRemaining = Math.floor(queueIds.length / 4);
@@ -226,8 +224,8 @@ const activity = () => {
       "The queue is almost empty. Please re-roll the dice to add more players from the bench.",
       [
         { text: "Not now", style: "cancel" },
-        { text: "Auto Assign", onPress: () => handleRollDice() },
-      ]
+        { text: "Auto Queue", onPress: () => handleRollDice() },
+      ],
     );
   }, [isQueueAlmostEmpty, dispatch]);
 
@@ -279,8 +277,26 @@ const activity = () => {
 
   const doublesCourts = useMemo(
     () => courts.filter((c) => !c.isSingle),
-    [courts]
+    [courts],
   );
+
+  const fullQueueGroups: QueueGroup[] = useMemo(() => {
+    return queueGroups
+      .filter((g) => g.ids.length === 4)
+      .map((g) => ({
+        index: g.index,
+        ids: g.ids,
+        players: g.ids.map((id) => {
+          const p = playerMap.get(id);
+          return {
+            id,
+            name: p?.name ?? "Unknown",
+            level: p?.level,
+            gameCount: p?.gameCount,
+          };
+        }),
+      }));
+  }, [queueGroups, playerMap]);
 
   const animatePlayersUpdate = () => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.spring);
@@ -292,10 +308,6 @@ const activity = () => {
     return [...ids.slice(0, idx), ...ids.slice(idx + 1)];
   };
 
-  const activeCourt = manualAdd.courtId
-    ? courts.find((c) => c.id === manualAdd.courtId) ?? null
-    : null;
-
   const playersOnAnyCourtIds = useMemo(() => {
     return new Set(courts.flatMap((c) => c.players.map((p) => p.id)));
   }, [courts]);
@@ -303,84 +315,21 @@ const activity = () => {
   const availablePlayers: Player[] = useMemo(() => {
     const queuedIds = new Set(queueIds);
     return players.filter(
-      (p) => !playersOnAnyCourtIds.has(p.id) && !queuedIds.has(p.id)
+      (p) => !playersOnAnyCourtIds.has(p.id) && !queuedIds.has(p.id),
     );
   }, [players, playersOnAnyCourtIds, queueIds]);
+
+  const activeCourt = manualAdd.courtId
+    ? (courts.find((c) => c.id === manualAdd.courtId) ?? null)
+    : null;
 
   const maxToSelect = useMemo(() => {
     if (!activeCourt) return 0;
     return Math.max(
       0,
-      (activeCourt.isSingle ? 2 : 4) - activeCourt.players.length
+      (activeCourt.isSingle ? 2 : 4) - activeCourt.players.length,
     );
   }, [activeCourt]);
-
-  const statusByPlayerId = useMemo(() => {
-    const map: Record<
-      string,
-      { status: "in_game" | "waiting" | "bench"; courtName?: string }
-    > = {};
-
-    for (const p of players) map[p.id] = { status: "bench" };
-
-    for (const id of queueIds) {
-      if (map[id]) map[id] = { status: "waiting" };
-    }
-
-    for (const c of courts) {
-      for (const p of c.players) {
-        map[p.id] = { status: "in_game", courtName: c.name };
-      }
-    }
-
-    return map;
-  }, [courts, queueIds, players]);
-
-  const playerCardMetaById = useMemo(() => {
-    const map: Record<
-      string,
-      { status: "in_game" | "in_queue" | "bench"; courtName?: string }
-    > = {};
-
-    for (const p of players) map[p.id] = { status: "bench" };
-
-    for (const id of queueIds) {
-      if (map[id]) map[id] = { status: "in_queue" };
-    }
-
-    for (const c of courts) {
-      for (const p of c.players) {
-        map[p.id] = { status: "in_game", courtName: c.name };
-      }
-    }
-
-    return map;
-  }, [players, queueIds, courts]);
-
-  const filteredPlayers = useMemo(() => {
-    const q = playersSearchQuery.trim().toLowerCase();
-    if (!q) return players;
-    return players.filter((p) => p.name.trim().toLowerCase().includes(q));
-  }, [players, playersSearchQuery]);
-
-  const inGameCourts = useMemo(() => {
-    return courts;
-  }, [courts]);
-
-  const filteredInGameCourts = useMemo(() => {
-    const q = inGamesSearchQuery.trim().toLowerCase();
-    if (!q) return inGameCourts;
-    return inGameCourts.filter((c) => {
-      if (c.name.trim().toLowerCase().includes(q)) return true;
-      return c.players.some((p) => p.name.trim().toLowerCase().includes(q));
-    });
-  }, [inGameCourts, inGamesSearchQuery]);
-
-  const tabs = [
-    { key: "queueing", label: "Queue" },
-    // { key: "players", label: "Players" },
-    { key: "in_games", label: "In Games" },
-  ] as const;
 
   return (
     <SafeAreaView className="flex-1 bg-primary">
@@ -403,142 +352,223 @@ const activity = () => {
         </View>
       </View>
 
-      {/* Tab Bar */}
-      <View className="px-6 py-4">
-        <View className="flex-row bg-secondary border border-dark-100 rounded-xl p-1">
-          {tabs.map((tab) => (
-            <TouchableOpacity
-              key={tab.key}
-              className={`flex-1 py-2.5 rounded-lg ${
-                activeTab === tab.key ? "bg-court-deep" : "bg-transparent"
-              }`}
-              onPress={() => setActiveTab(tab.key)}
-              accessibilityRole="button"
-              accessibilityLabel={`Show ${tab.label} tab`}
-            >
+      <ScrollView
+        className="flex-1"
+        contentContainerStyle={{ padding: 24, gap: 16, paddingBottom: 140 }}
+      >
+        {/* Quick Actions */}
+        <View className="bg-secondary border border-dark-100 rounded-2xl overflow-hidden">
+          {/* Stats Row */}
+          <View className="flex-row border-b border-dark-100">
+            <View className="flex-1 p-3 items-center border-r border-dark-100">
               <Text
-                className={`text-center text-sm font-bold ${
-                  activeTab === tab.key ? "text-court-lime" : "text-light-300"
-                }`}
+                className="text-2xl font-bold"
+                style={{ color: BadmintonPalette.court.lime }}
               >
-                {tab.label}
+                {availablePlayers.length}
               </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      </View>
-
-      {activeTab === "players" ? (
-        <View className="flex-1 px-6">
-          <View className="mb-4">
-            <AddPInput
-              type="search"
-              placeholder="Search players..."
-              value={playersSearchQuery}
-              onChangeText={(text) => setPlayersSearchQuery(text)}
-            />
+              <Text
+                className="text-xs"
+                style={{ color: BadmintonPalette.text.muted }}
+              >
+                On Bench
+              </Text>
+            </View>
+            <View className="flex-1 p-3 items-center border-r border-dark-100">
+              <Text
+                className="text-2xl font-bold"
+                style={{ color: BadmintonPalette.status.waiting }}
+              >
+                {queueGroups.length}
+              </Text>
+              <Text
+                className="text-xs"
+                style={{ color: BadmintonPalette.text.muted }}
+              >
+                In Queue
+              </Text>
+            </View>
+            <View className="flex-1 p-3 items-center">
+              <Text
+                className="text-2xl font-bold"
+                style={{ color: BadmintonPalette.court.lime }}
+              >
+                {doublesCourts.filter((c) => c.players.length === 0).length}
+              </Text>
+              <Text
+                className="text-xs"
+                style={{ color: BadmintonPalette.text.muted }}
+              >
+                Available Courts
+              </Text>
+            </View>
           </View>
 
-          <FlatList
-            data={filteredPlayers}
-            renderItem={({ item }) => (
-              <PlayerCard
-                name={item.name}
-                gameCount={item.gameCount}
-                level={item.level}
-                status={playerCardMetaById[item.id]?.status ?? "bench"}
-                courtName={playerCardMetaById[item.id]?.courtName}
-                onDelete={() => {
-                  const meta = playerCardMetaById[item.id];
-                  const status = meta?.status ?? "bench";
-
-                  if (status === "in_game") {
-                    Alert.alert(
-                      "Cannot delete player",
-                      `${item.name} is currently in a game${
-                        meta?.courtName ? ` on ${meta.courtName}` : ""
-                      }. Please end the game first.`
-                    );
-                    return;
-                  }
-
-                  if (status === "in_queue") {
-                    const idx = queueIds.indexOf(item.id);
-                    if (idx >= 0) {
-                      const groupStart = Math.floor(idx / 4) * 4;
-                      const groupIds = queueIds.slice(
-                        groupStart,
-                        groupStart + 4
-                      );
-                      const groupSet = new Set(groupIds);
-                      dispatch(
-                        setQueue(queueIds.filter((id) => !groupSet.has(id)))
-                      );
-                    }
-                  }
-
-                  LayoutAnimation.configureNext(LayoutAnimation.Presets.spring);
-                  dispatch(removePlayer(item.id));
+          {/* Actions */}
+          <View className="p-4">
+            {/* Low queue warning */}
+            {isQueueAlmostEmpty && (
+              <View
+                className="flex-row items-center p-3 rounded-xl mb-3"
+                style={{
+                  backgroundColor: `${BadmintonPalette.accent.primary}15`,
                 }}
-              />
-            )}
-            keyExtractor={(item) => item.id}
-            contentContainerStyle={{
-              gap: 10,
-              paddingBottom: 140,
-            }}
-            ListEmptyComponent={
-              <View className="bg-secondary border border-dark-100 rounded-2xl p-6 items-center">
-                <Text className="text-light-300 text-sm text-center">
-                  No players match "{playersSearchQuery.trim()}"
+              >
+                <MaterialCommunityIcons
+                  name="alert-circle-outline"
+                  size={18}
+                  color={BadmintonPalette.accent.primary}
+                />
+                <Text
+                  className="text-xs font-medium ml-2 flex-1"
+                  style={{ color: BadmintonPalette.accent.primary }}
+                >
+                  Queue is running low. Auto queue to add more players!
                 </Text>
               </View>
-            }
-            className="mb-20"
-          />
+            )}
+
+            {/* Auto Queue - Primary Action */}
+            <TouchableOpacity
+              onPress={handleRollDice}
+              className="flex-row items-center p-4 rounded-xl mb-3"
+              style={{ backgroundColor: BadmintonPalette.accent.primary }}
+              accessibilityRole="button"
+              accessibilityLabel="Auto queue bench players"
+            >
+              <View
+                className="size-10 rounded-xl items-center justify-center mr-3"
+                style={{ backgroundColor: "rgba(0,0,0,0.15)" }}
+              >
+                <MaterialCommunityIcons
+                  name="shuffle-variant"
+                  size={22}
+                  color={BadmintonPalette.bg.base}
+                />
+              </View>
+              <View className="flex-1">
+                <Text
+                  className="text-base font-bold"
+                  style={{ color: BadmintonPalette.bg.base }}
+                >
+                  Auto Queue
+                </Text>
+                <Text className="text-xs" style={{ color: "rgba(0,0,0,0.6)" }}>
+                  Randomly add bench players to queue
+                </Text>
+              </View>
+              <MaterialCommunityIcons
+                name="chevron-right"
+                size={24}
+                color={BadmintonPalette.bg.base}
+              />
+            </TouchableOpacity>
+
+            {/* Manual Queue - Secondary Action */}
+            <TouchableOpacity
+              onPress={() => {
+                const remainder = queueIds.length % 4;
+                const missingCount = remainder === 0 ? 4 : 4 - remainder;
+                const groupIndex = Math.floor(queueIds.length / 4);
+                const queueNumber = doublesCourts.length + groupIndex + 1;
+                setManualAddQueue({
+                  visible: true,
+                  insertIndex: queueIds.length,
+                  missingCount,
+                  queueNumber,
+                });
+              }}
+              className="flex-row items-center p-4 rounded-xl border border-dark-100"
+              style={{ backgroundColor: BadmintonPalette.bg.elevated }}
+              accessibilityRole="button"
+              accessibilityLabel="Manually queue specific players"
+            >
+              <View
+                className="size-10 rounded-xl items-center justify-center mr-3"
+                style={{
+                  backgroundColor: `${BadmintonPalette.court.lime}20`,
+                }}
+              >
+                <MaterialCommunityIcons
+                  name="account-plus"
+                  size={20}
+                  color={BadmintonPalette.court.lime}
+                />
+              </View>
+              <View className="flex-1">
+                <Text
+                  className="text-base font-bold"
+                  style={{ color: BadmintonPalette.text.primary }}
+                >
+                  Manual Queue
+                </Text>
+                <Text
+                  className="text-xs"
+                  style={{ color: BadmintonPalette.text.muted }}
+                >
+                  Choose specific players to add
+                </Text>
+              </View>
+              <MaterialCommunityIcons
+                name="chevron-right"
+                size={24}
+                color={BadmintonPalette.text.muted}
+              />
+            </TouchableOpacity>
+          </View>
         </View>
-      ) : activeTab === "in_games" ? (
-        <View className="flex-1 px-6">
-          <View className="mb-4">
-            <AddPInput
-              type="search"
-              placeholder="Search courts..."
-              value={inGamesSearchQuery}
-              onChangeText={(text) => setInGamesSearchQuery(text)}
-            />
+
+        {/* In Game Section */}
+        <View style={{ gap: 12 }}>
+          <View className="flex-row items-center gap-2">
+            <View className="size-2 rounded-full bg-danger" />
+            <Text className="text-light-100 text-lg font-bold">In Game</Text>
+            <Text className="text-light-300 text-sm ml-auto">
+              {doublesCourts.length} courts
+            </Text>
           </View>
 
-          <FlatList
-            data={filteredInGameCourts}
-            className="mb-20"
-            renderItem={({ item }) => (
+          {doublesCourts.length === 0 ? (
+            <View className="bg-secondary border border-dark-100 rounded-2xl p-8 items-center">
+              <MaterialCommunityIcons
+                name="badminton"
+                size={40}
+                color={BadmintonPalette.text.muted}
+              />
+              <Text className="text-light-300 text-sm mt-3 text-center">
+                No doubles courts configured
+              </Text>
+            </View>
+          ) : (
+            doublesCourts.map((court) => (
               <CourtCard
-                name={item.name}
-                players={item.players}
-                isSingle={item.isSingle}
+                key={court.id}
+                name={court.name}
+                players={court.players}
+                isSingle={court.isSingle}
                 onDeleteTag={(playerId) => {
                   animatePlayersUpdate();
                   dispatch(
-                    removePlayerFromCourt({ courtId: item.id, playerId })
+                    removePlayerFromCourt({ courtId: court.id, playerId }),
                   );
                 }}
                 onEndGame={() => {
                   ConfirmationAlert({
                     title: "End Game",
-                    message: `Mark the game on ${item.name} as finished and count the players' games?`,
+                    message: `Mark the game on ${court.name} as finished and count the players' games?`,
                     onConfirm: () => {
                       animatePlayersUpdate();
                       const result = dispatch(
-                        endGameAndAdvanceQueue(item.id)
+                        endGameAndAdvanceQueue(court.id),
                       ) as any;
                       showToast({
                         type: "success",
-                        message: `Game ended on ${item.name}`,
+                        message: `Game ended on ${court.name}`,
                       });
                       if (result?.warnedQueueEmpty) {
                         Alert.alert(
                           "Queue almost empty",
-                          "Use Auto Assign to add more players from the bench."
+                          "Use Auto Queue to add more players from the bench.",
                         );
                       }
                     },
@@ -547,13 +577,27 @@ const activity = () => {
                 onDissolve={() => {
                   ConfirmationAlert({
                     title: "Dissolve Game",
-                    message: `Send players on ${item.name} back to the bench? Games will NOT be counted.`,
+                    message: `Send players on ${court.name} back to the bench? Games will NOT be counted.`,
                     onConfirm: () => {
                       animatePlayersUpdate();
-                      dispatch(dissolveCourt(item.id));
+                      dispatch(dissolveCourt(court.id));
                       showToast({
                         type: "info",
-                        message: `${item.name} dissolved`,
+                        message: `${court.name} dissolved`,
+                      });
+                    },
+                  });
+                }}
+                onBackToQueue={() => {
+                  ConfirmationAlert({
+                    title: "Back to Queue",
+                    message: `Send players on ${court.name} back to the queue? Games will NOT be counted.`,
+                    onConfirm: () => {
+                      animatePlayersUpdate();
+                      dispatch(backToQueue(court.id));
+                      showToast({
+                        type: "info",
+                        message: `${court.name} players sent back to queue`,
                       });
                     },
                   });
@@ -562,389 +606,120 @@ const activity = () => {
                   animatePlayersUpdate();
                   dispatch(
                     assignPlayersToCourt({
-                      courtId: item.id,
+                      courtId: court.id,
                       players: shuffle([...availablePlayers]),
-                    })
+                    }),
                   );
                 }}
                 onManuallyAddPlayers={() => {
                   dispatch(clearCourtsError());
-                  setManualAdd({ visible: true, courtId: item.id });
+                  setManualAdd({ visible: true, courtId: court.id });
                 }}
+                onAssignFromQueue={
+                  fullQueueGroups.length > 0
+                    ? () =>
+                        setAssignFromQueue({ visible: true, courtId: court.id })
+                    : undefined
+                }
               />
-            )}
-            keyExtractor={(item) => item.id}
-            contentContainerStyle={{ gap: 12, paddingBottom: 140 }}
-            ListEmptyComponent={
-              <View className="bg-secondary border border-dark-100 rounded-2xl p-6 items-center">
-                <MaterialCommunityIcons
-                  name="badminton"
-                  size={40}
-                  color={BadmintonPalette.text.muted}
-                />
-                <Text className="text-light-300 text-sm mt-3 text-center">
-                  No courts yet.{"\n"}Add courts in Settings.
+            ))
+          )}
+        </View>
+
+        {/* Waiting Queue Section */}
+        {queueGroups.length > 0 ? (
+          <View className="bg-secondary border border-dark-100 rounded-2xl overflow-hidden">
+            <View className="flex-row items-center justify-between p-4 border-b border-dark-100">
+              <View className="flex-row items-center gap-2">
+                <View className="size-2 rounded-full bg-success" />
+                <Text className="text-light-100 text-lg font-bold">
+                  Waiting Queue
                 </Text>
               </View>
-            }
-          />
-        </View>
-      ) : (
-        <ScrollView
-          className="flex-1"
-          contentContainerStyle={{ padding: 24, gap: 16, paddingBottom: 140 }}
-        >
-          {activeTab === "status" ? (
-            <PlayerGameCounts
-              players={players}
-              statusByPlayerId={statusByPlayerId}
-            />
-          ) : null}
+              <Text className="text-light-300 text-sm">
+                {queueGroups.length} groups
+              </Text>
+            </View>
 
-          {activeTab === "queueing" ? (
-            <>
-              {/* Quick Actions - Redesigned */}
-              <View className="bg-secondary border border-dark-100 rounded-2xl overflow-hidden">
-                {/* Stats Row */}
-                <View className="flex-row border-b border-dark-100">
-                  <View className="flex-1 p-3 items-center border-r border-dark-100">
-                    <Text
-                      className="text-2xl font-bold"
-                      style={{ color: BadmintonPalette.court.lime }}
-                    >
-                      {availablePlayers.length}
-                    </Text>
-                    <Text
-                      className="text-xs"
-                      style={{ color: BadmintonPalette.text.muted }}
-                    >
-                      On Bench
-                    </Text>
-                  </View>
-                  <View className="flex-1 p-3 items-center border-r border-dark-100">
-                    <Text
-                      className="text-2xl font-bold"
-                      style={{ color: BadmintonPalette.status.waiting }}
-                    >
-                      {queueGroups.length}
-                    </Text>
-                    <Text
-                      className="text-xs"
-                      style={{ color: BadmintonPalette.text.muted }}
-                    >
-                      In Queue
-                    </Text>
-                  </View>
-                  <View className="flex-1 p-3 items-center">
-                    <Text
-                      className="text-2xl font-bold"
-                      style={{ color: BadmintonPalette.court.lime }}
-                    >
-                      {
-                        doublesCourts.filter((c) => c.players.length === 0)
-                          .length
-                      }
-                    </Text>
-                    <Text
-                      className="text-xs"
-                      style={{ color: BadmintonPalette.text.muted }}
-                    >
-                      Available Courts
-                    </Text>
-                  </View>
-                </View>
-
-                {/* Actions */}
-                <View className="p-4">
-                  {/* Low queue warning */}
-                  {isQueueAlmostEmpty && (
-                    <View
-                      className="flex-row items-center p-3 rounded-xl mb-3"
-                      style={{
-                        backgroundColor: `${BadmintonPalette.accent.primary}15`,
-                      }}
-                    >
-                      <MaterialCommunityIcons
-                        name="alert-circle-outline"
-                        size={18}
-                        color={BadmintonPalette.accent.primary}
-                      />
-                      <Text
-                        className="text-xs font-medium ml-2 flex-1"
-                        style={{ color: BadmintonPalette.accent.primary }}
-                      >
-                        Queue is running low. Auto assign to add more players!
-                      </Text>
-                    </View>
-                  )}
-
-                  {/* Auto Assign - Primary Action */}
-                  <TouchableOpacity
-                    onPress={handleRollDice}
-                    className="flex-row items-center p-4 rounded-xl mb-3"
-                    style={{ backgroundColor: BadmintonPalette.accent.primary }}
-                    accessibilityRole="button"
-                    accessibilityLabel="Auto assign players to queue"
-                  >
-                    <View
-                      className="size-10 rounded-xl items-center justify-center mr-3"
-                      style={{ backgroundColor: "rgba(0,0,0,0.15)" }}
-                    >
-                      <MaterialCommunityIcons
-                        name="shuffle-variant"
-                        size={22}
-                        color={BadmintonPalette.bg.base}
-                      />
-                    </View>
-                    <View className="flex-1">
-                      <Text
-                        className="text-base font-bold"
-                        style={{ color: BadmintonPalette.bg.base }}
-                      >
-                        Auto Assign
-                      </Text>
-                      <Text
-                        className="text-xs"
-                        style={{ color: "rgba(0,0,0,0.6)" }}
-                      >
-                        Randomly assign bench players to queue
-                      </Text>
-                    </View>
-                    <MaterialCommunityIcons
-                      name="chevron-right"
-                      size={24}
-                      color={BadmintonPalette.bg.base}
-                    />
-                  </TouchableOpacity>
-
-                  {/* Manual Add - Secondary Action */}
-                  <TouchableOpacity
-                    onPress={() => {
-                      const remainder = queueIds.length % 4;
-                      const missingCount = remainder === 0 ? 4 : 4 - remainder;
-                      const groupIndex = Math.floor(queueIds.length / 4);
-                      const queueNumber = doublesCourts.length + groupIndex + 1;
+            <View className="p-4 gap-3">
+              {queueGroups.map((g) => {
+                const groupPlayers = g.ids.map((id) => {
+                  const player = playerMap.get(id);
+                  return {
+                    id,
+                    name: player?.name ?? "Unknown",
+                    level: player?.level,
+                    gameCount: player?.gameCount,
+                  };
+                });
+                const isIncomplete = g.ids.length < 4;
+                return (
+                  <QueueCard
+                    key={`waiting-${g.index}`}
+                    queueNumber={g.index + 1}
+                    playersText={groupPlayers.map((p) => p.name).join(", ")}
+                    players={groupPlayers}
+                    assignedCourtText="Waiting"
+                    variant="waiting"
+                    onRemovePlayer={(playerId) => {
+                      animatePlayersUpdate();
+                      dispatch(
+                        setQueue(removeFirstOccurrence(queueIds, playerId)),
+                      );
+                    }}
+                    onDissolve={() => {
+                      const queueNumber = g.index + 1;
+                      Alert.alert(
+                        "Dissolve Queue",
+                        `Return Queue ${queueNumber} players to bench?`,
+                        [
+                          { text: "Cancel", style: "cancel" },
+                          {
+                            text: "Dissolve",
+                            style: "destructive",
+                            onPress: () => {
+                              const groupSet = new Set(g.ids);
+                              animatePlayersUpdate();
+                              dispatch(
+                                setQueue(
+                                  queueIds.filter((id) => !groupSet.has(id)),
+                                ),
+                              );
+                            },
+                          },
+                        ],
+                      );
+                    }}
+                    showManuallyAddPlayers={isIncomplete}
+                    onManuallyAddPlayers={() => {
+                      const queueNumber = g.index + 1;
+                      const missingCount = Math.max(0, 4 - g.ids.length);
+                      const insertIndex = g.start + g.ids.length;
                       setManualAddQueue({
                         visible: true,
-                        insertIndex: queueIds.length,
+                        insertIndex,
                         missingCount,
                         queueNumber,
                       });
                     }}
-                    className="flex-row items-center p-4 rounded-xl border border-dark-100"
-                    style={{ backgroundColor: BadmintonPalette.bg.elevated }}
-                    accessibilityRole="button"
-                    accessibilityLabel="Manually select players for queue"
-                  >
-                    <View
-                      className="size-10 rounded-xl items-center justify-center mr-3"
-                      style={{
-                        backgroundColor: `${BadmintonPalette.court.lime}20`,
-                      }}
-                    >
-                      <MaterialCommunityIcons
-                        name="account-plus"
-                        size={20}
-                        color={BadmintonPalette.court.lime}
-                      />
-                    </View>
-                    <View className="flex-1">
-                      <Text
-                        className="text-base font-bold"
-                        style={{ color: BadmintonPalette.text.primary }}
-                      >
-                        Manual Add
-                      </Text>
-                      <Text
-                        className="text-xs"
-                        style={{ color: BadmintonPalette.text.muted }}
-                      >
-                        Choose specific players to add
-                      </Text>
-                    </View>
-                    <MaterialCommunityIcons
-                      name="chevron-right"
-                      size={24}
-                      color={BadmintonPalette.text.muted}
-                    />
-                  </TouchableOpacity>
-                </View>
-              </View>
-
-              {/* In Game Section */}
-              <View className="bg-secondary border border-dark-100 rounded-2xl overflow-hidden">
-                <View className="flex-row items-center justify-between p-4 border-b border-dark-100">
-                  <View className="flex-row items-center gap-2">
-                    <View className="size-2 rounded-full bg-danger" />
-                    <Text className="text-light-100 text-lg font-bold">
-                      In Game
-                    </Text>
-                  </View>
-                  <Text className="text-light-300 text-sm">
-                    {doublesCourts.length} courts
-                  </Text>
-                </View>
-
-                <View className="p-4 gap-3">
-                  {doublesCourts.length === 0 ? (
-                    <Text className="text-light-300 text-sm text-center py-4">
-                      No doubles courts configured
-                    </Text>
-                  ) : (
-                    doublesCourts.map((court, idx) => {
-                      const courtPlayers = court.players.map((p) => {
-                        const fullPlayer = playerMap.get(p.id);
-                        return {
-                          id: p.id,
-                          name: p.name,
-                          level: fullPlayer?.level,
-                          gameCount: fullPlayer?.gameCount,
-                        };
-                      });
-                      const names = court.players.map((p) => p.name).join(", ");
-                      return (
-                        <QueueCard
-                          key={court.id}
-                          queueNumber={idx + 1}
-                          playersText={
-                            court.players.length === 0
-                              ? "No players assigned"
-                              : names
-                          }
-                          players={courtPlayers}
-                          assignedCourtText={court.name}
-                          variant="in_game"
-                          onEndGame={
-                            court.players.length > 0
-                              ? () => {
-                                  const result = dispatch(
-                                    endGameAndAdvanceQueue(court.id)
-                                  ) as any;
-                                  showToast({
-                                    type: "success",
-                                    message: `Game ended on ${court.name}`,
-                                  });
-                                  if (result?.warnedQueueEmpty) {
-                                    Alert.alert(
-                                      "Queue almost empty",
-                                      "Use Auto Assign to add more players."
-                                    );
-                                  }
-                                }
-                              : undefined
-                          }
-                        />
-                      );
-                    })
-                  )}
-                </View>
-              </View>
-
-              {/* Waiting Queue Section */}
-              {queueGroups.length > 0 ? (
-                <View className="bg-secondary border border-dark-100 rounded-2xl overflow-hidden">
-                  <View className="flex-row items-center justify-between p-4 border-b border-dark-100">
-                    <View className="flex-row items-center gap-2">
-                      <View className="size-2 rounded-full bg-success" />
-                      <Text className="text-light-100 text-lg font-bold">
-                        Waiting Queue
-                      </Text>
-                    </View>
-                    <Text className="text-light-300 text-sm">
-                      {queueGroups.length} groups
-                    </Text>
-                  </View>
-
-                  <View className="p-4 gap-3">
-                    {queueGroups.map((g) => {
-                      const groupPlayers = g.ids.map((id) => {
-                        const player = playerMap.get(id);
-                        return {
-                          id,
-                          name: player?.name ?? "Unknown",
-                          level: player?.level,
-                          gameCount: player?.gameCount,
-                        };
-                      });
-                      const isIncomplete = g.ids.length < 4;
-                      return (
-                        <QueueCard
-                          key={`waiting-${g.index}`}
-                          queueNumber={doublesCourts.length + g.index + 1}
-                          playersText={groupPlayers
-                            .map((p) => p.name)
-                            .join(", ")}
-                          players={groupPlayers}
-                          assignedCourtText="Waiting"
-                          variant="waiting"
-                          onRemovePlayer={(playerId) => {
-                            animatePlayersUpdate();
-                            dispatch(
-                              setQueue(
-                                removeFirstOccurrence(queueIds, playerId)
-                              )
-                            );
-                          }}
-                          onDissolve={() => {
-                            const queueNumber =
-                              doublesCourts.length + g.index + 1;
-                            Alert.alert(
-                              "Dissolve Queue",
-                              `Return Queue ${queueNumber} players to bench?`,
-                              [
-                                { text: "Cancel", style: "cancel" },
-                                {
-                                  text: "Dissolve",
-                                  style: "destructive",
-                                  onPress: () => {
-                                    const groupSet = new Set(g.ids);
-                                    animatePlayersUpdate();
-                                    dispatch(
-                                      setQueue(
-                                        queueIds.filter(
-                                          (id) => !groupSet.has(id)
-                                        )
-                                      )
-                                    );
-                                  },
-                                },
-                              ]
-                            );
-                          }}
-                          showManuallyAddPlayers={isIncomplete}
-                          onManuallyAddPlayers={() => {
-                            const queueNumber =
-                              doublesCourts.length + g.index + 1;
-                            const missingCount = Math.max(0, 4 - g.ids.length);
-                            const insertIndex = g.start + g.ids.length;
-                            setManualAddQueue({
-                              visible: true,
-                              insertIndex,
-                              missingCount,
-                              queueNumber,
-                            });
-                          }}
-                        />
-                      );
-                    })}
-                  </View>
-                </View>
-              ) : (
-                <View className="bg-secondary border border-dark-100 rounded-2xl p-8 items-center">
-                  <MaterialCommunityIcons
-                    name="timer-sand-empty"
-                    size={48}
-                    color={BadmintonPalette.text.muted}
                   />
-                  <Text className="text-light-300 text-sm mt-3 text-center">
-                    No players in queue{"\n"}Tap Auto Assign to start
-                  </Text>
-                </View>
-              )}
-            </>
-          ) : null}
-        </ScrollView>
-      )}
+                );
+              })}
+            </View>
+          </View>
+        ) : (
+          <View className="bg-secondary border border-dark-100 rounded-2xl p-8 items-center">
+            <MaterialCommunityIcons
+              name="timer-sand-empty"
+              size={48}
+              color={BadmintonPalette.text.muted}
+            />
+            <Text className="text-light-300 text-sm mt-3 text-center">
+              No players in queue{"\n"}Tap Auto Queue to start
+            </Text>
+          </View>
+        )}
+      </ScrollView>
 
       <ManualAddPlayersModal
         visible={manualAdd.visible}
@@ -957,14 +732,14 @@ const activity = () => {
         onConfirm={(selectedIds) => {
           if (!activeCourt) return;
           const selectedPlayers = availablePlayers.filter((p) =>
-            selectedIds.includes(p.id)
+            selectedIds.includes(p.id),
           );
           animatePlayersUpdate();
           dispatch(
             addPlayersToCourtManually({
               courtId: activeCourt.id,
               players: selectedPlayers,
-            })
+            }),
           );
           showToast({
             type: "success",
@@ -1007,6 +782,37 @@ const activity = () => {
             missingCount: 0,
             queueNumber: 0,
           });
+        }}
+      />
+
+      <SelectQueueGroupModal
+        visible={assignFromQueue.visible}
+        onClose={() => setAssignFromQueue({ visible: false, courtId: null })}
+        courtName={
+          courts.find((c) => c.id === assignFromQueue.courtId)?.name ?? "Court"
+        }
+        queueGroups={fullQueueGroups}
+        onSelect={(group) => {
+          if (!assignFromQueue.courtId) return;
+          const selectedPlayers = group.ids
+            .map((id) => playerMap.get(id))
+            .filter(Boolean) as Player[];
+          if (selectedPlayers.length === 0) return;
+
+          animatePlayersUpdate();
+          const groupSet = new Set(group.ids);
+          dispatch(setQueue(queueIds.filter((id) => !groupSet.has(id))));
+          dispatch(
+            addPlayersToCourtManually({
+              courtId: assignFromQueue.courtId,
+              players: selectedPlayers,
+            }),
+          );
+          showToast({
+            type: "success",
+            message: `Queue ${group.index + 1} assigned to court`,
+          });
+          setAssignFromQueue({ visible: false, courtId: null });
         }}
       />
     </SafeAreaView>

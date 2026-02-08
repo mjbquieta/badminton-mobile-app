@@ -1,7 +1,7 @@
 import AddPInput from "@/components/AddInput";
 import AddPlayerModal from "@/components/AddPlayerModal";
 import ConfirmationAlert from "@/components/ConfirmationAlert";
-import EditPlayerLevelModal from "@/components/EditPlayerLevelModal";
+import EditPlayerModal from "@/components/EditPlayerModal";
 import PlayerCard from "@/components/PlayerCard";
 import { useToast } from "@/components/Toast";
 import { BadmintonPalette } from "@/constants/palette";
@@ -12,6 +12,7 @@ import {
   clearPlayers,
   clearPlayersError,
   removePlayer,
+  updatePlayerGameCount,
   updatePlayerLevel,
 } from "@/store/playersSlice";
 import { clearQueue, setQueue } from "@/store/queueSlice";
@@ -108,13 +109,22 @@ export const PlayersContent = ({
     });
   };
 
-  const handleUpdateLevel = (playerId: string, newLevel: PlayerLevel) => {
+  const handleUpdatePlayer = (
+    playerId: string,
+    newLevel: PlayerLevel,
+    newGameCount: number
+  ) => {
     const player = players.find((p) => p.id === playerId);
     if (!player) return;
 
-    dispatch(updatePlayerLevel({ id: playerId, level: newLevel }));
+    if (player.level !== newLevel) {
+      dispatch(updatePlayerLevel({ id: playerId, level: newLevel }));
+    }
+    if (player.gameCount !== newGameCount) {
+      dispatch(updatePlayerGameCount({ id: playerId, gameCount: newGameCount }));
+    }
     showToast({
-      message: `${player.name} updated to ${levelLabels[newLevel]}`,
+      message: `${player.name} updated`,
       type: "success",
     });
   };
@@ -224,7 +234,7 @@ export const PlayersContent = ({
                 level={item.level}
                 status={statusMetaById[item.id]?.status ?? "bench"}
                 courtName={statusMetaById[item.id]?.courtName}
-                onEditLevel={() => setEditingPlayer(item)}
+                onEdit={() => setEditingPlayer(item)}
                 onDelete={() => {
                   const meta = statusMetaById[item.id];
                   const status = meta?.status ?? "bench";
@@ -314,16 +324,17 @@ export const PlayersContent = ({
         onAdd={handleAddPlayer}
       />
 
-      <EditPlayerLevelModal
+      <EditPlayerModal
         visible={editingPlayer !== null}
         onClose={() => setEditingPlayer(null)}
-        onSave={(newLevel) => {
+        onSave={(level, gameCount) => {
           if (editingPlayer) {
-            handleUpdateLevel(editingPlayer.id, newLevel);
+            handleUpdatePlayer(editingPlayer.id, level, gameCount);
           }
         }}
         playerName={editingPlayer?.name ?? ""}
         currentLevel={editingPlayer?.level ?? PlayerLevel.BEGINNER}
+        currentGameCount={editingPlayer?.gameCount ?? 0}
       />
     </View>
   );

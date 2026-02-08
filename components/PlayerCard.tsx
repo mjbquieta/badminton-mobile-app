@@ -37,7 +37,7 @@ const statusConfig = {
 const PlayerCard = ({
   name,
   onDelete,
-  onEditLevel,
+  onEdit,
   status,
   gameCount,
   level,
@@ -45,7 +45,7 @@ const PlayerCard = ({
 }: {
   name: string;
   onDelete?: () => void;
-  onEditLevel?: () => void;
+  onEdit?: () => void;
   status: PlayerStatus;
   gameCount: number;
   level: PlayerLevel;
@@ -120,13 +120,13 @@ const PlayerCard = ({
 
       {/* Actions Section */}
       <View className="flex-row items-center px-4 pb-4" style={{ gap: 8 }}>
-        {/* Edit Level Button */}
-        {onEditLevel && (
+        {/* Edit Player Button */}
+        {onEdit && (
           <TouchableOpacity
             className="flex-1 flex-row items-center justify-center py-2.5 rounded-xl bg-info/10 border border-info/30 active:bg-info/20"
-            onPress={onEditLevel}
+            onPress={onEdit}
             accessibilityRole="button"
-            accessibilityLabel={`Edit level for ${name}`}
+            accessibilityLabel={`Edit ${name}`}
           >
             <MaterialCommunityIcons
               name="pencil"
@@ -137,7 +137,7 @@ const PlayerCard = ({
               className="text-sm font-bold ml-1.5"
               style={{ color: BadmintonPalette.accent.info }}
             >
-              Edit Level
+              Edit Player
             </Text>
           </TouchableOpacity>
         )}

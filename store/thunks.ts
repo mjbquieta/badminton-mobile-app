@@ -196,8 +196,6 @@ export const rollDice =
 		);
 
 		if (benchPlayers.length === 0) {
-			// nothing to add; still try to fill any empty doubles courts from existing queue
-			dispatch(fillDoublesCourtsFromQueue());
 			return { needsConfirmation: false as const, playersAdded: 0 };
 		}
 
@@ -210,7 +208,6 @@ export const rollDice =
 		// ask the UI to confirm before proceeding with mismatched levels.
 		const fullCount = Math.floor(shuffledBench.length / 4) * 4;
 		if (!options?.allowIncompatible && compatibleQueueIds.length === 0 && fullCount > 0) {
-			dispatch(fillDoublesCourtsFromQueue());
 			return {
 				needsConfirmation: true as const,
 				playersAdded: 0,
@@ -221,7 +218,6 @@ export const rollDice =
 
 		if (fullCount === 0) {
 			// Not enough bench players to form a doubles queue.
-			dispatch(fillDoublesCourtsFromQueue());
 			return { needsConfirmation: false as const, playersAdded: 0 };
 		}
 
@@ -237,7 +233,6 @@ export const rollDice =
 		);
 
 		dispatch(setQueue(prioritizedQueueIds));
-		dispatch(fillDoublesCourtsFromQueue());
 		return { needsConfirmation: false as const, playersAdded: newQueueIds.length };
 	};
 
@@ -255,15 +250,28 @@ export const endGameAndAdvanceQueue =
 			return { warnedQueueEmpty: false };
 
 		const endedIds = court.players.map((p) => p.id);
+		const playersNeeded = court.isSingle ? 2 : 4;
 		dispatch(incrementPlayersGameCount(endedIds));
 		dispatch(endGame(endedIds));
-		const queueIdsBeforeFill = getState().queue.ids;
-		dispatch(fillDoublesCourtsFromQueue());
 
-		// If this was a doubles court and we have no full queue to replace the finished game,
-		// warn and leave the court empty until the user re-rolls the dice.
-		// const warnedQueueEmpty = !court.isSingle && queueIdsBeforeFill.length < 4;
-		const warnedQueueEmpty = false;
+		// Auto-assign the next queue group to this court.
+		const updatedQueue = getState().queue.ids;
+		if (updatedQueue.length >= playersNeeded) {
+			const nextGroupIds = updatedQueue.slice(0, playersNeeded);
+			const playerMap = buildPlayerMap(getState().players.items);
+			const nextPlayers: Player[] = [];
+			for (const id of nextGroupIds) {
+				const p = playerMap.get(id);
+				if (p) nextPlayers.push(p);
+			}
+			if (nextPlayers.length === playersNeeded) {
+				dispatch(assignPlayersToCourtsBulk({ assignments: [{ courtId, players: nextPlayers }] }));
+				dispatch(setQueue(updatedQueue.slice(playersNeeded)));
+				return { warnedQueueEmpty: false };
+			}
+		}
+
+		const warnedQueueEmpty = !court.isSingle && updatedQueue.length < playersNeeded;
 		return { warnedQueueEmpty };
 	};
 
@@ -279,4 +287,20 @@ export const dissolveCourt =
 
 		const playerIds = court.players.map((p) => p.id);
 		dispatch(endGame(playerIds));
+	};
+
+/**
+ * Sends players on a court back to the end of the queue.
+ * Does NOT count games - the game is not considered finished.
+ */
+export const backToQueue =
+	(courtId: string) => (dispatch: AppDispatch, getState: () => RootState) => {
+		const state = getState();
+		const court = state.courts.items.find((c) => c.id === courtId);
+		if (!court || court.players.length === 0) return;
+
+		const playerIds = court.players.map((p) => p.id);
+		dispatch(endGame(playerIds));
+		const currentQueue = getState().queue.ids;
+		dispatch(setQueue([...currentQueue, ...playerIds]));
 	};
