@@ -11,12 +11,12 @@
   },
   "dependencies": {
     "@badminton/types": "*",
-    "@badminton/core": "*",
-    "@reduxjs/toolkit": "^2.5.2",
-    "react-redux": "^9.2.0"
+    "@badminton/core": "*"
   },
   "peerDependencies": {
-    "react": "^19.0.0"
+    "react": "^19.0.0",
+    "@reduxjs/toolkit": "^2.5.2",
+    "react-redux": "^9.2.0"
   },
   "devDependencies": {
     "typescript": "~5.9.2"
