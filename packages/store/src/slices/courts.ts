@@ -242,6 +242,10 @@ const courtSlice = createSlice({
 				return court;
 			});
 		},
+		setCourts: (state, action: PayloadAction<Court[]>) => {
+			state.items = action.payload;
+			state.error = null;
+		},
 	},
 });
 
@@ -256,5 +260,6 @@ export const {
 	assignPlayersToCourtsBulk,
 	endGame,
 	removePlayerFromCourt,
+	setCourts,
 } = courtSlice.actions;
 export const courtsReducer = courtSlice.reducer;

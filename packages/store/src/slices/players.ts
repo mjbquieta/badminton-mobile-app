@@ -249,6 +249,10 @@ const playersSlice = createSlice({
 			}
 			state.error = null;
 		},
+		setPlayers: (state, action: PayloadAction<Player[]>) => {
+			state.items = action.payload;
+			state.error = null;
+		},
 	},
 });
 
@@ -262,5 +266,6 @@ export const {
 	clearPlayers,
 	updatePlayerLevel,
 	updatePlayerGameCount,
+	setPlayers,
 } = playersSlice.actions;
 export const playersReducer = playersSlice.reducer;

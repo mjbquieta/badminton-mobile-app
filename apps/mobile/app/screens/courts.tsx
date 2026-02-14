@@ -5,8 +5,8 @@ import ManualAddPlayersModal from "@/components/ManualAddPlayersModal";
 import SelectQueueGroupModal, { type QueueGroup } from "@/components/SelectQueueGroupModal";
 import { useToast } from "@/components/Toast";
 import { BadmintonPalette } from "@/constants/palette";
-import { RootState } from "@/store";
 import {
+  type RootState,
   addCourt,
   addPlayersToCourtManually,
   assignPlayersToCourt,
@@ -14,10 +14,13 @@ import {
   clearCourtsError,
   removeCourt,
   removePlayerFromCourt,
+  useAppDispatch,
+  useAppSelector,
+  setQueue,
+  backToQueue,
+  dissolveCourt,
+  endGameAndAdvanceQueue,
 } from "@badminton/store";
-import { useAppDispatch, useAppSelector } from "@badminton/store";
-import { setQueue } from "@badminton/store";
-import { backToQueue, dissolveCourt, endGameAndAdvanceQueue } from "@badminton/store";
 import { type Player } from "@badminton/types";
 import { shuffle } from "@badminton/core";
 import AntDesign from "@expo/vector-icons/AntDesign";

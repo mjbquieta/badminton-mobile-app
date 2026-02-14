@@ -5,17 +5,19 @@ import EditPlayerModal from "@/components/EditPlayerModal";
 import PlayerCard from "@/components/PlayerCard";
 import { useToast } from "@/components/Toast";
 import { BadmintonPalette } from "@/constants/palette";
-import { RootState } from "@/store";
-import { useAppDispatch, useAppSelector } from "@badminton/store";
 import {
+  type RootState,
+  useAppDispatch,
+  useAppSelector,
   addPlayer,
   clearPlayers,
   clearPlayersError,
   removePlayer,
   updatePlayerGameCount,
   updatePlayerLevel,
+  clearQueue,
+  setQueue,
 } from "@badminton/store";
-import { clearQueue, setQueue } from "@badminton/store";
 import { Player, PlayerLevel } from "@badminton/types";
 import AntDesign from "@expo/vector-icons/AntDesign";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";

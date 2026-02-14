@@ -16,6 +16,7 @@ export {
 	clearPlayers,
 	updatePlayerLevel,
 	updatePlayerGameCount,
+	setPlayers,
 	playersReducer,
 } from './slices/players';
 
@@ -31,6 +32,7 @@ export {
 	assignPlayersToCourtsBulk,
 	endGame,
 	removePlayerFromCourt,
+	setCourts,
 	courtsReducer,
 } from './slices/courts';
 
