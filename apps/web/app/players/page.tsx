@@ -88,27 +88,27 @@ export default function PlayersPage() {
   };
 
   return (
-    <div className="p-8 max-w-5xl">
+    <div className="p-4 sm:p-6 md:p-8 max-w-5xl">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-start sm:items-center justify-between gap-3 mb-6">
         <div>
-          <h1 className="text-3xl font-bold">Players</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold">Players</h1>
           <p className="text-light-300 text-sm mt-1">{players.length} total</p>
         </div>
-        <div className="flex gap-3">
+        <div className="flex gap-2 sm:gap-3 shrink-0">
           {players.length > 0 && (
             <button
               onClick={() => setShowClearConfirm(true)}
-              className="px-4 py-2 rounded-xl text-sm text-danger border border-danger/30 hover:bg-danger/10"
+              className="px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm text-danger border border-danger/30 hover:bg-danger/10"
             >
               Clear All
             </button>
           )}
           <button
             onClick={() => setShowAddModal(true)}
-            className="px-4 py-2 rounded-xl text-sm bg-accent text-primary font-semibold hover:bg-accent/80"
+            className="px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm bg-accent text-primary font-semibold hover:bg-accent/80"
           >
-            + Add Player
+            + Add
           </button>
         </div>
       </div>

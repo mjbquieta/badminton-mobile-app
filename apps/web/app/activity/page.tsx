@@ -154,53 +154,53 @@ export default function ActivityPage() {
   };
 
   return (
-    <div className="p-8 max-w-6xl">
+    <div className="p-4 sm:p-6 md:p-8 max-w-6xl">
       {/* Toast */}
       {toast && (
-        <div className="fixed top-4 right-4 bg-secondary border border-dark-100 text-light-100 px-4 py-2 rounded-xl text-sm font-medium z-50 shadow-elevated">
+        <div className="fixed top-4 right-4 left-4 sm:left-auto bg-secondary border border-dark-100 text-light-100 px-4 py-2 rounded-xl text-sm font-medium z-50 shadow-elevated">
           {toast}
         </div>
       )}
 
       {/* Header */}
-      <h1 className="text-3xl font-bold mb-6">Activity</h1>
+      <h1 className="text-2xl sm:text-3xl font-bold mb-6">Activity</h1>
 
       {/* Quick Actions Panel */}
-      <div className="bg-secondary rounded-2xl border border-dark-100 p-5 mb-6">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex gap-6">
+      <div className="bg-secondary rounded-2xl border border-dark-100 p-4 sm:p-5 mb-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
+          <div className="grid grid-cols-3 gap-3 sm:flex sm:gap-6">
             <div>
-              <span className="text-light-300 text-xs block">Bench</span>
-              <span className="text-xl font-bold">{benchPlayers.length}</span>
+              <span className="text-light-300 text-[10px] sm:text-xs block">Bench</span>
+              <span className="text-lg sm:text-xl font-bold">{benchPlayers.length}</span>
             </div>
             <div>
-              <span className="text-light-300 text-xs block">Queue Groups</span>
-              <span className="text-xl font-bold">{queueGroups.filter((g) => g.length === 4).length}</span>
+              <span className="text-light-300 text-[10px] sm:text-xs block">Queue Grps</span>
+              <span className="text-lg sm:text-xl font-bold">{queueGroups.filter((g) => g.length === 4).length}</span>
             </div>
             <div>
-              <span className="text-light-300 text-xs block">Available Courts</span>
-              <span className="text-xl font-bold">{allEmptyCourts.length}</span>
+              <span className="text-light-300 text-[10px] sm:text-xs block">Free Courts</span>
+              <span className="text-lg sm:text-xl font-bold">{allEmptyCourts.length}</span>
             </div>
           </div>
-          <div className="flex gap-3">
+          <div className="flex gap-2 sm:gap-3">
             <button
               onClick={() => setShowResetConfirm(true)}
               disabled={players.length === 0}
-              className="px-4 py-2 rounded-xl text-sm text-danger border border-danger/30 hover:bg-danger/10 disabled:opacity-40 disabled:cursor-not-allowed"
+              className="px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm text-danger border border-danger/30 hover:bg-danger/10 disabled:opacity-40 disabled:cursor-not-allowed"
             >
-              Reset Session
+              Reset
             </button>
             <button
               onClick={() => setShowQueueTypePicker(true)}
               disabled={benchPlayers.length === 0}
-              className="px-4 py-2 rounded-xl text-sm border border-accent/30 text-accent hover:bg-accent/10 disabled:opacity-40 disabled:cursor-not-allowed"
+              className="px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm border border-accent/30 text-accent hover:bg-accent/10 disabled:opacity-40 disabled:cursor-not-allowed"
             >
-              Manual Queue
+              Manual
             </button>
             <button
               onClick={handleAutoQueue}
               disabled={benchPlayers.length === 0}
-              className="px-4 py-2 rounded-xl text-sm bg-accent text-primary font-semibold hover:bg-accent/80 disabled:opacity-40 disabled:cursor-not-allowed"
+              className="px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm bg-accent text-primary font-semibold hover:bg-accent/80 disabled:opacity-40 disabled:cursor-not-allowed"
             >
               Auto Queue
             </button>
@@ -214,8 +214,8 @@ export default function ActivityPage() {
       </div>
 
       {/* In Game Section */}
-      <section className="mb-8">
-        <h2 className="text-xl font-bold mb-4">In Game ({activeCourts.length})</h2>
+      <section className="mb-6 md:mb-8">
+        <h2 className="text-lg sm:text-xl font-bold mb-3 sm:mb-4">In Game ({activeCourts.length})</h2>
         {activeCourts.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {activeCourts.map((court) => {
@@ -291,8 +291,8 @@ export default function ActivityPage() {
 
       {/* Empty Courts */}
       {allEmptyCourts.length > 0 && (
-        <section className="mb-8">
-          <h2 className="text-xl font-bold mb-4">Available Courts ({allEmptyCourts.length})</h2>
+        <section className="mb-6 md:mb-8">
+          <h2 className="text-lg sm:text-xl font-bold mb-3 sm:mb-4">Available Courts ({allEmptyCourts.length})</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {allEmptyCourts.map((court) => {
               const needed = court.isSingle ? 2 : 4;
@@ -332,7 +332,7 @@ export default function ActivityPage() {
 
       {/* Queue Section */}
       <section>
-        <h2 className="text-xl font-bold mb-4">Waiting Queue ({queue.length})</h2>
+        <h2 className="text-lg sm:text-xl font-bold mb-3 sm:mb-4">Waiting Queue ({queue.length})</h2>
         {queueGroups.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {queueGroups.map((group, i) => (

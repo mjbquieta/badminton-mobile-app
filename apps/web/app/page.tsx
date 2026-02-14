@@ -60,50 +60,50 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="p-8 max-w-6xl">
+    <div className="p-4 sm:p-6 md:p-8 max-w-6xl">
       {/* Toast */}
       {toast && (
-        <div className="fixed top-4 right-4 bg-success/90 text-white px-4 py-2 rounded-xl text-sm font-medium z-50 shadow-elevated">
+        <div className="fixed top-4 right-4 left-4 sm:left-auto bg-success/90 text-white px-4 py-2 rounded-xl text-sm font-medium z-50 shadow-elevated">
           {toast}
         </div>
       )}
 
       {/* Header */}
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex items-start sm:items-center justify-between gap-3 mb-6 md:mb-8">
         <div>
-          <h1 className="text-3xl font-bold">Dashboard</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold">Dashboard</h1>
           <p className="text-light-300 text-sm mt-1">Session overview</p>
         </div>
         <button
           onClick={handleRollDice}
           disabled={onBench === 0}
-          className="px-5 py-2.5 rounded-xl bg-accent text-primary font-semibold hover:bg-accent/80 disabled:opacity-40 disabled:cursor-not-allowed"
+          className="px-4 sm:px-5 py-2 sm:py-2.5 rounded-xl bg-accent text-primary font-semibold hover:bg-accent/80 disabled:opacity-40 disabled:cursor-not-allowed text-sm sm:text-base shrink-0"
         >
           Roll Dice
         </button>
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
-        <div className="bg-secondary p-5 rounded-2xl border border-dark-100">
-          <h3 className="text-light-300 text-xs mb-1">Total Players</h3>
-          <p className="text-3xl font-bold">{totalPlayers}</p>
+      <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 sm:gap-4 mb-6 md:mb-8">
+        <div className="bg-secondary p-3 sm:p-5 rounded-2xl border border-dark-100">
+          <h3 className="text-light-300 text-[10px] sm:text-xs mb-1">Players</h3>
+          <p className="text-xl sm:text-3xl font-bold">{totalPlayers}</p>
         </div>
-        <div className="bg-secondary p-5 rounded-2xl border border-dark-100">
-          <h3 className="text-light-300 text-xs mb-1">In Game</h3>
-          <p className="text-3xl font-bold text-danger">{inGame}</p>
+        <div className="bg-secondary p-3 sm:p-5 rounded-2xl border border-dark-100">
+          <h3 className="text-light-300 text-[10px] sm:text-xs mb-1">In Game</h3>
+          <p className="text-xl sm:text-3xl font-bold text-danger">{inGame}</p>
         </div>
-        <div className="bg-secondary p-5 rounded-2xl border border-dark-100">
-          <h3 className="text-light-300 text-xs mb-1">In Queue</h3>
-          <p className="text-3xl font-bold text-success">{inQueue}</p>
+        <div className="bg-secondary p-3 sm:p-5 rounded-2xl border border-dark-100">
+          <h3 className="text-light-300 text-[10px] sm:text-xs mb-1">In Queue</h3>
+          <p className="text-xl sm:text-3xl font-bold text-success">{inQueue}</p>
         </div>
-        <div className="bg-secondary p-5 rounded-2xl border border-dark-100">
-          <h3 className="text-light-300 text-xs mb-1">On Bench</h3>
-          <p className="text-3xl font-bold text-light-300">{onBench}</p>
+        <div className="bg-secondary p-3 sm:p-5 rounded-2xl border border-dark-100">
+          <h3 className="text-light-300 text-[10px] sm:text-xs mb-1">On Bench</h3>
+          <p className="text-xl sm:text-3xl font-bold text-light-300">{onBench}</p>
         </div>
-        <div className="bg-secondary p-5 rounded-2xl border border-dark-100">
-          <h3 className="text-light-300 text-xs mb-1">Courts Free</h3>
-          <p className="text-3xl font-bold text-info">{availableCourts}/{courts.length}</p>
+        <div className="bg-secondary p-3 sm:p-5 rounded-2xl border border-dark-100">
+          <h3 className="text-light-300 text-[10px] sm:text-xs mb-1">Courts Free</h3>
+          <p className="text-xl sm:text-3xl font-bold text-info">{availableCourts}/{courts.length}</p>
         </div>
       </div>
 
