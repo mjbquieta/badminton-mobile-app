@@ -219,13 +219,9 @@ const courtSlice = createSlice({
 					return;
 				}
 
-				if (court.isSingle) {
-					state.error = `${court.name} is singles. Queue can only assign doubles courts.`;
-					return;
-				}
-
-				if (players.length !== 4) {
-					state.error = `Invalid assignment for ${court.name}. Doubles needs 4 players.`;
+				const needed = court.isSingle ? 2 : 4;
+				if (players.length !== needed) {
+					state.error = `Invalid assignment for ${court.name}. ${court.isSingle ? 'Singles' : 'Doubles'} needs ${needed} players.`;
 					return;
 				}
 
@@ -241,6 +237,12 @@ const courtSlice = createSlice({
 				}
 				return court;
 			});
+		},
+		dissolveAllCourts: (state) => {
+			for (const court of state.items) {
+				court.players = [];
+			}
+			state.error = null;
 		},
 		setCourts: (state, action: PayloadAction<Court[]>) => {
 			state.items = action.payload;
@@ -260,6 +262,7 @@ export const {
 	assignPlayersToCourtsBulk,
 	endGame,
 	removePlayerFromCourt,
+	dissolveAllCourts,
 	setCourts,
 } = courtSlice.actions;
 export const courtsReducer = courtSlice.reducer;

@@ -12,6 +12,7 @@ import {
   setQueue,
   assignPlayersToCourtsBulk,
   addPlayersToCourtManually,
+  resetSession,
 } from '@badminton/store';
 import { PlayerTag } from '@/components/PlayerTag';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
@@ -24,11 +25,13 @@ export default function ActivityPage() {
   const queue = useAppSelector((state) => state.queue.ids);
 
   const [actionTarget, setActionTarget] = useState<{ court: Court; action: string } | null>(null);
-  const [showManualQueue, setShowManualQueue] = useState(false);
+  const [showManualQueue, setShowManualQueue] = useState<'singles' | 'doubles' | null>(null);
+  const [showQueueTypePicker, setShowQueueTypePicker] = useState(false);
   const [assignCourt, setAssignCourt] = useState<Court | null>(null);
   const [rollConfirm, setRollConfirm] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [manualAddCourt, setManualAddCourt] = useState<Court | null>(null);
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
 
   function showToast(msg: string) {
     setToast(msg);
@@ -88,7 +91,14 @@ export default function ActivityPage() {
 
   function handleManualQueueConfirm(selectedIds: string[]) {
     dispatch(setQueue([...queue, ...selectedIds]));
+    setShowManualQueue(null);
     showToast(`${selectedIds.length} players added to queue`);
+  }
+
+  function handleResetSession() {
+    dispatch(resetSession());
+    setShowResetConfirm(false);
+    showToast('Session reset — all game counts cleared');
   }
 
   function handleAssignQueue(groupIndex: number) {
@@ -174,7 +184,14 @@ export default function ActivityPage() {
           </div>
           <div className="flex gap-3">
             <button
-              onClick={() => setShowManualQueue(true)}
+              onClick={() => setShowResetConfirm(true)}
+              disabled={players.length === 0}
+              className="px-4 py-2 rounded-xl text-sm text-danger border border-danger/30 hover:bg-danger/10 disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              Reset Session
+            </button>
+            <button
+              onClick={() => setShowQueueTypePicker(true)}
               disabled={benchPlayers.length === 0}
               className="px-4 py-2 rounded-xl text-sm border border-accent/30 text-accent hover:bg-accent/10 disabled:opacity-40 disabled:cursor-not-allowed"
             >
@@ -366,13 +383,55 @@ export default function ActivityPage() {
         confirmLabel="Proceed Anyway"
       />
 
+      {/* Reset Session Confirm */}
+      <ConfirmDialog
+        open={showResetConfirm}
+        onClose={() => setShowResetConfirm(false)}
+        onConfirm={handleResetSession}
+        title="Reset Session"
+        message="This will reset all player game counts to 0, clear all courts, and empty the queue. Are you sure?"
+        confirmLabel="Reset All"
+        danger
+      />
+
+      {/* Manual Queue Court Type Picker */}
+      {showQueueTypePicker && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50" onClick={() => setShowQueueTypePicker(false)}>
+          <div className="bg-secondary border border-dark-100 rounded-2xl p-6 w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
+            <h2 className="text-lg font-bold mb-4">Queue for which court type?</h2>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                onClick={() => { setShowQueueTypePicker(false); setShowManualQueue('singles'); }}
+                className="p-4 rounded-xl border-2 border-info/30 text-center hover:border-info hover:bg-info/5 transition-colors"
+              >
+                <div className="font-semibold text-sm text-info">Singles</div>
+                <div className="text-xs text-light-300 mt-1">Max 2 players</div>
+              </button>
+              <button
+                onClick={() => { setShowQueueTypePicker(false); setShowManualQueue('doubles'); }}
+                className="p-4 rounded-xl border-2 border-success/30 text-center hover:border-success hover:bg-success/5 transition-colors"
+              >
+                <div className="font-semibold text-sm text-success">Doubles</div>
+                <div className="text-xs text-light-300 mt-1">Max 4 players</div>
+              </button>
+            </div>
+            <button
+              onClick={() => setShowQueueTypePicker(false)}
+              className="mt-4 w-full px-4 py-2 rounded-xl text-light-200 hover:bg-dark-200 text-center text-sm"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Manual Queue Modal */}
       <ManualSelectModal
-        open={showManualQueue}
-        onClose={() => setShowManualQueue(false)}
-        title="Add to Queue"
+        open={!!showManualQueue}
+        onClose={() => setShowManualQueue(null)}
+        title={`Add to Queue (${showManualQueue === 'singles' ? 'Singles' : 'Doubles'})`}
         players={benchPlayers}
-        maxSelect={Math.max(4, benchPlayers.length)}
+        maxSelect={showManualQueue === 'singles' ? 2 : 4}
         onConfirm={handleManualQueueConfirm}
       />
 

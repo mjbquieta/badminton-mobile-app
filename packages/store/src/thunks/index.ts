@@ -6,10 +6,10 @@ import {
 	buildCompatibleBenchQueueIds,
 	sortQueueIdsByGameCountPriority,
 } from '@badminton/core';
-import { assignPlayersToCourtsBulk, endGame } from '../slices/courts';
+import { assignPlayersToCourtsBulk, endGame, dissolveAllCourts } from '../slices/courts';
 import type { AppDispatch, RootState } from '../configure-store';
-import { incrementPlayersGameCount } from '../slices/players';
-import { setQueue } from '../slices/queue';
+import { incrementPlayersGameCount, resetAllGameCounts } from '../slices/players';
+import { setQueue, clearQueue } from '../slices/queue';
 
 export const fillDoublesCourtsFromQueue =
 	() => (dispatch: AppDispatch, getState: () => RootState) => {
@@ -177,4 +177,17 @@ export const backToQueue =
 		dispatch(endGame(playerIds));
 		const currentQueue = getState().queue.ids;
 		dispatch(setQueue([...currentQueue, ...playerIds]));
+	};
+
+/**
+ * Resets the entire session:
+ * - All player game counts back to 0
+ * - All courts dissolved (players removed)
+ * - Queue cleared
+ */
+export const resetSession =
+	() => (dispatch: AppDispatch) => {
+		dispatch(dissolveAllCourts());
+		dispatch(clearQueue());
+		dispatch(resetAllGameCounts());
 	};
