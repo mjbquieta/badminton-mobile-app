@@ -11,6 +11,7 @@ import {
   backToQueue,
   setQueue,
   assignPlayersToCourtsBulk,
+  addPlayersToCourtManually,
 } from '@badminton/store';
 import { PlayerTag } from '@/components/PlayerTag';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
@@ -25,7 +26,14 @@ export default function ActivityPage() {
   const [actionTarget, setActionTarget] = useState<{ court: Court; action: string } | null>(null);
   const [showManualQueue, setShowManualQueue] = useState(false);
   const [assignCourt, setAssignCourt] = useState<Court | null>(null);
-  const [showRollConfirm, setShowRollConfirm] = useState(false);
+  const [rollConfirm, setRollConfirm] = useState<string | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
+  const [manualAddCourt, setManualAddCourt] = useState<Court | null>(null);
+
+  function showToast(msg: string) {
+    setToast(msg);
+    setTimeout(() => setToast(null), 3000);
+  }
 
   // Derived state
   const playersInCourts = useMemo(() => {
@@ -54,48 +62,71 @@ export default function ActivityPage() {
   }, [queue, players]);
 
   const activeCourts = courts.filter((c) => c.players.length > 0);
-  const emptyCourts = courts.filter((c) => c.players.length === 0 && !c.isSingle);
+  const emptyDoubleCourts = courts.filter((c) => c.players.length === 0 && !c.isSingle);
+  const emptySinglesCourts = courts.filter((c) => c.players.length === 0 && c.isSingle);
+  const allEmptyCourts = courts.filter((c) => c.players.length === 0);
 
   // Actions
   function handleAutoQueue() {
-    const result = dispatch(rollDice());
-    // rollDice returns thunk result with needsConfirmation
-    if ((result as any)?.payload?.needsConfirmation) {
-      setShowRollConfirm(true);
+    const result = dispatch(rollDice()) as unknown as { needsConfirmation: boolean; playersAdded: number; message?: string };
+    if (result?.needsConfirmation) {
+      setRollConfirm(result.message ?? 'Incompatible skill levels. Proceed anyway?');
+    } else if (result?.playersAdded > 0) {
+      showToast(`${result.playersAdded} players added to queue`);
+    } else {
+      showToast('Not enough bench players to form a group');
     }
   }
 
   function handleForceRoll() {
-    dispatch(rollDice({ allowIncompatible: true }));
-    setShowRollConfirm(false);
+    const result = dispatch(rollDice({ allowIncompatible: true })) as unknown as { playersAdded: number };
+    setRollConfirm(null);
+    if (result?.playersAdded > 0) {
+      showToast(`${result.playersAdded} players added to queue`);
+    }
   }
 
   function handleManualQueueConfirm(selectedIds: string[]) {
     dispatch(setQueue([...queue, ...selectedIds]));
+    showToast(`${selectedIds.length} players added to queue`);
   }
 
   function handleAssignQueue(groupIndex: number) {
     if (!assignCourt) return;
     const group = queueGroups[groupIndex];
-    if (group.length !== 4) return;
+    const needed = assignCourt.isSingle ? 2 : 4;
+    if (group.length < needed) return;
 
+    const assignPlayers = group.slice(0, needed);
     dispatch(assignPlayersToCourtsBulk({
-      assignments: [{ courtId: assignCourt.id, players: group }],
+      assignments: [{ courtId: assignCourt.id, players: assignPlayers }],
     }));
 
-    // Remove assigned group from queue
-    const assignedIds = new Set(group.map((p) => p.id));
+    const assignedIds = new Set(assignPlayers.map((p) => p.id));
     dispatch(setQueue(queue.filter((id) => !assignedIds.has(id))));
     setAssignCourt(null);
+  }
+
+  function handleManualAddToCourt(selectedIds: string[]) {
+    if (!manualAddCourt) return;
+    const selectedPlayers = selectedIds
+      .map((id) => players.find((p) => p.id === id))
+      .filter((p): p is Player => !!p);
+    dispatch(addPlayersToCourtManually({ courtId: manualAddCourt.id, players: selectedPlayers }));
+    setManualAddCourt(null);
   }
 
   function handleCourtAction() {
     if (!actionTarget) return;
     const { court, action } = actionTarget;
     switch (action) {
-      case 'finish':
-        dispatch(endGameAndAdvanceQueue(court.id));
+      case 'finish': {
+        const result = dispatch(endGameAndAdvanceQueue(court.id)) as unknown as { warnedQueueEmpty: boolean };
+        if (result?.warnedQueueEmpty) {
+          showToast('Queue is running low! Consider rolling dice to add more players.');
+        }
         break;
+      }
       case 'dissolve':
         dispatch(dissolveCourt(court.id));
         break;
@@ -114,6 +145,13 @@ export default function ActivityPage() {
 
   return (
     <div className="p-8 max-w-6xl">
+      {/* Toast */}
+      {toast && (
+        <div className="fixed top-4 right-4 bg-secondary border border-dark-100 text-light-100 px-4 py-2 rounded-xl text-sm font-medium z-50 shadow-elevated">
+          {toast}
+        </div>
+      )}
+
       {/* Header */}
       <h1 className="text-3xl font-bold mb-6">Activity</h1>
 
@@ -131,7 +169,7 @@ export default function ActivityPage() {
             </div>
             <div>
               <span className="text-light-300 text-xs block">Available Courts</span>
-              <span className="text-xl font-bold">{emptyCourts.length}</span>
+              <span className="text-xl font-bold">{allEmptyCourts.length}</span>
             </div>
           </div>
           <div className="flex gap-3">
@@ -166,6 +204,7 @@ export default function ActivityPage() {
             {activeCourts.map((court) => {
               const needed = court.isSingle ? 2 : 4;
               const isFull = court.players.length === needed;
+              const remaining = needed - court.players.length;
               return (
                 <div
                   key={court.id}
@@ -206,12 +245,20 @@ export default function ActivityPage() {
                       </>
                     )}
                     {!isFull && (
-                      <button
-                        onClick={() => setActionTarget({ court, action: 'dissolve' })}
-                        className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-danger/15 text-danger hover:bg-danger/25"
-                      >
-                        Dissolve
-                      </button>
+                      <>
+                        <button
+                          onClick={() => setManualAddCourt(court)}
+                          className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-accent/15 text-accent hover:bg-accent/25"
+                        >
+                          Add {remaining} more
+                        </button>
+                        <button
+                          onClick={() => setActionTarget({ court, action: 'dissolve' })}
+                          className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-danger/15 text-danger hover:bg-danger/25"
+                        >
+                          Dissolve
+                        </button>
+                      </>
                     )}
                   </div>
                 </div>
@@ -226,25 +273,42 @@ export default function ActivityPage() {
       </section>
 
       {/* Empty Courts */}
-      {emptyCourts.length > 0 && (
+      {allEmptyCourts.length > 0 && (
         <section className="mb-8">
-          <h2 className="text-xl font-bold mb-4">Available Courts ({emptyCourts.length})</h2>
+          <h2 className="text-xl font-bold mb-4">Available Courts ({allEmptyCourts.length})</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {emptyCourts.map((court) => (
-              <div key={court.id} className="bg-secondary p-5 rounded-2xl border border-dark-100">
-                <div className="flex justify-between items-center mb-3">
-                  <h3 className="font-semibold">{court.name}</h3>
-                  <span className="text-xs text-light-300">{court.isSingle ? 'Singles' : 'Doubles'}</span>
+            {allEmptyCourts.map((court) => {
+              const needed = court.isSingle ? 2 : 4;
+              const hasQueueGroup = queueGroups.some((g) => g.length >= needed);
+              return (
+                <div key={court.id} className="bg-secondary p-5 rounded-2xl border border-dark-100">
+                  <div className="flex justify-between items-center mb-3">
+                    <h3 className="font-semibold">{court.name}</h3>
+                    <span className={`text-xs px-2 py-0.5 rounded font-semibold ${
+                      court.isSingle ? 'bg-info/15 text-info' : 'bg-success/15 text-success'
+                    }`}>
+                      {court.isSingle ? 'Singles' : 'Doubles'}
+                    </span>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setAssignCourt(court)}
+                      disabled={!hasQueueGroup}
+                      className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-accent/15 text-accent hover:bg-accent/25 disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      From Queue
+                    </button>
+                    <button
+                      onClick={() => setManualAddCourt(court)}
+                      disabled={benchPlayers.length === 0}
+                      className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-dark-100 text-light-200 hover:bg-dark-200 disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      Manual Add
+                    </button>
+                  </div>
                 </div>
-                <button
-                  onClick={() => setAssignCourt(court)}
-                  disabled={queueGroups.filter((g) => g.length === 4).length === 0}
-                  className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-accent/15 text-accent hover:bg-accent/25 disabled:opacity-40 disabled:cursor-not-allowed"
-                >
-                  From Queue
-                </button>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </section>
       )}
@@ -294,12 +358,12 @@ export default function ActivityPage() {
 
       {/* Roll Dice Confirm (incompatible levels) */}
       <ConfirmDialog
-        open={showRollConfirm}
-        onClose={() => setShowRollConfirm(false)}
+        open={!!rollConfirm}
+        onClose={() => setRollConfirm(null)}
         onConfirm={handleForceRoll}
         title="Incompatible Levels"
-        message="Some players have incompatible skill levels. Proceed anyway?"
-        confirmLabel="Proceed"
+        message={rollConfirm ?? ''}
+        confirmLabel="Proceed Anyway"
       />
 
       {/* Manual Queue Modal */}
@@ -312,15 +376,30 @@ export default function ActivityPage() {
         onConfirm={handleManualQueueConfirm}
       />
 
+      {/* Manual Add to Court Modal */}
+      {manualAddCourt && (
+        <ManualSelectModal
+          open
+          onClose={() => setManualAddCourt(null)}
+          title={`Add players to ${manualAddCourt.name}`}
+          players={benchPlayers}
+          maxSelect={(manualAddCourt.isSingle ? 2 : 4) - manualAddCourt.players.length}
+          onConfirm={handleManualAddToCourt}
+        />
+      )}
+
       {/* Assign Queue Group Modal */}
       {assignCourt && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50" onClick={() => setAssignCourt(null)}>
           <div className="bg-secondary border border-dark-100 rounded-2xl p-6 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
             <h2 className="text-xl font-bold mb-4">Assign to {assignCourt.name}</h2>
-            <p className="text-light-200 text-sm mb-4">Select a queue group:</p>
+            <p className="text-light-200 text-sm mb-4">
+              Select a queue group ({assignCourt.isSingle ? '2' : '4'} players needed):
+            </p>
             <div className="space-y-2 max-h-64 overflow-y-auto">
               {queueGroups.map((group, i) => {
-                if (group.length !== 4) return null;
+                const needed = assignCourt.isSingle ? 2 : 4;
+                if (group.length < needed) return null;
                 return (
                   <button
                     key={i}
@@ -331,7 +410,7 @@ export default function ActivityPage() {
                       <span className="font-semibold text-sm">Queue {i + 1}</span>
                     </div>
                     <div className="flex flex-wrap gap-1.5">
-                      {group.map((p) => (
+                      {group.slice(0, needed).map((p) => (
                         <PlayerTag key={p.id} player={p} />
                       ))}
                     </div>

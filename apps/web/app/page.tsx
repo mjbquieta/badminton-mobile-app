@@ -1,16 +1,20 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useAppSelector, useAppDispatch, rollDice } from '@badminton/store';
 import { type Player } from '@badminton/types';
 import Link from 'next/link';
 import { PlayerTag } from '@/components/PlayerTag';
+import { ConfirmDialog } from '@/components/ConfirmDialog';
 
 export default function Dashboard() {
   const dispatch = useAppDispatch();
   const players = useAppSelector((state) => state.players.items);
   const courts = useAppSelector((state) => state.courts.items);
   const queue = useAppSelector((state) => state.queue.ids);
+
+  const [rollConfirm, setRollConfirm] = useState<string | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
 
   // Calculate stats
   const totalPlayers = players.length;
@@ -33,8 +37,37 @@ export default function Dashboard() {
     return groups;
   }, [queue, players]);
 
+  function handleRollDice() {
+    const result = dispatch(rollDice()) as unknown as { needsConfirmation: boolean; playersAdded: number; message?: string };
+    if (result?.needsConfirmation) {
+      setRollConfirm(result.message ?? 'Incompatible skill levels. Proceed anyway?');
+    } else if (result?.playersAdded > 0) {
+      setToast(`${result.playersAdded} players added to queue`);
+      setTimeout(() => setToast(null), 3000);
+    } else if (result?.playersAdded === 0) {
+      setToast('Not enough bench players to form a group');
+      setTimeout(() => setToast(null), 3000);
+    }
+  }
+
+  function handleForceRoll() {
+    const result = dispatch(rollDice({ allowIncompatible: true })) as unknown as { playersAdded: number };
+    setRollConfirm(null);
+    if (result?.playersAdded > 0) {
+      setToast(`${result.playersAdded} players added to queue`);
+      setTimeout(() => setToast(null), 3000);
+    }
+  }
+
   return (
     <div className="p-8 max-w-6xl">
+      {/* Toast */}
+      {toast && (
+        <div className="fixed top-4 right-4 bg-success/90 text-white px-4 py-2 rounded-xl text-sm font-medium z-50 shadow-elevated">
+          {toast}
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex items-center justify-between mb-8">
         <div>
@@ -42,7 +75,7 @@ export default function Dashboard() {
           <p className="text-light-300 text-sm mt-1">Session overview</p>
         </div>
         <button
-          onClick={() => dispatch(rollDice())}
+          onClick={handleRollDice}
           disabled={onBench === 0}
           className="px-5 py-2.5 rounded-xl bg-accent text-primary font-semibold hover:bg-accent/80 disabled:opacity-40 disabled:cursor-not-allowed"
         >
@@ -149,6 +182,16 @@ export default function Dashboard() {
           </div>
         </section>
       </div>
+
+      {/* Roll Dice Incompatible Confirm */}
+      <ConfirmDialog
+        open={!!rollConfirm}
+        onClose={() => setRollConfirm(null)}
+        onConfirm={handleForceRoll}
+        title="Incompatible Levels"
+        message={rollConfirm ?? ''}
+        confirmLabel="Proceed Anyway"
+      />
     </div>
   );
 }
