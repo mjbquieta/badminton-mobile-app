@@ -1,5 +1,3 @@
-import { type FirebaseConfig } from '@badminton/firebase';
-
 /**
  * Firebase configuration for the web app.
  *
@@ -10,11 +8,11 @@ import { type FirebaseConfig } from '@badminton/firebase';
  * 4. Copy the config values below
  * 5. Enable Firestore in the Firebase console
  */
-export const firebaseConfig: FirebaseConfig = {
-  apiKey: 'YOUR_API_KEY',
-  authDomain: 'YOUR_PROJECT.firebaseapp.com',
-  projectId: 'YOUR_PROJECT_ID',
-  storageBucket: 'YOUR_PROJECT.firebasestorage.app',
-  messagingSenderId: 'YOUR_SENDER_ID',
-  appId: 'YOUR_APP_ID',
+export const firebaseConfig = {
+	apiKey: "AIzaSyAbLOp7pQoZntcy7iUMAXL5zAVzwGL0j3I",
+	authDomain: "badminton-app-1f48f.firebaseapp.com",
+	projectId: "badminton-app-1f48f",
+	storageBucket: "badminton-app-1f48f.firebasestorage.app",
+	messagingSenderId: "346487428086",
+	appId: "1:346487428086:web:9413efce0ee1896b966dd7",
 };

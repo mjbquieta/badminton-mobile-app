@@ -20,7 +20,8 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-redux": "^9.2.0",
-    "@reduxjs/toolkit": "^2.5.2"
+    "@reduxjs/toolkit": "^2.5.2",
+    "uuid": "^13.0.0"
   },
   "devDependencies": {
     "@types/node": "^20",
