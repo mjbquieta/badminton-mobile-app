@@ -345,11 +345,21 @@ export default function ActivityPage() {
                     {group.length}/4
                   </span>
                 </div>
-                <div className="flex flex-wrap gap-1.5">
+                <div className="flex flex-wrap gap-1.5 mb-3">
                   {group.map((p) => (
                     <PlayerTag key={p.id} player={p} />
                   ))}
                 </div>
+                <button
+                  onClick={() => {
+                    const groupIds = new Set(group.map((p) => p.id));
+                    dispatch(setQueue(queue.filter((id) => !groupIds.has(id))));
+                    showToast(`${group.length} players returned to bench`);
+                  }}
+                  className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-danger/15 text-danger hover:bg-danger/25"
+                >
+                  Dissolve
+                </button>
               </div>
             ))}
           </div>
