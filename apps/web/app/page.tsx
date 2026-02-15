@@ -1,10 +1,7 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { useAppSelector, useAppDispatch, rollDice } from '@badminton/store';
-import { type Player } from '@badminton/types';
-import Link from 'next/link';
-import { PlayerTag } from '@/components/PlayerTag';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 
 export default function Dashboard() {
@@ -24,18 +21,6 @@ export default function Dashboard() {
   const inQueue = queue.length;
   const onBench = totalPlayers - inGame - inQueue;
   const availableCourts = courts.filter((c) => c.players.length === 0).length;
-
-  const queueGroups = useMemo(() => {
-    const groups: Player[][] = [];
-    for (let i = 0; i < queue.length; i += 4) {
-      const groupIds = queue.slice(i, i + 4);
-      const groupPlayers = groupIds
-        .map((id) => players.find((p) => p.id === id))
-        .filter((p): p is Player => !!p);
-      groups.push(groupPlayers);
-    }
-    return groups;
-  }, [queue, players]);
 
   function handleRollDice() {
     const result = dispatch(rollDice()) as unknown as { needsConfirmation: boolean; playersAdded: number; message?: string };
@@ -84,7 +69,7 @@ export default function Dashboard() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 sm:gap-4 mb-6 md:mb-8">
+      <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 sm:gap-4">
         <div className="bg-secondary p-3 sm:p-5 rounded-2xl border border-dark-100">
           <h3 className="text-light-300 text-[10px] sm:text-xs mb-1">Players</h3>
           <p className="text-xl sm:text-3xl font-bold">{totalPlayers}</p>
@@ -105,82 +90,6 @@ export default function Dashboard() {
           <h3 className="text-light-300 text-[10px] sm:text-xs mb-1">Courts Free</h3>
           <p className="text-xl sm:text-3xl font-bold text-info">{availableCourts}/{courts.length}</p>
         </div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Courts Overview */}
-        <section>
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-bold">Courts</h2>
-            <Link href="/courts" className="text-xs text-accent hover:underline">Manage &rarr;</Link>
-          </div>
-          <div className="space-y-3">
-            {courts.map((court) => {
-              const needed = court.isSingle ? 2 : 4;
-              const isFull = court.players.length === needed;
-              return (
-                <div
-                  key={court.id}
-                  className={`bg-secondary p-4 rounded-2xl border ${
-                    isFull ? 'border-success' : court.players.length > 0 ? 'border-accent' : 'border-dark-100'
-                  }`}
-                >
-                  <div className="flex justify-between items-center mb-2">
-                    <span className="font-semibold text-sm">{court.name}</span>
-                    <span className="text-xs text-light-300">{court.players.length}/{needed}</span>
-                  </div>
-                  {court.players.length > 0 ? (
-                    <div className="flex flex-wrap gap-1.5">
-                      {court.players.map((p) => (
-                        <PlayerTag key={p.id} player={p} />
-                      ))}
-                    </div>
-                  ) : (
-                    <span className="text-light-300 text-xs">Empty</span>
-                  )}
-                </div>
-              );
-            })}
-            {courts.length === 0 && (
-              <div className="bg-secondary p-6 rounded-2xl border border-dark-100 text-center">
-                <p className="text-light-300 text-sm">No courts configured</p>
-                <Link href="/courts" className="text-xs text-accent hover:underline mt-1 inline-block">Add courts &rarr;</Link>
-              </div>
-            )}
-          </div>
-        </section>
-
-        {/* Queue Overview */}
-        <section>
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-bold">Queue ({queue.length})</h2>
-            <Link href="/activity" className="text-xs text-accent hover:underline">Activity &rarr;</Link>
-          </div>
-          <div className="space-y-3">
-            {queueGroups.map((group, i) => (
-              <div key={i} className="bg-secondary p-4 rounded-2xl border border-dark-100">
-                <div className="flex justify-between items-center mb-2">
-                  <span className="font-semibold text-sm">Queue {i + 1}</span>
-                  <span className={`text-xs px-2 py-0.5 rounded font-semibold ${
-                    group.length === 4 ? 'bg-success/15 text-success' : 'bg-warning/15 text-warning'
-                  }`}>
-                    {group.length}/4
-                  </span>
-                </div>
-                <div className="flex flex-wrap gap-1.5">
-                  {group.map((p) => (
-                    <PlayerTag key={p.id} player={p} />
-                  ))}
-                </div>
-              </div>
-            ))}
-            {queueGroups.length === 0 && (
-              <div className="bg-secondary p-6 rounded-2xl border border-dark-100 text-center">
-                <p className="text-light-300 text-sm">Queue is empty</p>
-              </div>
-            )}
-          </div>
-        </section>
       </div>
 
       {/* Roll Dice Incompatible Confirm */}
