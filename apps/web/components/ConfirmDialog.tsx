@@ -1,0 +1,50 @@
+'use client';
+
+import { Modal } from './Modal';
+
+interface ConfirmDialogProps {
+  open: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
+  title: string;
+  message: string;
+  confirmLabel?: string;
+  danger?: boolean;
+}
+
+export function ConfirmDialog({
+  open,
+  onClose,
+  onConfirm,
+  title,
+  message,
+  confirmLabel = 'Confirm',
+  danger = false,
+}: ConfirmDialogProps) {
+  return (
+    <Modal open={open} onClose={onClose} title={title}>
+      <p className="text-light-200 mb-6">{message}</p>
+      <div className="flex gap-3 justify-end">
+        <button
+          onClick={onClose}
+          className="px-4 py-2 rounded-xl text-light-200 hover:bg-dark-200"
+        >
+          Cancel
+        </button>
+        <button
+          onClick={() => {
+            onConfirm();
+            onClose();
+          }}
+          className={`px-4 py-2 rounded-xl font-semibold ${
+            danger
+              ? 'bg-danger text-white hover:bg-danger/80'
+              : 'bg-accent text-primary hover:bg-accent/80'
+          }`}
+        >
+          {confirmLabel}
+        </button>
+      </div>
+    </Modal>
+  );
+}

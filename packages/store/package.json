@@ -1,0 +1,24 @@
+{
+  "name": "@badminton/store",
+  "version": "0.0.1",
+  "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "type-check": "tsc --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@badminton/types": "*",
+    "@badminton/core": "*"
+  },
+  "peerDependencies": {
+    "react": "^19.0.0",
+    "@reduxjs/toolkit": "^2.5.2",
+    "react-redux": "^9.2.0"
+  },
+  "devDependencies": {
+    "typescript": "~5.9.2"
+  }
+}
