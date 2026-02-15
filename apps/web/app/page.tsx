@@ -53,8 +53,25 @@ export default function LandingPage() {
           </Link>
         </div>
 
+        {/* Download APK */}
+        <div className="mt-12">
+          <a
+            href="/smash-potato.apk"
+            download
+            className="inline-flex items-center gap-3 bg-court-deep/20 border border-court-deep/40 hover:bg-court-deep/30 transition-colors rounded-xl px-6 py-3"
+          >
+            <svg viewBox="0 0 24 24" className="w-6 h-6 text-court-lime fill-current">
+              <path d="M17.523 2.226l1.392 2.412a.5.5 0 01-.866.5l-1.392-2.412a7.034 7.034 0 00-9.314 0L5.951 5.138a.5.5 0 01-.866-.5L6.477 2.226A8.034 8.034 0 0112 0a8.034 8.034 0 015.523 2.226zM4 8a8 8 0 0116 0v1a1 1 0 01-1 1H5a1 1 0 01-1-1V8zm5.5 0a1 1 0 10-2 0 1 1 0 002 0zm7 0a1 1 0 10-2 0 1 1 0 002 0zM5 12h14v8a2 2 0 01-2 2H7a2 2 0 01-2-2v-8z" />
+            </svg>
+            <div className="text-left">
+              <span className="text-light-100 text-sm font-semibold block">Download for Android</span>
+              <span className="text-light-300 text-xs">Get the APK</span>
+            </div>
+          </a>
+        </div>
+
         {/* Feature cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-20 max-w-3xl w-full">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-16 max-w-3xl w-full">
           <div className="bg-secondary border border-dark-100 rounded-2xl p-6 text-left">
             <div className="w-10 h-10 rounded-xl bg-court-deep/30 flex items-center justify-center mb-4">
               <span className="text-court-lime text-lg">&#9776;</span>

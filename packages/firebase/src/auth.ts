@@ -8,7 +8,7 @@ import {
   type User,
   type Unsubscribe,
 } from 'firebase/auth';
-import { doc, setDoc, getDoc, serverTimestamp, getFirestore } from 'firebase/firestore';
+import { doc, setDoc, getDoc, getDocs, collection, query, where, serverTimestamp, getFirestore } from 'firebase/firestore';
 import { getFirebaseApp } from './config';
 
 let auth: Auth | null = null;
@@ -25,6 +25,18 @@ export async function registerUser(
   password: string,
   clubName: string
 ): Promise<User> {
+  const db = getFirestore(getFirebaseApp());
+
+  // Check club name uniqueness before creating the auth user
+  const clubQuery = query(
+    collection(db, 'users'),
+    where('clubName', '==', clubName)
+  );
+  const existing = await getDocs(clubQuery);
+  if (!existing.empty) {
+    throw { code: 'auth/club-name-taken' };
+  }
+
   const authInstance = getAuthInstance();
   const credential = await createUserWithEmailAndPassword(
     authInstance,
@@ -33,7 +45,6 @@ export async function registerUser(
   );
   const user = credential.user;
 
-  const db = getFirestore(getFirebaseApp());
   await setDoc(doc(db, 'users', user.uid), {
     email,
     clubName,
@@ -72,6 +83,8 @@ export function getAuthErrorMessage(error: unknown): string {
   if (error && typeof error === 'object' && 'code' in error) {
     const code = (error as { code: string }).code;
     switch (code) {
+      case 'auth/club-name-taken':
+        return 'This club name is already taken. Please choose a different one.';
       case 'auth/email-already-in-use':
         return 'An account with this email already exists.';
       case 'auth/invalid-email':
