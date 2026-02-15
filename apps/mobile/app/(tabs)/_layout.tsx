@@ -1,10 +1,23 @@
 import { BadmintonPalette } from "@/constants/palette";
+import { useAuth } from "@/contexts/AuthContext";
+import { useFirebaseSync } from "@/hooks/useFirebaseSync";
+import { ToastProvider } from "@/components/Toast";
 import AntDesign from "@expo/vector-icons/AntDesign";
 import Feather from "@expo/vector-icons/Feather";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
+import { configureAppStore } from "@badminton/store";
 import { Tabs } from "expo-router";
 import React from "react";
 import { Text, View } from "react-native";
+import { Provider } from "react-redux";
+
+const store = configureAppStore();
+
+function FirebaseSyncProvider({ children }: { children: React.ReactNode }) {
+  const { user } = useAuth();
+  useFirebaseSync(store, user!.uid);
+  return <>{children}</>;
+}
 
 const TabIcon = ({
   focused,
@@ -56,57 +69,63 @@ const TabIcon = ({
 
 const _layout = () => {
   return (
-    <Tabs
-      screenOptions={{
-        headerShown: false,
-        tabBarShowLabel: false,
-        tabBarItemStyle: {
-          width: "100%",
-          height: "100%",
-          justifyContent: "center",
-          alignItems: "center",
-        },
-        tabBarStyle: {
-          backgroundColor: BadmintonPalette.bg.surface,
-          borderRadius: 20,
-          marginHorizontal: 16,
-          marginBottom: 16,
-          height: 60,
-          position: "absolute",
-          overflow: "hidden",
-          borderWidth: 1,
-          borderColor: BadmintonPalette.bg.border,
-        },
-      }}
-    >
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: "Home",
-          tabBarIcon: ({ focused }) => (
-            <TabIcon focused={focused} type="home" title="Home" />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="activity"
-        options={{
-          title: "Activity",
-          tabBarIcon: ({ focused }) => (
-            <TabIcon focused={focused} type="activity" title="Activity" />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="settings"
-        options={{
-          title: "Settings",
-          tabBarIcon: ({ focused }) => (
-            <TabIcon focused={focused} type="settings" title="Settings" />
-          ),
-        }}
-      />
-    </Tabs>
+    <Provider store={store}>
+      <FirebaseSyncProvider>
+        <ToastProvider>
+          <Tabs
+            screenOptions={{
+              headerShown: false,
+              tabBarShowLabel: false,
+              tabBarItemStyle: {
+                width: "100%",
+                height: "100%",
+                justifyContent: "center",
+                alignItems: "center",
+              },
+              tabBarStyle: {
+                backgroundColor: BadmintonPalette.bg.surface,
+                borderRadius: 20,
+                marginHorizontal: 16,
+                marginBottom: 16,
+                height: 60,
+                position: "absolute",
+                overflow: "hidden",
+                borderWidth: 1,
+                borderColor: BadmintonPalette.bg.border,
+              },
+            }}
+          >
+            <Tabs.Screen
+              name="index"
+              options={{
+                title: "Home",
+                tabBarIcon: ({ focused }) => (
+                  <TabIcon focused={focused} type="home" title="Home" />
+                ),
+              }}
+            />
+            <Tabs.Screen
+              name="activity"
+              options={{
+                title: "Activity",
+                tabBarIcon: ({ focused }) => (
+                  <TabIcon focused={focused} type="activity" title="Activity" />
+                ),
+              }}
+            />
+            <Tabs.Screen
+              name="settings"
+              options={{
+                title: "Settings",
+                tabBarIcon: ({ focused }) => (
+                  <TabIcon focused={focused} type="settings" title="Settings" />
+                ),
+              }}
+            />
+          </Tabs>
+        </ToastProvider>
+      </FirebaseSyncProvider>
+    </Provider>
   );
 };
 

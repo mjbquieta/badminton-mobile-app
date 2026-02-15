@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useAuth } from '@/contexts/AuthContext';
 
 const navItems = [
   { href: '/', label: 'Dashboard', icon: '📊' },
@@ -12,6 +13,7 @@ const navItems = [
 
 export function Sidebar() {
   const pathname = usePathname();
+  const { logout } = useAuth();
 
   return (
     <>
@@ -41,6 +43,14 @@ export function Sidebar() {
             );
           })}
         </nav>
+
+        <button
+          onClick={logout}
+          className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-light-300 hover:bg-dark-200 hover:text-danger transition-colors mt-2"
+        >
+          <span className="text-lg">🚪</span>
+          Sign Out
+        </button>
       </aside>
 
       {/* Mobile Bottom Tab Bar */}

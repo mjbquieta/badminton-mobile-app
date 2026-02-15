@@ -2,12 +2,14 @@
 
 import { configureAppStore } from '@badminton/store';
 import { useFirebaseSync } from '@/hooks/useFirebaseSync';
+import { useAuth } from '@/contexts/AuthContext';
 import { Provider } from 'react-redux';
 
 const store = configureAppStore();
 
 function FirebaseSyncProvider({ children }: { children: React.ReactNode }) {
-  const { isLoading } = useFirebaseSync(store);
+  const { user } = useAuth();
+  const { isLoading } = useFirebaseSync(store, user!.uid);
 
   if (isLoading) {
     return (

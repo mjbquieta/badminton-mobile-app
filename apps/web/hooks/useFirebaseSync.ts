@@ -2,43 +2,28 @@
 
 import { useEffect, useRef, useState } from 'react';
 import {
-  initializeFirebase,
   createSession,
   getSession,
   createFirebaseSync,
   type SyncableStore,
 } from '@badminton/firebase';
-import { firebaseConfig } from '@/config/firebase';
-
-const FIREBASE_ENABLED = !firebaseConfig.apiKey.startsWith('YOUR_');
 
 /**
- * Hook that initializes Firebase and syncs Redux state with Firestore.
+ * Hook that syncs Redux state with Firestore for a given session.
  *
- * Uses the same session ID as the mobile app so both platforms
- * share the same data in real time.
- *
- * Set your Firebase config in config/firebase.ts to enable.
+ * Firebase must already be initialized (by AuthProvider) before this hook runs.
+ * The sessionId is the authenticated user's UID, so each user gets their own session.
  */
-export function useFirebaseSync(store: SyncableStore) {
-  const [sessionId, setSessionId] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(FIREBASE_ENABLED);
+export function useFirebaseSync(store: SyncableStore, sessionId: string) {
+  const [isLoading, setIsLoading] = useState(true);
   const cleanupRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
-    if (!FIREBASE_ENABLED) {
-      setIsLoading(false);
-      return;
-    }
-
     let cancelled = false;
 
     async function init() {
       try {
-        initializeFirebase(firebaseConfig);
-
-        const fixedSessionId = 'default-session';
-        const existing = await getSession(fixedSessionId);
+        const existing = await getSession(sessionId);
 
         if (!existing) {
           const state = store.getState();
@@ -54,8 +39,7 @@ export function useFirebaseSync(store: SyncableStore) {
         }
 
         if (!cancelled) {
-          cleanupRef.current = createFirebaseSync(store, fixedSessionId);
-          setSessionId(fixedSessionId);
+          cleanupRef.current = createFirebaseSync(store, sessionId);
           setIsLoading(false);
         }
       } catch (error) {
@@ -72,7 +56,7 @@ export function useFirebaseSync(store: SyncableStore) {
       cancelled = true;
       cleanupRef.current?.();
     };
-  }, [store]);
+  }, [store, sessionId]);
 
-  return { sessionId, isLoading, isEnabled: FIREBASE_ENABLED };
+  return { sessionId, isLoading };
 }

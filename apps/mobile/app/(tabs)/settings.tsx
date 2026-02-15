@@ -1,4 +1,5 @@
 import { BadmintonPalette } from "@/constants/palette";
+import { useAuth } from "@/contexts/AuthContext";
 import AntDesign from "@expo/vector-icons/AntDesign";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import Constants from "expo-constants";
@@ -42,6 +43,7 @@ const AboutContent = () => {
 };
 
 const settings = () => {
+  const { logout } = useAuth();
   const [activeTab, setActiveTab] = useState<
     "menu" | "manage_players" | "courts" | "about"
   >("menu");
@@ -165,6 +167,30 @@ const settings = () => {
               </TouchableOpacity>
             ))}
           </View>
+
+          {/* Sign Out */}
+          <TouchableOpacity
+            onPress={logout}
+            className="mt-4 bg-secondary border border-dark-100 rounded-2xl flex-row items-center px-4 py-4"
+            accessibilityRole="button"
+            accessibilityLabel="Sign out"
+          >
+            <View className="size-10 rounded-xl bg-red-500/10 items-center justify-center mr-4">
+              <AntDesign
+                name="logout"
+                size={22}
+                color={BadmintonPalette.accent.danger}
+              />
+            </View>
+            <View className="flex-1">
+              <Text className="text-red-500 text-base font-semibold">
+                Sign Out
+              </Text>
+              <Text className="text-light-300 text-sm">
+                Log out of your account
+              </Text>
+            </View>
+          </TouchableOpacity>
         </View>
       ) : (
         <View className="flex-1">
