@@ -15,7 +15,10 @@ const store = configureAppStore();
 
 function FirebaseSyncProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
-  useFirebaseSync(store, user!.uid);
+  useFirebaseSync(store, user?.uid ?? "");
+
+  if (!user) return null;
+
   return <>{children}</>;
 }
 
