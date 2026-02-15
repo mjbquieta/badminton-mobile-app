@@ -1,4 +1,5 @@
 import { BadmintonPalette } from "@/constants/palette";
+import ConfirmationAlert from "@/components/ConfirmationAlert";
 import { useAuth } from "@/contexts/AuthContext";
 import AntDesign from "@expo/vector-icons/AntDesign";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
@@ -170,7 +171,13 @@ const settings = () => {
 
           {/* Sign Out */}
           <TouchableOpacity
-            onPress={logout}
+            onPress={() =>
+              ConfirmationAlert({
+                title: "Sign Out",
+                message: "Are you sure you want to sign out?",
+                onConfirm: logout,
+              })
+            }
             className="mt-4 bg-secondary border border-dark-100 rounded-2xl flex-row items-center px-4 py-4"
             accessibilityRole="button"
             accessibilityLabel="Sign out"
