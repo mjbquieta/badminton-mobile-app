@@ -15,11 +15,12 @@ export {
 export type { SyncableStore, FirebaseSyncOptions } from './sync';
 export { createFirebaseSync } from './sync';
 
-export type { User } from './auth';
+export type { User, UserProfile } from './auth';
 export {
   registerUser,
   loginUser,
   signOut,
   subscribeToAuthState,
   getAuthErrorMessage,
+  getUserProfile,
 } from './auth';

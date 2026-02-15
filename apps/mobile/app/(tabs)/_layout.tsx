@@ -13,13 +13,10 @@ import { Provider } from "react-redux";
 
 const store = configureAppStore();
 
-function FirebaseSyncProvider({ children }: { children: React.ReactNode }) {
+function FirebaseSyncInitializer() {
   const { user } = useAuth();
   useFirebaseSync(store, user?.uid ?? "");
-
-  if (!user) return null;
-
-  return <>{children}</>;
+  return null;
 }
 
 const TabIcon = ({
@@ -73,9 +70,9 @@ const TabIcon = ({
 const _layout = () => {
   return (
     <Provider store={store}>
-      <FirebaseSyncProvider>
-        <ToastProvider>
-          <Tabs
+      <FirebaseSyncInitializer />
+      <ToastProvider>
+        <Tabs
             screenOptions={{
               headerShown: false,
               tabBarShowLabel: false,
@@ -127,7 +124,6 @@ const _layout = () => {
             />
           </Tabs>
         </ToastProvider>
-      </FirebaseSyncProvider>
     </Provider>
   );
 };
