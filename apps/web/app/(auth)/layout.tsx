@@ -10,7 +10,7 @@ function AuthRedirectGuard({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!loading && user) {
-      router.replace('/');
+      router.replace('/home');
     }
   }, [user, loading, router]);
 

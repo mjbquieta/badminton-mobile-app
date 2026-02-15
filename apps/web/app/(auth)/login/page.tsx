@@ -20,7 +20,7 @@ export default function LoginPage() {
     setSubmitting(true);
     try {
       await login(email, password);
-      router.replace('/');
+      router.replace('/home');
     } catch (err: unknown) {
       setError(getAuthErrorMessage(err));
     } finally {

@@ -32,7 +32,7 @@ export default function RegisterPage() {
     setSubmitting(true);
     try {
       await register(email, password, clubName.trim());
-      router.replace('/');
+      router.replace('/home');
     } catch (err: unknown) {
       setError(getAuthErrorMessage(err));
     } finally {
