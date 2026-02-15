@@ -35,7 +35,7 @@ export default function LoginScreen() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-base">
+    <SafeAreaView className="flex-1 bg-primary">
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         className="flex-1"
@@ -44,21 +44,21 @@ export default function LoginScreen() {
           contentContainerClassName="flex-1 justify-center px-6"
           keyboardShouldPersistTaps="handled"
         >
-          <Text className="text-white text-3xl font-bold mb-2">Sign In</Text>
-          <Text className="text-secondary text-base mb-8">
+          <Text className="text-light-100 text-3xl font-bold mb-2">Sign In</Text>
+          <Text className="text-light-200 text-base mb-8">
             Welcome back to Smash Potato
           </Text>
 
           {error ? (
-            <View className="bg-red-500/10 border border-red-500/30 rounded-xl p-3 mb-4">
-              <Text className="text-red-500 text-sm">{error}</Text>
+            <View className="bg-danger/10 border border-danger/30 rounded-xl p-3 mb-4">
+              <Text className="text-danger text-sm">{error}</Text>
             </View>
           ) : null}
 
           <View className="mb-3">
-            <Text className="text-secondary text-sm mb-1">Email</Text>
+            <Text className="text-light-200 text-sm mb-1">Email</Text>
             <TextInput
-              className="w-full px-4 py-3 rounded-xl bg-elevated border border-border text-white"
+              className="w-full px-4 py-3 rounded-xl bg-dark-200 border border-dark-100 text-light-100"
               placeholder="you@example.com"
               placeholderTextColor={BadmintonPalette.text.muted}
               value={email}
@@ -70,9 +70,9 @@ export default function LoginScreen() {
           </View>
 
           <View className="mb-6">
-            <Text className="text-secondary text-sm mb-1">Password</Text>
+            <Text className="text-light-200 text-sm mb-1">Password</Text>
             <TextInput
-              className="w-full px-4 py-3 rounded-xl bg-elevated border border-border text-white"
+              className="w-full px-4 py-3 rounded-xl bg-dark-200 border border-dark-100 text-light-100"
               placeholder="Enter your password"
               placeholderTextColor={BadmintonPalette.text.muted}
               value={password}
@@ -90,14 +90,14 @@ export default function LoginScreen() {
             {submitting ? (
               <ActivityIndicator color={BadmintonPalette.text.onAccent} />
             ) : (
-              <Text className="text-on-accent font-bold text-base">
+              <Text className="text-primary font-bold text-base">
                 Sign In
               </Text>
             )}
           </TouchableOpacity>
 
           <View className="flex-row justify-center mt-6">
-            <Text className="text-secondary text-sm">
+            <Text className="text-light-300 text-sm">
               Don&apos;t have an account?{' '}
             </Text>
             <Link href="/(auth)/register">

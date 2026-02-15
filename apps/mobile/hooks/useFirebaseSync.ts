@@ -17,6 +17,8 @@ export function useFirebaseSync(store: SyncableStore, sessionId: string) {
   const cleanupRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
+    if (!sessionId) return;
+
     let cancelled = false;
 
     async function init() {

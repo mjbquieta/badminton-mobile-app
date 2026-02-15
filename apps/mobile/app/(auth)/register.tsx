@@ -49,7 +49,7 @@ export default function RegisterScreen() {
   const isValid = email && password && clubName.trim();
 
   return (
-    <SafeAreaView className="flex-1 bg-base">
+    <SafeAreaView className="flex-1 bg-primary">
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         className="flex-1"
@@ -58,23 +58,23 @@ export default function RegisterScreen() {
           contentContainerClassName="flex-1 justify-center px-6"
           keyboardShouldPersistTaps="handled"
         >
-          <Text className="text-white text-3xl font-bold mb-2">
+          <Text className="text-light-100 text-3xl font-bold mb-2">
             Create Account
           </Text>
-          <Text className="text-secondary text-base mb-8">
+          <Text className="text-light-200 text-base mb-8">
             Register to start managing your sessions
           </Text>
 
           {error ? (
-            <View className="bg-red-500/10 border border-red-500/30 rounded-xl p-3 mb-4">
-              <Text className="text-red-500 text-sm">{error}</Text>
+            <View className="bg-danger/10 border border-danger/30 rounded-xl p-3 mb-4">
+              <Text className="text-danger text-sm">{error}</Text>
             </View>
           ) : null}
 
           <View className="mb-3">
-            <Text className="text-secondary text-sm mb-1">Email</Text>
+            <Text className="text-light-200 text-sm mb-1">Email</Text>
             <TextInput
-              className="w-full px-4 py-3 rounded-xl bg-elevated border border-border text-white"
+              className="w-full px-4 py-3 rounded-xl bg-dark-200 border border-dark-100 text-light-100"
               placeholder="you@example.com"
               placeholderTextColor={BadmintonPalette.text.muted}
               value={email}
@@ -86,9 +86,9 @@ export default function RegisterScreen() {
           </View>
 
           <View className="mb-3">
-            <Text className="text-secondary text-sm mb-1">Password</Text>
+            <Text className="text-light-200 text-sm mb-1">Password</Text>
             <TextInput
-              className="w-full px-4 py-3 rounded-xl bg-elevated border border-border text-white"
+              className="w-full px-4 py-3 rounded-xl bg-dark-200 border border-dark-100 text-light-100"
               placeholder="Min. 8 characters"
               placeholderTextColor={BadmintonPalette.text.muted}
               value={password}
@@ -98,9 +98,9 @@ export default function RegisterScreen() {
           </View>
 
           <View className="mb-6">
-            <Text className="text-secondary text-sm mb-1">Club Name</Text>
+            <Text className="text-light-200 text-sm mb-1">Club Name</Text>
             <TextInput
-              className="w-full px-4 py-3 rounded-xl bg-elevated border border-border text-white"
+              className="w-full px-4 py-3 rounded-xl bg-dark-200 border border-dark-100 text-light-100"
               placeholder="Your club name"
               placeholderTextColor={BadmintonPalette.text.muted}
               value={clubName}
@@ -117,14 +117,14 @@ export default function RegisterScreen() {
             {submitting ? (
               <ActivityIndicator color={BadmintonPalette.text.onAccent} />
             ) : (
-              <Text className="text-on-accent font-bold text-base">
+              <Text className="text-primary font-bold text-base">
                 Register
               </Text>
             )}
           </TouchableOpacity>
 
           <View className="flex-row justify-center mt-6">
-            <Text className="text-secondary text-sm">
+            <Text className="text-light-300 text-sm">
               Already have an account?{' '}
             </Text>
             <Link href="/(auth)/login">
