@@ -8,7 +8,7 @@ import {
   type User,
   type Unsubscribe,
 } from 'firebase/auth';
-import { doc, setDoc, serverTimestamp, getFirestore } from 'firebase/firestore';
+import { doc, setDoc, getDoc, serverTimestamp, getFirestore } from 'firebase/firestore';
 import { getFirebaseApp } from './config';
 
 let auth: Auth | null = null;
@@ -95,6 +95,19 @@ export function getAuthErrorMessage(error: unknown): string {
     }
   }
   return 'An unexpected error occurred. Please try again.';
+}
+
+export interface UserProfile {
+  email: string;
+  clubName: string;
+  createdAt: unknown;
+}
+
+export async function getUserProfile(uid: string): Promise<UserProfile | null> {
+  const db = getFirestore(getFirebaseApp());
+  const snap = await getDoc(doc(db, 'users', uid));
+  if (!snap.exists()) return null;
+  return snap.data() as UserProfile;
 }
 
 export type { User } from 'firebase/auth';

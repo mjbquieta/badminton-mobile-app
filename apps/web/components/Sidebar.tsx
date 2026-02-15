@@ -3,30 +3,38 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
+import { AiOutlineHome, AiOutlineTeam } from 'react-icons/ai';
+import { FiActivity } from 'react-icons/fi';
+import { MdOutlineSportsTennis } from 'react-icons/md';
+import { FiLogOut } from 'react-icons/fi';
+import type { IconType } from 'react-icons';
 
-const navItems = [
-  { href: '/', label: 'Dashboard', icon: '📊' },
-  { href: '/activity', label: 'Activity', icon: '🏸' },
-  { href: '/players', label: 'Players', icon: '👥' },
-  { href: '/courts', label: 'Courts', icon: '🏟️' },
+const navItems: { href: string; label: string; icon: IconType }[] = [
+  { href: '/', label: 'Dashboard', icon: AiOutlineHome },
+  { href: '/activity', label: 'Activity', icon: FiActivity },
+  { href: '/players', label: 'Players', icon: AiOutlineTeam },
+  { href: '/courts', label: 'Courts', icon: MdOutlineSportsTennis },
 ];
 
 export function Sidebar() {
   const pathname = usePathname();
-  const { logout } = useAuth();
+  const { logout, profile } = useAuth();
 
   return (
     <>
       {/* Desktop Sidebar */}
       <aside className="hidden md:flex w-60 bg-secondary border-r border-dark-100 min-h-screen p-4 flex-col shrink-0">
         <div className="mb-8 px-2">
-          <h1 className="text-xl font-bold text-accent">Smash Potato</h1>
+          <h1 className="text-xl font-bold text-accent">
+            {profile?.clubName ?? 'My Club'}
+          </h1>
           <p className="text-xs text-light-300 mt-1">Court Manager</p>
         </div>
 
         <nav className="flex-1 space-y-1">
           {navItems.map((item) => {
             const isActive = pathname === item.href;
+            const Icon = item.icon;
             return (
               <Link
                 key={item.href}
@@ -37,7 +45,7 @@ export function Sidebar() {
                     : 'text-light-200 hover:bg-dark-200 hover:text-light-100'
                 }`}
               >
-                <span className="text-lg">{item.icon}</span>
+                <Icon size={18} />
                 {item.label}
               </Link>
             );
@@ -48,7 +56,7 @@ export function Sidebar() {
           onClick={logout}
           className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-light-300 hover:bg-dark-200 hover:text-danger transition-colors mt-2"
         >
-          <span className="text-lg">🚪</span>
+          <FiLogOut size={18} />
           Sign Out
         </button>
       </aside>
@@ -58,6 +66,7 @@ export function Sidebar() {
         <div className="flex justify-around pb-[env(safe-area-inset-bottom)]">
           {navItems.map((item) => {
             const isActive = pathname === item.href;
+            const Icon = item.icon;
             return (
               <Link
                 key={item.href}
@@ -66,11 +75,18 @@ export function Sidebar() {
                   isActive ? 'text-accent' : 'text-light-300'
                 }`}
               >
-                <span className="text-xl">{item.icon}</span>
+                <Icon size={20} />
                 <span className="text-[10px] font-medium truncate">{item.label}</span>
               </Link>
             );
           })}
+          <button
+            onClick={logout}
+            className="flex flex-col items-center gap-0.5 py-2 px-3 min-w-0 flex-1 text-light-300 hover:text-danger transition-colors"
+          >
+            <FiLogOut size={20} />
+            <span className="text-[10px] font-medium truncate">Sign Out</span>
+          </button>
         </div>
       </nav>
     </>
