@@ -12,29 +12,77 @@ export default function LandingPage() {
       {/* Floating decorations */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/shuttlecock.svg" alt="" className="float-1 absolute top-[12%] left-[8%] w-8 sm:w-12 opacity-[0.15]" />
+        <img
+          src="/shuttlecock.svg"
+          alt=""
+          className="float-1 absolute top-[12%] left-[8%] w-8 sm:w-12 opacity-[0.15]"
+        />
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/potato.svg" alt="" className="float-2 absolute top-[18%] right-[10%] w-10 sm:w-14 opacity-[0.15]" />
+        <img
+          src="/potato.svg"
+          alt=""
+          className="float-2 absolute top-[18%] right-[10%] w-10 sm:w-14 opacity-[0.15]"
+        />
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/shuttlecock.svg" alt="" className="float-3 absolute top-[45%] right-[5%] w-7 sm:w-10 opacity-[0.12]" />
+        <img
+          src="/shuttlecock.svg"
+          alt=""
+          className="float-3 absolute top-[45%] right-[5%] w-7 sm:w-10 opacity-[0.12]"
+        />
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/potato.svg" alt="" className="float-4 absolute top-[55%] left-[6%] w-9 sm:w-12 opacity-[0.12]" />
+        <img
+          src="/potato.svg"
+          alt=""
+          className="float-4 absolute top-[55%] left-[6%] w-9 sm:w-12 opacity-[0.12]"
+        />
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/potato.svg" alt="" className="float-5 absolute bottom-[20%] right-[15%] w-8 sm:w-10 opacity-[0.10]" />
+        <img
+          src="/potato.svg"
+          alt=""
+          className="float-5 absolute bottom-[20%] right-[15%] w-8 sm:w-10 opacity-[0.10]"
+        />
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/shuttlecock.svg" alt="" className="float-6 absolute bottom-[15%] left-[12%] w-6 sm:w-9 opacity-[0.10]" />
+        <img
+          src="/shuttlecock.svg"
+          alt=""
+          className="float-6 absolute bottom-[15%] left-[12%] w-6 sm:w-9 opacity-[0.10]"
+        />
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/potato.svg" alt="" className="float-7 absolute top-[8%] left-[35%] w-7 sm:w-10 opacity-[0.12]" />
+        <img
+          src="/potato.svg"
+          alt=""
+          className="float-7 absolute top-[8%] left-[35%] w-7 sm:w-10 opacity-[0.12]"
+        />
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/shuttlecock.svg" alt="" className="float-8 absolute top-[25%] right-[25%] w-8 sm:w-11 opacity-[0.10]" />
+        <img
+          src="/shuttlecock.svg"
+          alt=""
+          className="float-8 absolute top-[25%] right-[25%] w-8 sm:w-11 opacity-[0.10]"
+        />
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/potato.svg" alt="" className="float-9 absolute top-[38%] left-[18%] w-6 sm:w-9 opacity-[0.10]" />
+        <img
+          src="/potato.svg"
+          alt=""
+          className="float-9 absolute top-[38%] left-[18%] w-6 sm:w-9 opacity-[0.10]"
+        />
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/shuttlecock.svg" alt="" className="float-10 absolute top-[65%] right-[20%] w-7 sm:w-10 opacity-[0.12]" />
+        <img
+          src="/shuttlecock.svg"
+          alt=""
+          className="float-10 absolute top-[65%] right-[20%] w-7 sm:w-10 opacity-[0.12]"
+        />
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/potato.svg" alt="" className="float-11 absolute bottom-[30%] left-[25%] w-8 sm:w-11 opacity-[0.10]" />
+        <img
+          src="/potato.svg"
+          alt=""
+          className="float-11 absolute bottom-[30%] left-[25%] w-8 sm:w-11 opacity-[0.10]"
+        />
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/shuttlecock.svg" alt="" className="float-12 absolute bottom-[8%] right-[35%] w-6 sm:w-8 opacity-[0.10]" />
+        <img
+          src="/shuttlecock.svg"
+          alt=""
+          className="float-12 absolute bottom-[8%] right-[35%] w-6 sm:w-8 opacity-[0.10]"
+        />
       </div>
 
       {/* Nav */}
@@ -106,7 +154,7 @@ export default function LandingPage() {
 
         {/* Android download */}
         <a
-          href="https://drive.google.com/file/d/1_Flhsi1tRku0Q2M7B-aiiieVXCMKDtSm/view?usp=sharing"
+          href="https://drive.google.com/drive/folders/1zDuPpaihPyfcMaOKGNdFEhN7zdz1x-Us?usp=sharing"
           target="_blank"
           className="mt-10 inline-flex items-center gap-4 bg-court-deep/20 border border-court-deep/40 hover:bg-court-deep/30 hover:border-court-lime/30 transition-all rounded-2xl px-7 py-4"
         >
