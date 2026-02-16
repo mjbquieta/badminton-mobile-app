@@ -23,6 +23,8 @@ import {
 } from "@badminton/store";
 import { type Player } from "@badminton/types";
 import { shuffle } from "@badminton/core";
+import { useAuth } from "@/contexts/AuthContext";
+import { UNVERIFIED_LIMITS } from "@badminton/ui-shared";
 import AntDesign from "@expo/vector-icons/AntDesign";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import React, { useEffect, useState } from "react";
@@ -45,6 +47,7 @@ export const CourtsContent = ({
 }: {
   contentContainerClassName?: string;
 }) => {
+  const { emailVerified } = useAuth();
   const dispatch = useAppDispatch();
   const courts = useAppSelector((s: RootState) => s.courts.items);
   const players = useAppSelector((s: RootState) => s.players.items);
@@ -92,6 +95,7 @@ export const CourtsContent = ({
         isSingle,
         id: uuidv4(),
         players: [],
+        maxCourts: emailVerified ? undefined : UNVERIFIED_LIMITS.MAX_COURTS,
       })
     );
 

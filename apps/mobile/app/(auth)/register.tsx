@@ -38,7 +38,10 @@ export default function RegisterScreen() {
 
     setSubmitting(true);
     try {
-      await register(email, password, clubName.trim());
+      const { verificationEmailSent } = await register(email, password, clubName.trim());
+      if (!verificationEmailSent) {
+        console.warn('Verification email could not be sent. User can resend from settings.');
+      }
     } catch (err: unknown) {
       setError(getAuthErrorMessage(err));
     } finally {

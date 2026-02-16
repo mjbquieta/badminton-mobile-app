@@ -4,11 +4,12 @@ import {
   signInWithEmailAndPassword,
   signOut as firebaseSignOut,
   onAuthStateChanged,
+  sendEmailVerification,
   type Auth,
   type User,
   type Unsubscribe,
 } from 'firebase/auth';
-import { doc, setDoc, getDoc, serverTimestamp, getFirestore } from 'firebase/firestore';
+import { doc, setDoc, getDoc, getDocs, collection, query, where, serverTimestamp, getFirestore } from 'firebase/firestore';
 import { getFirebaseApp } from './config';
 
 let auth: Auth | null = null;
@@ -20,11 +21,28 @@ function getAuthInstance(): Auth {
   return auth;
 }
 
+export interface RegisterResult {
+  user: User;
+  verificationEmailSent: boolean;
+}
+
 export async function registerUser(
   email: string,
   password: string,
   clubName: string
-): Promise<User> {
+): Promise<RegisterResult> {
+  const db = getFirestore(getFirebaseApp());
+
+  // Check club name uniqueness before creating the auth user
+  const clubQuery = query(
+    collection(db, 'users'),
+    where('clubName', '==', clubName)
+  );
+  const existing = await getDocs(clubQuery);
+  if (!existing.empty) {
+    throw { code: 'auth/club-name-taken' };
+  }
+
   const authInstance = getAuthInstance();
   const credential = await createUserWithEmailAndPassword(
     authInstance,
@@ -33,14 +51,21 @@ export async function registerUser(
   );
   const user = credential.user;
 
-  const db = getFirestore(getFirebaseApp());
   await setDoc(doc(db, 'users', user.uid), {
     email,
     clubName,
     createdAt: serverTimestamp(),
   });
 
-  return user;
+  let verificationEmailSent = false;
+  try {
+    await sendEmailVerification(user);
+    verificationEmailSent = true;
+  } catch (e) {
+    console.warn('Failed to send verification email:', e);
+  }
+
+  return { user, verificationEmailSent };
 }
 
 export async function loginUser(
@@ -72,6 +97,8 @@ export function getAuthErrorMessage(error: unknown): string {
   if (error && typeof error === 'object' && 'code' in error) {
     const code = (error as { code: string }).code;
     switch (code) {
+      case 'auth/club-name-taken':
+        return 'This club name is already taken. Please choose a different one.';
       case 'auth/email-already-in-use':
         return 'An account with this email already exists.';
       case 'auth/invalid-email':
@@ -108,6 +135,14 @@ export async function getUserProfile(uid: string): Promise<UserProfile | null> {
   const snap = await getDoc(doc(db, 'users', uid));
   if (!snap.exists()) return null;
   return snap.data() as UserProfile;
+}
+
+export async function sendVerificationEmail(user: User): Promise<void> {
+  await sendEmailVerification(user);
+}
+
+export async function reloadUser(user: User): Promise<void> {
+  await user.reload();
 }
 
 export type { User } from 'firebase/auth';

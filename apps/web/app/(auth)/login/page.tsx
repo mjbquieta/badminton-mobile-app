@@ -20,7 +20,7 @@ export default function LoginPage() {
     setSubmitting(true);
     try {
       await login(email, password);
-      router.replace('/');
+      router.replace('/home');
     } catch (err: unknown) {
       setError(getAuthErrorMessage(err));
     } finally {
@@ -30,6 +30,9 @@ export default function LoginPage() {
 
   return (
     <div className="bg-secondary border border-dark-100 rounded-2xl p-8 w-full max-w-md">
+      <Link href="/" className="inline-flex items-center gap-1 text-light-300 text-sm hover:text-light-100 transition-colors mb-4">
+        &larr; Back to home
+      </Link>
       <h1 className="text-2xl font-bold mb-2">Sign In</h1>
       <p className="text-light-300 text-sm mb-6">Welcome back to Smash Potato</p>
 

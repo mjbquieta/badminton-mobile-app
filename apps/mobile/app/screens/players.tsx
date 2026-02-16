@@ -19,6 +19,8 @@ import {
   setQueue,
 } from "@badminton/store";
 import { Player, PlayerLevel } from "@badminton/types";
+import { useAuth } from "@/contexts/AuthContext";
+import { UNVERIFIED_LIMITS } from "@badminton/ui-shared";
 import AntDesign from "@expo/vector-icons/AntDesign";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import React, { useEffect, useMemo, useState } from "react";
@@ -52,6 +54,7 @@ export const PlayersContent = ({
   const [showAddModal, setShowAddModal] = useState<boolean>(false);
   const [editingPlayer, setEditingPlayer] = useState<Player | null>(null);
 
+  const { emailVerified } = useAuth();
   const dispatch = useAppDispatch();
   const { showToast } = useToast();
   const players = useAppSelector((s: RootState) => s.players.items);
@@ -104,7 +107,7 @@ export const PlayersContent = ({
 
   const handleAddPlayer = (name: string, level: PlayerLevel) => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    dispatch(addPlayer({ id: uuidv4(), name, level }));
+    dispatch(addPlayer({ id: uuidv4(), name, level, maxPlayers: emailVerified ? undefined : UNVERIFIED_LIMITS.MAX_PLAYERS }));
     showToast({
       message: `${name} added as ${levelLabels[level]}`,
       type: "success",

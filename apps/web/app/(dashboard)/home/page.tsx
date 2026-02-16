@@ -1,9 +1,9 @@
 "use client";
 
-import { useAppDispatch, useAppSelector } from "@badminton/store";
+import { useAppSelector } from "@badminton/store";
+import { EmailVerificationBanner } from "@/components/EmailVerificationBanner";
 
 export default function Dashboard() {
-  const dispatch = useAppDispatch();
   const players = useAppSelector((state) => state.players.items);
   const courts = useAppSelector((state) => state.courts.items);
   const queue = useAppSelector((state) => state.queue.ids);
@@ -26,6 +26,8 @@ export default function Dashboard() {
           <p className="text-light-300 text-sm mt-1">Session overview</p>
         </div>
       </div>
+
+      <EmailVerificationBanner />
 
       {/* Stats Cards */}
       <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 sm:gap-4">

@@ -12,7 +12,7 @@ import { FiLogOut } from 'react-icons/fi';
 import type { IconType } from 'react-icons';
 
 const navItems: { href: string; label: string; icon: IconType }[] = [
-  { href: '/', label: 'Dashboard', icon: AiOutlineHome },
+  { href: '/home', label: 'Dashboard', icon: AiOutlineHome },
   { href: '/activity', label: 'Activity', icon: FiActivity },
   { href: '/players', label: 'Players', icon: AiOutlineTeam },
   { href: '/courts', label: 'Courts', icon: MdOutlineSportsTennis },

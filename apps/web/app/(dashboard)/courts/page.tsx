@@ -17,8 +17,11 @@ import {
 import { Modal } from '@/components/Modal';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { PlayerTag } from '@/components/PlayerTag';
+import { useAuth } from '@/contexts/AuthContext';
+import { UNVERIFIED_LIMITS } from '@badminton/ui-shared';
 
 export default function CourtsPage() {
+  const { emailVerified } = useAuth();
   const dispatch = useAppDispatch();
   const courts = useAppSelector((state) => state.courts.items);
   const courtsError = useAppSelector((state) => state.courts.error);
@@ -30,7 +33,7 @@ export default function CourtsPage() {
   const [actionTarget, setActionTarget] = useState<{ court: Court; action: string } | null>(null);
 
   function handleAddCourt() {
-    dispatch(addCourt({ id: uuidv4(), name: '', players: [], isSingle: addSingle }));
+    dispatch(addCourt({ id: uuidv4(), name: '', players: [], isSingle: addSingle, maxCourts: emailVerified ? undefined : UNVERIFIED_LIMITS.MAX_COURTS }));
     setShowAddModal(false);
   }
 

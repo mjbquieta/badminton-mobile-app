@@ -1,10 +1,13 @@
 import { createContext, useContext, useEffect, useState } from 'react';
+import { AppState } from 'react-native';
 import {
   initializeFirebase,
   subscribeToAuthState,
   loginUser,
   registerUser,
   signOut,
+  sendVerificationEmail as firebaseSendVerificationEmail,
+  reloadUser,
   type User,
 } from '@badminton/firebase';
 import { firebaseConfig } from '@/config/firebase';
@@ -12,9 +15,12 @@ import { firebaseConfig } from '@/config/firebase';
 interface AuthContextType {
   user: User | null;
   loading: boolean;
+  emailVerified: boolean;
   login: (email: string, password: string) => Promise<void>;
-  register: (email: string, password: string, clubName: string) => Promise<void>;
+  register: (email: string, password: string, clubName: string) => Promise<{ verificationEmailSent: boolean }>;
   logout: () => Promise<void>;
+  sendVerificationEmail: () => Promise<void>;
+  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -22,6 +28,7 @@ const AuthContext = createContext<AuthContextType | null>(null);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [refreshCounter, setRefreshCounter] = useState(0);
 
   useEffect(() => {
     initializeFirebase(firebaseConfig);
@@ -34,20 +41,51 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return unsubscribe;
   }, []);
 
+  // Auto-refresh verification status when app returns from background
+  useEffect(() => {
+    if (!user || user.emailVerified) return;
+
+    const subscription = AppState.addEventListener('change', async (nextState) => {
+      if (nextState === 'active') {
+        await reloadUser(user);
+        setRefreshCounter((c) => c + 1);
+      }
+    });
+
+    return () => subscription.remove();
+  }, [user, user?.emailVerified]);
+
+  const emailVerified = user?.emailVerified ?? false;
+
   const login = async (email: string, password: string) => {
     await loginUser(email, password);
   };
 
   const register = async (email: string, password: string, clubName: string) => {
-    await registerUser(email, password, clubName);
+    const result = await registerUser(email, password, clubName);
+    return { verificationEmailSent: result.verificationEmailSent };
   };
 
   const logout = async () => {
     await signOut();
   };
 
+  const sendVerificationEmail = async () => {
+    if (!user) throw new Error('No user logged in');
+    await firebaseSendVerificationEmail(user);
+  };
+
+  const refreshUser = async () => {
+    if (!user) return;
+    await reloadUser(user);
+    setRefreshCounter((c) => c + 1);
+  };
+
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout }}>
+    <AuthContext.Provider value={{
+      user, loading, emailVerified,
+      login, register, logout, sendVerificationEmail, refreshUser,
+    }}>
       {children}
     </AuthContext.Provider>
   );

@@ -1,11 +1,13 @@
 import { BadmintonPalette } from "@/constants/palette";
 import ConfirmationAlert from "@/components/ConfirmationAlert";
+import { useToast } from "@/components/Toast";
 import { useAuth } from "@/contexts/AuthContext";
+import { getAuthErrorMessage } from "@badminton/firebase";
 import AntDesign from "@expo/vector-icons/AntDesign";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import Constants from "expo-constants";
 import React, { useState } from "react";
-import { Image, Text, TouchableOpacity, View } from "react-native";
+import { Alert, Image, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { CourtsContent } from "../screens/courts";
 import { PlayersContent } from "../screens/players";
@@ -44,12 +46,48 @@ const AboutContent = () => {
 };
 
 const settings = () => {
-  const { logout } = useAuth();
+  const { logout, emailVerified, sendVerificationEmail, refreshUser } = useAuth();
+  const { showToast } = useToast();
   const [activeTab, setActiveTab] = useState<
     "menu" | "manage_players" | "courts" | "about"
   >("menu");
 
+  const handleVerifyEmail = () => {
+    Alert.alert(
+      "Verify Email",
+      "Verify your email to unlock unlimited players and courts.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Resend Email",
+          onPress: async () => {
+            try {
+              await sendVerificationEmail();
+              showToast({ message: "Verification email sent!", type: "success" });
+            } catch (err) {
+              showToast({ message: getAuthErrorMessage(err), type: "error" });
+            }
+          },
+        },
+        {
+          text: "I Already Verified",
+          onPress: async () => {
+            await refreshUser();
+          },
+        },
+      ]
+    );
+  };
+
   const menuItems = [
+    ...(!emailVerified ? [{
+      key: "verify_email" as const,
+      label: "Verify Email",
+      description: "Unlock unlimited players & courts",
+      icon: (
+        <AntDesign name="mail" size={22} color={BadmintonPalette.accent.primary} />
+      ),
+    }] : []),
     {
       key: "manage_players" as const,
       label: "Players",
@@ -145,7 +183,13 @@ const settings = () => {
                     ? "border-b border-dark-100"
                     : ""
                 }`}
-                onPress={() => setActiveTab(item.key)}
+                onPress={() => {
+                  if (item.key === "verify_email") {
+                    handleVerifyEmail();
+                  } else {
+                    setActiveTab(item.key as "manage_players" | "courts" | "about");
+                  }
+                }}
                 accessibilityRole="button"
                 accessibilityLabel={`Open ${item.label}`}
               >
