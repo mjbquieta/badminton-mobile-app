@@ -44,7 +44,7 @@ export default function LandingPage() {
           <img src="/potato-logo.svg" alt="Smash Potato" className="w-8 h-8" />
           <span className="text-xl font-bold text-light-100">Smash Potato</span>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="hidden sm:flex items-center gap-3">
           <Link
             href="/feedback"
             className="text-sm text-light-200 hover:text-light-100 transition-colors px-4 py-2"

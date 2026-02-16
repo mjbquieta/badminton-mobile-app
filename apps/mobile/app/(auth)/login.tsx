@@ -84,7 +84,7 @@ export default function LoginScreen() {
           <TouchableOpacity
             onPress={handleLogin}
             disabled={submitting || !email || !password}
-            className="w-full py-3.5 rounded-xl bg-court-lime items-center"
+            className="w-full py-3.5 rounded-xl bg-accent items-center"
             style={{ opacity: submitting || !email || !password ? 0.5 : 1 }}
           >
             {submitting ? (
