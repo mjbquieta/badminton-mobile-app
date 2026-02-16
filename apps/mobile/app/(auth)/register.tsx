@@ -114,7 +114,7 @@ export default function RegisterScreen() {
           <TouchableOpacity
             onPress={handleRegister}
             disabled={submitting || !isValid}
-            className="w-full py-3.5 rounded-xl bg-court-lime items-center"
+            className="w-full py-3.5 rounded-xl bg-accent items-center"
             style={{ opacity: submitting || !isValid ? 0.5 : 1 }}
           >
             {submitting ? (

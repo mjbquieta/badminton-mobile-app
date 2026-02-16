@@ -10,6 +10,7 @@ import React, { useState } from "react";
 import { Alert, Image, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { CourtsContent } from "../screens/courts";
+import { FeedbackContent } from "../screens/feedback";
 import { PlayersContent } from "../screens/players";
 
 const AboutContent = () => {
@@ -49,7 +50,7 @@ const settings = () => {
   const { logout, emailVerified, sendVerificationEmail, refreshUser } = useAuth();
   const { showToast } = useToast();
   const [activeTab, setActiveTab] = useState<
-    "menu" | "manage_players" | "courts" | "about"
+    "menu" | "manage_players" | "courts" | "feedback" | "about"
   >("menu");
 
   const handleVerifyEmail = () => {
@@ -109,6 +110,14 @@ const settings = () => {
       ),
     },
     {
+      key: "feedback" as const,
+      label: "Feedback",
+      description: "Report bugs or suggest features",
+      icon: (
+        <AntDesign name="form" size={22} color={BadmintonPalette.court.lime} />
+      ),
+    },
+    {
       key: "about" as const,
       label: "About",
       description: "App information",
@@ -124,6 +133,8 @@ const settings = () => {
         return "Players";
       case "courts":
         return "Courts";
+      case "feedback":
+        return "Feedback";
       case "about":
         return "About";
       default:
@@ -187,7 +198,7 @@ const settings = () => {
                   if (item.key === "verify_email") {
                     handleVerifyEmail();
                   } else {
-                    setActiveTab(item.key as "manage_players" | "courts" | "about");
+                    setActiveTab(item.key as "manage_players" | "courts" | "feedback" | "about");
                   }
                 }}
                 accessibilityRole="button"
@@ -249,6 +260,8 @@ const settings = () => {
             <PlayersContent contentContainerClassName="px-6" />
           ) : activeTab === "courts" ? (
             <CourtsContent contentContainerClassName="px-6" />
+          ) : activeTab === "feedback" ? (
+            <FeedbackContent />
           ) : (
             <AboutContent />
           )}
