@@ -2,10 +2,21 @@ import Link from "next/link";
 
 export default function LandingPage() {
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col overflow-hidden">
+      {/* Ambient glow effects */}
+      <div className="fixed inset-0 pointer-events-none">
+        <div className="absolute top-[-20%] left-[-10%] w-[500px] h-[500px] bg-court-deep/20 rounded-full blur-[120px]" />
+        <div className="absolute bottom-[-10%] right-[-10%] w-[400px] h-[400px] bg-accent/5 rounded-full blur-[100px]" />
+      </div>
+
       {/* Nav */}
       <header className="relative z-10 flex items-center justify-between px-6 sm:px-10 py-5">
-        <span className="text-xl font-bold text-accent">Smash Potato</span>
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 rounded-lg bg-accent flex items-center justify-center">
+            <span className="text-primary font-bold text-sm">SP</span>
+          </div>
+          <span className="text-xl font-bold text-light-100">Smash Potato</span>
+        </div>
         <div className="flex items-center gap-3">
           <Link
             href="/login"
@@ -23,97 +34,193 @@ export default function LandingPage() {
       </header>
 
       {/* Hero */}
-      <main className="flex-1 flex flex-col items-center justify-center px-6 text-center -mt-16">
-        <div className="inline-flex items-center gap-2 bg-court-deep/20 border border-court-deep/40 rounded-full px-4 py-1.5 mb-6">
-          <span className="w-2 h-2 rounded-full bg-court-lime animate-pulse" />
-          <span className="text-court-lime text-xs font-medium">
+      <main className="relative z-10 flex-1 flex flex-col items-center justify-center px-6 text-center mt-20">
+        {/* <div className="inline-flex items-center gap-2 bg-court-deep/20 border border-court-deep/40 rounded-full px-4 py-1.5 mb-8">
+          <span className="relative flex h-2 w-2">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-court-lime opacity-75" />
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-court-lime" />
+          </span>
+          <span className="text-court-lime text-xs font-medium tracking-wide">
             Badminton Court Manager
           </span>
-        </div>
+        </div> */}
 
-        <h1 className="text-4xl sm:text-6xl font-bold max-w-2xl leading-tight">
-          Manage your courts <span className="text-accent">effortlessly</span>
+        <h1 className="text-5xl sm:text-7xl font-bold max-w-3xl leading-[1.1] tracking-tight">
+          Your courts,
+          <br />
+          <span className="text-accent">your rules.</span>
         </h1>
 
-        <p className="text-light-300 text-base sm:text-lg max-w-lg mt-5 leading-relaxed">
-          Track players, automate matchmaking, and keep your badminton sessions
-          running smoothly.
+        <p className="text-light-300 text-base sm:text-lg max-w-md mt-6 leading-relaxed">
+          Track players, automate matchmaking, and run your badminton sessions
+          without the hassle.
         </p>
 
-        <div className="flex items-center gap-4 mt-8">
+        <div className="flex flex-col sm:flex-row items-center gap-3 mt-10">
           <Link
             href="/register"
-            className="bg-accent text-primary font-semibold px-8 py-3 rounded-xl hover:bg-accent/80 transition-colors text-sm sm:text-base"
+            className="group relative bg-accent text-primary font-semibold px-8 py-3.5 rounded-xl hover:shadow-glow-accent transition-all text-sm sm:text-base"
           >
             Get Started — It&apos;s Free
           </Link>
           <Link
             href="/login"
-            className="border border-dark-100 text-light-200 font-medium px-8 py-3 rounded-xl hover:bg-dark-200 transition-colors text-sm sm:text-base"
+            className="border border-dark-100 text-light-200 font-medium px-8 py-3.5 rounded-xl hover:bg-dark-200 hover:border-dark-200 transition-all text-sm sm:text-base"
           >
             Sign In
           </Link>
         </div>
 
-        {/* Download APK */}
-        <div className="mt-12">
-          <a
-            href="https://expo.dev/accounts/kirkmicz26/projects/patatas/builds/ec30850c-9b18-4c82-ba0b-e37daad10052"
-            target="_blank"
-            className="inline-flex items-center gap-3 bg-court-deep/20 border border-court-deep/40 hover:bg-court-deep/30 transition-colors rounded-xl px-6 py-3"
+        {/* Android download */}
+        <a
+          href="https://drive.google.com/file/d/1_Flhsi1tRku0Q2M7B-aiiieVXCMKDtSm/view?usp=sharing"
+          target="_blank"
+          className="mt-10 inline-flex items-center gap-4 bg-court-deep/20 border border-court-deep/40 hover:bg-court-deep/30 hover:border-court-lime/30 transition-all rounded-2xl px-7 py-4"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            className="w-7 h-7 text-court-lime fill-current"
           >
-            <svg
-              viewBox="0 0 24 24"
-              className="w-6 h-6 text-court-lime fill-current"
-            >
-              <path d="M17.523 2.226l1.392 2.412a.5.5 0 01-.866.5l-1.392-2.412a7.034 7.034 0 00-9.314 0L5.951 5.138a.5.5 0 01-.866-.5L6.477 2.226A8.034 8.034 0 0112 0a8.034 8.034 0 015.523 2.226zM4 8a8 8 0 0116 0v1a1 1 0 01-1 1H5a1 1 0 01-1-1V8zm5.5 0a1 1 0 10-2 0 1 1 0 002 0zm7 0a1 1 0 10-2 0 1 1 0 002 0zM5 12h14v8a2 2 0 01-2 2H7a2 2 0 01-2-2v-8z" />
-            </svg>
-            <div className="text-left">
-              <span className="text-light-100 text-sm font-semibold block">
-                Download for Android
-              </span>
-              <span className="text-light-300 text-xs">Get the APK</span>
-            </div>
-          </a>
-        </div>
-
-        {/* Feature cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-16 max-w-3xl w-full">
-          <div className="bg-secondary border border-dark-100 rounded-2xl p-6 text-left">
-            <div className="w-10 h-10 rounded-xl bg-court-deep/30 flex items-center justify-center mb-4">
-              <span className="text-court-lime text-lg">&#9776;</span>
-            </div>
-            <h3 className="font-semibold mb-1">Smart Queue</h3>
-            <p className="text-light-300 text-sm leading-relaxed">
-              Automatic player rotation with fair matchmaking based on skill
-              level.
-            </p>
+            <path d="M17.523 2.226l1.392 2.412a.5.5 0 01-.866.5l-1.392-2.412a7.034 7.034 0 00-9.314 0L5.951 5.138a.5.5 0 01-.866-.5L6.477 2.226A8.034 8.034 0 0112 0a8.034 8.034 0 015.523 2.226zM4 8a8 8 0 0116 0v1a1 1 0 01-1 1H5a1 1 0 01-1-1V8zm5.5 0a1 1 0 10-2 0 1 1 0 002 0zm7 0a1 1 0 10-2 0 1 1 0 002 0zM5 12h14v8a2 2 0 01-2 2H7a2 2 0 01-2-2v-8z" />
+          </svg>
+          <div className="text-left">
+            <span className="text-light-100 text-sm font-semibold block">
+              Download for Android
+            </span>
+            <span className="text-light-300 text-xs">Get the APK &rarr;</span>
           </div>
+        </a>
 
-          <div className="bg-secondary border border-dark-100 rounded-2xl p-6 text-left">
-            <div className="w-10 h-10 rounded-xl bg-court-deep/30 flex items-center justify-center mb-4">
-              <span className="text-court-lime text-lg">&#9733;</span>
-            </div>
-            <h3 className="font-semibold mb-1">Player Tracking</h3>
-            <p className="text-light-300 text-sm leading-relaxed">
-              Track game counts, skill levels, and player status in real time.
-            </p>
-          </div>
+        {/* Divider */}
+        <div className="w-px h-16 bg-gradient-to-b from-transparent via-dark-100 to-transparent mt-12" />
 
-          <div className="bg-secondary border border-dark-100 rounded-2xl p-6 text-left">
-            <div className="w-10 h-10 rounded-xl bg-court-deep/30 flex items-center justify-center mb-4">
-              <span className="text-court-lime text-lg">&#9851;</span>
+        {/* Features */}
+        <section className="mt-12 max-w-4xl w-full">
+          <p className="text-light-300 text-xs font-medium uppercase tracking-widest mb-8">
+            Everything you need
+          </p>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {/* Smart Queue */}
+            <div className="group bg-secondary/60 backdrop-blur border border-dark-100 rounded-2xl p-6 text-left hover:border-court-deep/60 transition-colors">
+              <div className="w-10 h-10 rounded-xl bg-court-deep/30 flex items-center justify-center mb-4 group-hover:bg-court-deep/50 transition-colors">
+                <svg
+                  viewBox="0 0 24 24"
+                  className="w-5 h-5 text-court-lime"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <line x1="8" y1="6" x2="21" y2="6" />
+                  <line x1="8" y1="12" x2="21" y2="12" />
+                  <line x1="8" y1="18" x2="21" y2="18" />
+                  <line x1="3" y1="6" x2="3.01" y2="6" />
+                  <line x1="3" y1="12" x2="3.01" y2="12" />
+                  <line x1="3" y1="18" x2="3.01" y2="18" />
+                </svg>
+              </div>
+              <h3 className="font-semibold mb-1">Smart Queue</h3>
+              <p className="text-light-300 text-sm leading-relaxed">
+                Automatic player rotation with fair matchmaking based on skill
+                level.
+              </p>
             </div>
-            <h3 className="font-semibold mb-1">Live Sync</h3>
-            <p className="text-light-300 text-sm leading-relaxed">
-              All data syncs across devices instantly via Firebase.
-            </p>
+
+            {/* Player Tracking */}
+            <div className="group bg-secondary/60 backdrop-blur border border-dark-100 rounded-2xl p-6 text-left hover:border-court-deep/60 transition-colors">
+              <div className="w-10 h-10 rounded-xl bg-court-deep/30 flex items-center justify-center mb-4 group-hover:bg-court-deep/50 transition-colors">
+                <svg
+                  viewBox="0 0 24 24"
+                  className="w-5 h-5 text-court-lime"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                  <circle cx="9" cy="7" r="4" />
+                  <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+                  <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                </svg>
+              </div>
+              <h3 className="font-semibold mb-1">Player Tracking</h3>
+              <p className="text-light-300 text-sm leading-relaxed">
+                Track game counts, skill levels, and player status in real time.
+              </p>
+            </div>
+
+            {/* Live Sync */}
+            <div className="group bg-secondary/60 backdrop-blur border border-dark-100 rounded-2xl p-6 text-left hover:border-court-deep/60 transition-colors">
+              <div className="w-10 h-10 rounded-xl bg-court-deep/30 flex items-center justify-center mb-4 group-hover:bg-court-deep/50 transition-colors">
+                <svg
+                  viewBox="0 0 24 24"
+                  className="w-5 h-5 text-court-lime"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+                </svg>
+              </div>
+              <h3 className="font-semibold mb-1">Live Sync</h3>
+              <p className="text-light-300 text-sm leading-relaxed">
+                All data syncs across devices instantly via Firebase.
+              </p>
+            </div>
           </div>
-        </div>
+        </section>
+
+        {/* How it works */}
+        <section className="mt-20 max-w-2xl w-full">
+          <p className="text-light-300 text-xs font-medium uppercase tracking-widest mb-10">
+            How it works
+          </p>
+
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6 sm:gap-0">
+            <div className="flex-1 text-center">
+              <div className="w-12 h-12 rounded-full bg-accent/10 border border-accent/30 flex items-center justify-center mx-auto mb-3">
+                <span className="text-accent font-bold text-sm">1</span>
+              </div>
+              <h4 className="font-semibold text-sm mb-1">Create a Session</h4>
+              <p className="text-light-300 text-xs">
+                Set up courts and add players
+              </p>
+            </div>
+
+            <div className="hidden sm:block w-12 h-px bg-dark-100 flex-shrink-0" />
+
+            <div className="flex-1 text-center">
+              <div className="w-12 h-12 rounded-full bg-accent/10 border border-accent/30 flex items-center justify-center mx-auto mb-3">
+                <span className="text-accent font-bold text-sm">2</span>
+              </div>
+              <h4 className="font-semibold text-sm mb-1">Auto Matchmake</h4>
+              <p className="text-light-300 text-xs">
+                We pair players by skill level
+              </p>
+            </div>
+
+            <div className="hidden sm:block w-12 h-px bg-dark-100 flex-shrink-0" />
+
+            <div className="flex-1 text-center">
+              <div className="w-12 h-12 rounded-full bg-accent/10 border border-accent/30 flex items-center justify-center mx-auto mb-3">
+                <span className="text-accent font-bold text-sm">3</span>
+              </div>
+              <h4 className="font-semibold text-sm mb-1">Play & Rotate</h4>
+              <p className="text-light-300 text-xs">
+                Track games and keep it fair
+              </p>
+            </div>
+          </div>
+        </section>
       </main>
 
       {/* Footer */}
-      <footer className="text-center py-8 text-light-300 text-xs">
+      <footer className="relative z-10 text-center py-10 text-light-300 text-xs">
         Smash Potato &copy; {new Date().getFullYear()}
       </footer>
     </div>
