@@ -9,12 +9,39 @@ export default function LandingPage() {
         <div className="absolute bottom-[-10%] right-[-10%] w-[400px] h-[400px] bg-accent/5 rounded-full blur-[100px]" />
       </div>
 
+      {/* Floating decorations */}
+      <div className="fixed inset-0 pointer-events-none overflow-hidden">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/shuttlecock.svg" alt="" className="float-1 absolute top-[12%] left-[8%] w-8 sm:w-12 opacity-[0.15]" />
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/potato.svg" alt="" className="float-2 absolute top-[18%] right-[10%] w-10 sm:w-14 opacity-[0.15]" />
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/shuttlecock.svg" alt="" className="float-3 absolute top-[45%] right-[5%] w-7 sm:w-10 opacity-[0.12]" />
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/potato.svg" alt="" className="float-4 absolute top-[55%] left-[6%] w-9 sm:w-12 opacity-[0.12]" />
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/potato.svg" alt="" className="float-5 absolute bottom-[20%] right-[15%] w-8 sm:w-10 opacity-[0.10]" />
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/shuttlecock.svg" alt="" className="float-6 absolute bottom-[15%] left-[12%] w-6 sm:w-9 opacity-[0.10]" />
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/potato.svg" alt="" className="float-7 absolute top-[8%] left-[35%] w-7 sm:w-10 opacity-[0.12]" />
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/shuttlecock.svg" alt="" className="float-8 absolute top-[25%] right-[25%] w-8 sm:w-11 opacity-[0.10]" />
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/potato.svg" alt="" className="float-9 absolute top-[38%] left-[18%] w-6 sm:w-9 opacity-[0.10]" />
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/shuttlecock.svg" alt="" className="float-10 absolute top-[65%] right-[20%] w-7 sm:w-10 opacity-[0.12]" />
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/potato.svg" alt="" className="float-11 absolute bottom-[30%] left-[25%] w-8 sm:w-11 opacity-[0.10]" />
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/shuttlecock.svg" alt="" className="float-12 absolute bottom-[8%] right-[35%] w-6 sm:w-8 opacity-[0.10]" />
+      </div>
+
       {/* Nav */}
       <header className="relative z-10 flex items-center justify-between px-6 sm:px-10 py-5">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-accent flex items-center justify-center">
-            <span className="text-primary font-bold text-sm">SP</span>
-          </div>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/potato-logo.svg" alt="Smash Potato" className="w-8 h-8" />
           <span className="text-xl font-bold text-light-100">Smash Potato</span>
         </div>
         <div className="flex items-center gap-3">
