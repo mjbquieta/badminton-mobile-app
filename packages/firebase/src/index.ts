@@ -15,7 +15,7 @@ export {
 export type { SyncableStore, FirebaseSyncOptions } from './sync';
 export { createFirebaseSync } from './sync';
 
-export type { User, UserProfile } from './auth';
+export type { User, UserProfile, RegisterResult } from './auth';
 export {
   registerUser,
   loginUser,
@@ -23,4 +23,6 @@ export {
   subscribeToAuthState,
   getAuthErrorMessage,
   getUserProfile,
+  sendVerificationEmail,
+  reloadUser,
 } from './auth';

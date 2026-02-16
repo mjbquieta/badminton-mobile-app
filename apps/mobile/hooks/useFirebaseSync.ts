@@ -23,15 +23,15 @@ export function useFirebaseSync(store: SyncableStore, sessionId: string) {
 
     async function init() {
       try {
+        // Reset store to prevent stale data from a previous session
+        store.dispatch({ type: 'players/setPlayers', payload: [] });
+        store.dispatch({ type: 'courts/setCourts', payload: [] });
+        store.dispatch({ type: 'queue/setQueue', payload: [] });
+
         const existing = await getSession(sessionId);
 
         if (!existing) {
-          const state = store.getState();
-          await createSession(
-            state.players.items,
-            state.courts.items,
-            state.queue.ids
-          );
+          await createSession(sessionId, [], [], []);
         } else {
           store.dispatch({ type: 'players/setPlayers', payload: existing.players });
           store.dispatch({ type: 'courts/setCourts', payload: existing.courts });

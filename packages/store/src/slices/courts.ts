@@ -1,28 +1,29 @@
-import { type Court } from '@badminton/types';
-import { type Player } from '@badminton/types';
-import { shuffle } from '@badminton/core';
-import { createSlice, type PayloadAction } from '@reduxjs/toolkit';
+import { shuffle } from "@badminton/core";
+import { type Court, type Player } from "@badminton/types";
+import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 
-const testCourts = [
-	{
-		id: "e4c2ec55-4b3b-4fb1-8e06-3aabf6bbf001",
-		name: "Court 1",
-		players: [],
-		isSingle: false,
-	},
-	{
-		id: "1f0375d2-88d4-4bee-bdfa-b9f7fa92b6ee",
-		name: "Court 2",
-		players: [],
-		isSingle: false,
-	},
-	{
-		id: "2c56f7a6-47d3-480a-8f0e-6ad4d1e54f5a",
-		name: "Court 3",
-		players: [],
-		isSingle: false,
-	},
-];
+const testCourts = [] as Court[];
+
+// const testCourts = [
+// 	{
+// 		id: "e4c2ec55-4b3b-4fb1-8e06-3aabf6bbf001",
+// 		name: "Court 1",
+// 		players: [],
+// 		isSingle: false,
+// 	},
+// 	{
+// 		id: "1f0375d2-88d4-4bee-bdfa-b9f7fa92b6ee",
+// 		name: "Court 2",
+// 		players: [],
+// 		isSingle: false,
+// 	},
+// 	{
+// 		id: "2c56f7a6-47d3-480a-8f0e-6ad4d1e54f5a",
+// 		name: "Court 3",
+// 		players: [],
+// 		isSingle: false,
+// 	},
+// ];
 
 type CourtsState = {
 	items: Court[];
@@ -38,9 +39,18 @@ const courtSlice = createSlice({
 	name: "courts",
 	initialState,
 	reducers: {
-		addCourt: (state, action: PayloadAction<Court>) => {
+		addCourt: (
+			state,
+			action: PayloadAction<Court & { maxCourts?: number }>,
+		) => {
+			const { maxCourts, ...courtData } = action.payload;
+			if (maxCourts !== undefined && state.items.length >= maxCourts) {
+				state.error = `Court limit reached (${maxCourts}). Verify your email to add unlimited courts.`;
+				return;
+			}
+
 			state.items.push({
-				...action.payload,
+				...courtData,
 				name: `Court ${state.items.length + 1}`,
 			});
 			state.error = null;
@@ -61,7 +71,7 @@ const courtSlice = createSlice({
 			const playersInCourtIds = court.players.map((p) => p.id);
 			const players = state.items.flatMap((c) => c.players);
 			const playersInCourt = players.filter((p) =>
-				playersInCourtIds.includes(p.id)
+				playersInCourtIds.includes(p.id),
 			);
 			state.items = state.items.filter((c) => c.id !== action.payload);
 			state.error = null;
@@ -81,7 +91,7 @@ const courtSlice = createSlice({
 		},
 		assignPlayersToCourts: (
 			state,
-			action: PayloadAction<{ players: Player[] }>
+			action: PayloadAction<{ players: Player[] }>,
 		) => {
 			const { players } = action.payload;
 			const pool = shuffle([...players]); // already shuffled by caller
@@ -97,7 +107,7 @@ const courtSlice = createSlice({
 		},
 		removePlayerFromCourt: (
 			state,
-			action: PayloadAction<{ courtId: string; playerId: string }>
+			action: PayloadAction<{ courtId: string; playerId: string }>,
 		) => {
 			const { courtId, playerId } = action.payload;
 			const court = state.items.find((c) => c.id === courtId);
@@ -110,7 +120,7 @@ const courtSlice = createSlice({
 		},
 		assignPlayersToCourt: (
 			state,
-			action: PayloadAction<{ courtId: string; players: Player[] }>
+			action: PayloadAction<{ courtId: string; players: Player[] }>,
 		) => {
 			const { courtId, players } = action.payload;
 			const court = state.items.find((c) => c.id === courtId);
@@ -135,7 +145,7 @@ const courtSlice = createSlice({
 			}
 
 			const allAvailablePlayers = players.filter(
-				(p) => !playersInCourtIds.includes(p.id)
+				(p) => !playersInCourtIds.includes(p.id),
 			);
 
 			if (allAvailablePlayers.length < playersNeeded) {
@@ -156,7 +166,7 @@ const courtSlice = createSlice({
 		},
 		addPlayersToCourtManually: (
 			state,
-			action: PayloadAction<{ courtId: string; players: Player[] }>
+			action: PayloadAction<{ courtId: string; players: Player[] }>,
 		) => {
 			const { courtId, players } = action.payload;
 			const court = state.items.find((c) => c.id === courtId);
@@ -205,7 +215,7 @@ const courtSlice = createSlice({
 			state,
 			action: PayloadAction<{
 				assignments: { courtId: string; players: Player[] }[];
-			}>
+			}>,
 		) => {
 			for (const { courtId, players } of action.payload.assignments) {
 				const court = state.items.find((c) => c.id === courtId);
@@ -221,7 +231,7 @@ const courtSlice = createSlice({
 
 				const needed = court.isSingle ? 2 : 4;
 				if (players.length !== needed) {
-					state.error = `Invalid assignment for ${court.name}. ${court.isSingle ? 'Singles' : 'Doubles'} needs ${needed} players.`;
+					state.error = `Invalid assignment for ${court.name}. ${court.isSingle ? "Singles" : "Doubles"} needs ${needed} players.`;
 					return;
 				}
 

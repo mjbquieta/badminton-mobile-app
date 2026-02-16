@@ -4,6 +4,7 @@ import {
   signInWithEmailAndPassword,
   signOut as firebaseSignOut,
   onAuthStateChanged,
+  sendEmailVerification,
   type Auth,
   type User,
   type Unsubscribe,
@@ -20,11 +21,16 @@ function getAuthInstance(): Auth {
   return auth;
 }
 
+export interface RegisterResult {
+  user: User;
+  verificationEmailSent: boolean;
+}
+
 export async function registerUser(
   email: string,
   password: string,
   clubName: string
-): Promise<User> {
+): Promise<RegisterResult> {
   const db = getFirestore(getFirebaseApp());
 
   // Check club name uniqueness before creating the auth user
@@ -51,7 +57,15 @@ export async function registerUser(
     createdAt: serverTimestamp(),
   });
 
-  return user;
+  let verificationEmailSent = false;
+  try {
+    await sendEmailVerification(user);
+    verificationEmailSent = true;
+  } catch (e) {
+    console.warn('Failed to send verification email:', e);
+  }
+
+  return { user, verificationEmailSent };
 }
 
 export async function loginUser(
@@ -121,6 +135,14 @@ export async function getUserProfile(uid: string): Promise<UserProfile | null> {
   const snap = await getDoc(doc(db, 'users', uid));
   if (!snap.exists()) return null;
   return snap.data() as UserProfile;
+}
+
+export async function sendVerificationEmail(user: User): Promise<void> {
+  await sendEmailVerification(user);
+}
+
+export async function reloadUser(user: User): Promise<void> {
+  await user.reload();
 }
 
 export type { User } from 'firebase/auth';

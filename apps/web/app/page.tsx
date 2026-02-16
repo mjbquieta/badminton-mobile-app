@@ -1,4 +1,4 @@
-import Link from 'next/link';
+import Link from "next/link";
 
 export default function LandingPage() {
   return (
@@ -26,16 +26,18 @@ export default function LandingPage() {
       <main className="flex-1 flex flex-col items-center justify-center px-6 text-center -mt-16">
         <div className="inline-flex items-center gap-2 bg-court-deep/20 border border-court-deep/40 rounded-full px-4 py-1.5 mb-6">
           <span className="w-2 h-2 rounded-full bg-court-lime animate-pulse" />
-          <span className="text-court-lime text-xs font-medium">Badminton Court Manager</span>
+          <span className="text-court-lime text-xs font-medium">
+            Badminton Court Manager
+          </span>
         </div>
 
         <h1 className="text-4xl sm:text-6xl font-bold max-w-2xl leading-tight">
-          Manage your courts{' '}
-          <span className="text-accent">effortlessly</span>
+          Manage your courts <span className="text-accent">effortlessly</span>
         </h1>
 
         <p className="text-light-300 text-base sm:text-lg max-w-lg mt-5 leading-relaxed">
-          Track players, automate matchmaking, and keep your badminton sessions running smoothly.
+          Track players, automate matchmaking, and keep your badminton sessions
+          running smoothly.
         </p>
 
         <div className="flex items-center gap-4 mt-8">
@@ -56,15 +58,20 @@ export default function LandingPage() {
         {/* Download APK */}
         <div className="mt-12">
           <a
-            href="/smash-potato.apk"
-            download
+            href="https://expo.dev/accounts/kirkmicz26/projects/patatas/builds/ec30850c-9b18-4c82-ba0b-e37daad10052"
+            target="_blank"
             className="inline-flex items-center gap-3 bg-court-deep/20 border border-court-deep/40 hover:bg-court-deep/30 transition-colors rounded-xl px-6 py-3"
           >
-            <svg viewBox="0 0 24 24" className="w-6 h-6 text-court-lime fill-current">
+            <svg
+              viewBox="0 0 24 24"
+              className="w-6 h-6 text-court-lime fill-current"
+            >
               <path d="M17.523 2.226l1.392 2.412a.5.5 0 01-.866.5l-1.392-2.412a7.034 7.034 0 00-9.314 0L5.951 5.138a.5.5 0 01-.866-.5L6.477 2.226A8.034 8.034 0 0112 0a8.034 8.034 0 015.523 2.226zM4 8a8 8 0 0116 0v1a1 1 0 01-1 1H5a1 1 0 01-1-1V8zm5.5 0a1 1 0 10-2 0 1 1 0 002 0zm7 0a1 1 0 10-2 0 1 1 0 002 0zM5 12h14v8a2 2 0 01-2 2H7a2 2 0 01-2-2v-8z" />
             </svg>
             <div className="text-left">
-              <span className="text-light-100 text-sm font-semibold block">Download for Android</span>
+              <span className="text-light-100 text-sm font-semibold block">
+                Download for Android
+              </span>
               <span className="text-light-300 text-xs">Get the APK</span>
             </div>
           </a>
@@ -78,7 +85,8 @@ export default function LandingPage() {
             </div>
             <h3 className="font-semibold mb-1">Smart Queue</h3>
             <p className="text-light-300 text-sm leading-relaxed">
-              Automatic player rotation with fair matchmaking based on skill level.
+              Automatic player rotation with fair matchmaking based on skill
+              level.
             </p>
           </div>
 

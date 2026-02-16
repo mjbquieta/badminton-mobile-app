@@ -1,4 +1,5 @@
 import { BadmintonPalette } from "@/constants/palette";
+import { EmailVerificationBanner } from "@/components/EmailVerificationBanner";
 import { useAppDispatch, useAppSelector } from "@badminton/store";
 import { rollDice } from "@badminton/store";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
@@ -106,8 +107,13 @@ const index = () => {
         </View>
       </View>
 
+      {/* Verification Banner */}
+      <View className="px-6 pt-4">
+        <EmailVerificationBanner />
+      </View>
+
       {/* Stats Grid */}
-      <View className="flex-1 px-6 pt-6">
+      <View className="flex-1 px-6 pt-2">
         <View className="flex-row flex-wrap gap-4 justify-between">
           <StatCard
             label="Total Players"

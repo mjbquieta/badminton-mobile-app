@@ -5,8 +5,6 @@ import {
   setDoc,
   updateDoc,
   onSnapshot,
-  collection,
-  addDoc,
   serverTimestamp,
   type Firestore,
   type Unsubscribe,
@@ -34,18 +32,18 @@ function getDb(): Firestore {
 // --- Session CRUD ---
 
 export async function createSession(
+  sessionId: string,
   players: Player[],
   courts: Court[],
   queue: string[]
-): Promise<string> {
-  const ref = await addDoc(collection(getDb(), 'sessions'), {
+): Promise<void> {
+  await setDoc(doc(getDb(), 'sessions', sessionId), {
     players,
     courts: courts.map(courtToFirestore),
     queue,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   });
-  return ref.id;
 }
 
 export async function getSession(
@@ -144,7 +142,7 @@ function courtToFirestore(court: Court) {
     id: court.id,
     name: court.name,
     isSingle: court.isSingle,
-    players: court.players.map((p) => ({
+    players: (court.players ?? []).map((p) => ({
       id: p.id,
       name: p.name,
       gameCount: p.gameCount,

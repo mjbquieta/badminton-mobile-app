@@ -17,8 +17,11 @@ import { Modal } from '@/components/Modal';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { PlayerLevelBadge } from '@/components/PlayerLevelBadge';
 import { PlayerLevelSelector } from '@/components/PlayerLevelSelector';
+import { useAuth } from '@/contexts/AuthContext';
+import { UNVERIFIED_LIMITS } from '@badminton/ui-shared';
 
 export default function PlayersPage() {
+  const { emailVerified } = useAuth();
   const dispatch = useAppDispatch();
   const players = useAppSelector((state) => state.players.items);
   const playersError = useAppSelector((state) => state.players.error);
@@ -51,7 +54,7 @@ export default function PlayersPage() {
   }
 
   function handleAdd() {
-    dispatch(addPlayer({ id: uuidv4(), name: newName, level: newLevel }));
+    dispatch(addPlayer({ id: uuidv4(), name: newName, level: newLevel, maxPlayers: emailVerified ? undefined : UNVERIFIED_LIMITS.MAX_PLAYERS }));
     setNewName('');
     setNewLevel(PlayerLevel.BEGINNER);
     setShowAddModal(false);
