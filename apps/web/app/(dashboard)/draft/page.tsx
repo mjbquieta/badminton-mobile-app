@@ -20,7 +20,7 @@ import {
 import { Modal } from "@/components/Modal";
 import { type Draft, type Player } from "@badminton/types";
 import { useState } from "react";
-import { FiAlertCircle, FiCheck, FiEdit2, FiPlus, FiTrash2, FiX } from "react-icons/fi";
+import { FiAlertCircle, FiCheck, FiEdit2, FiPlus, FiTrash2, FiX, FiZap } from "react-icons/fi";
 import { RiDraftLine } from "react-icons/ri";
 import { v4 as uuidv4 } from "uuid";
 
@@ -36,6 +36,7 @@ export default function DraftPage() {
   const [deleteTarget, setDeleteTarget] = useState<Draft | null>(null);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [showAutoDraftConfirm, setShowAutoDraftConfirm] = useState(false);
   const [finishTarget, setFinishTarget] = useState<Draft | null>(null);
   const playerMap = new Map(players.map((p) => [p.id, p]));
 
@@ -71,6 +72,54 @@ export default function DraftPage() {
     if (!deleteTarget) return;
     dispatch(removeDraft(deleteTarget.id));
     setDeleteTarget(null);
+  }
+
+  function handleAutoDraft() {
+    const ids = players.map((p) => p.id);
+    if (ids.length < 4) return;
+
+    const maxNew = 30 - drafts.length;
+    if (maxNew <= 0) return;
+
+    const usedCombos = new Set(
+      drafts.map((d) => [...d.playerIds].sort().join(",")),
+    );
+    const counts = new Map(ids.map((id) => [id, 0]));
+
+    for (let i = 0; i < maxNew; i++) {
+      const sorted = [...ids].sort((a, b) => counts.get(a)! - counts.get(b)!);
+
+      let found = false;
+      // Try increasing pool sizes from lowest-count players
+      for (let poolSize = 4; poolSize <= sorted.length && !found; poolSize++) {
+        const pool = sorted.slice(0, poolSize);
+        for (let a = 0; a < pool.length - 3 && !found; a++) {
+          for (let b = a + 1; b < pool.length - 2 && !found; b++) {
+            for (let c = b + 1; c < pool.length - 1 && !found; c++) {
+              for (let d = c + 1; d < pool.length && !found; d++) {
+                const combo = [pool[a], pool[b], pool[c], pool[d]];
+                const key = [...combo].sort().join(",");
+                if (!usedCombos.has(key)) {
+                  // Shuffle so team A/B assignment varies
+                  for (let s = combo.length - 1; s > 0; s--) {
+                    const j = Math.floor(Math.random() * (s + 1));
+                    [combo[s], combo[j]] = [combo[j], combo[s]];
+                  }
+                  usedCombos.add(key);
+                  dispatch(addDraft({ id: uuidv4(), playerIds: combo }));
+                  for (const id of combo) {
+                    counts.set(id, counts.get(id)! + 1);
+                  }
+                  found = true;
+                }
+              }
+            }
+          }
+        }
+      }
+      if (!found) break;
+    }
+    setShowAutoDraftConfirm(false);
   }
 
   // Group drafts into rounds based on court count
@@ -112,6 +161,14 @@ export default function DraftPage() {
               Clear All
             </button>
           )}
+          <button
+            onClick={() => setShowAutoDraftConfirm(true)}
+            disabled={drafts.length >= 30 || players.length < 4}
+            className="flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm bg-accent/20 text-accent font-semibold hover:bg-accent/30 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          >
+            <FiZap size={14} />
+            Auto Draft
+          </button>
           <button
             onClick={() => setShowSelectModal(true)}
             disabled={drafts.length >= 30 || players.length < 4}
@@ -349,6 +406,16 @@ export default function DraftPage() {
         message="This will reset all players' game counts and trophies to zero. Are you sure?"
         confirmLabel="Reset"
         danger
+      />
+
+      {/* Auto Draft Confirm */}
+      <ConfirmDialog
+        open={showAutoDraftConfirm}
+        onClose={() => setShowAutoDraftConfirm(false)}
+        onConfirm={handleAutoDraft}
+        title="Auto Draft"
+        message={`This will automatically generate up to ${30 - drafts.length} drafts with balanced game distribution. No duplicate matchups will be created. Continue?`}
+        confirmLabel="Generate"
       />
 
       {/* Winner Selection Modal */}
