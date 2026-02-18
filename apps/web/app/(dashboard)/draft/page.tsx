@@ -9,12 +9,15 @@ import {
   clearDraftsError,
   finishDraft,
   incrementPlayersGameCount,
+  incrementPlayersTrophies,
   removeDraft,
+  resetAllGameCounts,
   updateDraftCourt,
   updateDraftPlayers,
   useAppDispatch,
   useAppSelector,
 } from "@badminton/store";
+import { Modal } from "@/components/Modal";
 import { type Draft, type Player } from "@badminton/types";
 import { useState } from "react";
 import { FiAlertCircle, FiCheck, FiEdit2, FiPlus, FiTrash2, FiX } from "react-icons/fi";
@@ -32,6 +35,8 @@ export default function DraftPage() {
   const [editingDraft, setEditingDraft] = useState<Draft | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Draft | null>(null);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [finishTarget, setFinishTarget] = useState<Draft | null>(null);
   const playerMap = new Map(players.map((p) => [p.id, p]));
 
   function resolvePlayer(id: string): Player | undefined {
@@ -51,10 +56,15 @@ export default function DraftPage() {
     setEditingDraft(null);
   }
 
-  function handleFinish(draft: Draft) {
-    if (draft.finished) return;
-    dispatch(incrementPlayersGameCount(draft.playerIds));
-    dispatch(finishDraft(draft.id));
+  function handleFinish(winner: 'A' | 'B') {
+    if (!finishTarget || finishTarget.finished) return;
+    const winnerIds = winner === 'A'
+      ? finishTarget.playerIds.slice(0, 2)
+      : finishTarget.playerIds.slice(2, 4);
+    dispatch(incrementPlayersGameCount(finishTarget.playerIds));
+    dispatch(incrementPlayersTrophies(winnerIds));
+    dispatch(finishDraft({ id: finishTarget.id, winner }));
+    setFinishTarget(null);
   }
 
   function handleDelete() {
@@ -86,6 +96,14 @@ export default function DraftPage() {
           </div>
         </div>
         <div className="flex gap-2 sm:gap-3 shrink-0">
+          {players.length > 0 && (
+            <button
+              onClick={() => setShowResetConfirm(true)}
+              className="px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm text-light-300 border border-dark-100 hover:bg-dark-200 transition-colors"
+            >
+              Reset Stats
+            </button>
+          )}
           {drafts.length > 0 && (
             <button
               onClick={() => setShowClearConfirm(true)}
@@ -192,7 +210,7 @@ export default function DraftPage() {
                         {teamA.map((p) => (
                           <div key={p.id} className="flex items-center gap-1.5">
                             <PlayerLevelBadge level={p.level} />
-                            <span className="text-sm text-light-100 truncate">
+                            <span className={`text-sm truncate ${draft.finished && draft.winner === 'A' ? 'text-accent font-semibold' : 'text-light-100'}`}>
                               {p.name}
                             </span>
                           </div>
@@ -214,7 +232,7 @@ export default function DraftPage() {
                         {teamB.map((p) => (
                           <div key={p.id} className="flex items-center gap-1.5">
                             <PlayerLevelBadge level={p.level} />
-                            <span className="text-sm text-light-100 truncate">
+                            <span className={`text-sm truncate ${draft.finished && draft.winner === 'B' ? 'text-accent font-semibold' : 'text-light-100'}`}>
                               {p.name}
                             </span>
                           </div>
@@ -236,7 +254,7 @@ export default function DraftPage() {
                       ) : (
                         <>
                           <button
-                            onClick={() => handleFinish(draft)}
+                            onClick={() => setFinishTarget(draft)}
                             className="p-1.5 rounded-lg text-light-300 hover:text-green-400 hover:bg-green-400/10 transition-colors"
                             title="Finish match"
                           >
@@ -321,6 +339,60 @@ export default function DraftPage() {
         confirmLabel="Clear All"
         danger
       />
+
+      {/* Reset Stats Confirm */}
+      <ConfirmDialog
+        open={showResetConfirm}
+        onClose={() => setShowResetConfirm(false)}
+        onConfirm={() => dispatch(resetAllGameCounts())}
+        title="Reset All Stats"
+        message="This will reset all players' game counts and trophies to zero. Are you sure?"
+        confirmLabel="Reset"
+        danger
+      />
+
+      {/* Winner Selection Modal */}
+      <Modal
+        open={!!finishTarget}
+        onClose={() => setFinishTarget(null)}
+        title="Select Winner"
+      >
+        {finishTarget && (() => {
+          const tA = [resolvePlayer(finishTarget.playerIds[0]), resolvePlayer(finishTarget.playerIds[1])].filter((p): p is Player => !!p);
+          const tB = [resolvePlayer(finishTarget.playerIds[2]), resolvePlayer(finishTarget.playerIds[3])].filter((p): p is Player => !!p);
+          return (
+            <div className="space-y-4">
+              <p className="text-sm text-light-300">Which team won this match?</p>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  onClick={() => handleFinish('A')}
+                  className="flex flex-col items-center gap-2 p-4 rounded-xl border border-dark-100 hover:border-accent hover:bg-accent/10 transition-colors group"
+                >
+                  <span className="text-xs font-semibold text-light-300 uppercase tracking-wide group-hover:text-accent">Team A</span>
+                  {tA.map((p) => (
+                    <div key={p.id} className="flex items-center gap-1.5">
+                      <PlayerLevelBadge level={p.level} />
+                      <span className="text-sm text-light-100">{p.name}</span>
+                    </div>
+                  ))}
+                </button>
+                <button
+                  onClick={() => handleFinish('B')}
+                  className="flex flex-col items-center gap-2 p-4 rounded-xl border border-dark-100 hover:border-accent hover:bg-accent/10 transition-colors group"
+                >
+                  <span className="text-xs font-semibold text-light-300 uppercase tracking-wide group-hover:text-accent">Team B</span>
+                  {tB.map((p) => (
+                    <div key={p.id} className="flex items-center gap-1.5">
+                      <PlayerLevelBadge level={p.level} />
+                      <span className="text-sm text-light-100">{p.name}</span>
+                    </div>
+                  ))}
+                </button>
+              </div>
+            </div>
+          );
+        })()}
+      </Modal>
     </div>
   );
 }

@@ -10,6 +10,7 @@ export {
 	addPlayer,
 	removePlayer,
 	incrementPlayersGameCount,
+	incrementPlayersTrophies,
 	setPlayersAtEndOfQueue,
 	setPlayersError,
 	clearPlayersError,

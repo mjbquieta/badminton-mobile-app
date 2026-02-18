@@ -75,10 +75,14 @@ const draftsSlice = createSlice({
 			state.error = null;
 		},
 
-		finishDraft: (state, action: PayloadAction<string>) => {
-			const draft = state.items.find((d) => d.id === action.payload);
+		finishDraft: (
+			state,
+			action: PayloadAction<{ id: string; winner: 'A' | 'B' }>
+		) => {
+			const draft = state.items.find((d) => d.id === action.payload.id);
 			if (draft) {
 				draft.finished = true;
+				draft.winner = action.payload.winner;
 			}
 			state.error = null;
 		},

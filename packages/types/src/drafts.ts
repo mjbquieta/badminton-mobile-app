@@ -4,4 +4,5 @@ export type Draft = {
 	playerIds: string[];
 	courtId?: string;
 	finished?: boolean;
+	winner?: 'A' | 'B';
 };
