@@ -164,6 +164,7 @@ function courtToFirestore(court: Court) {
       name: p.name,
       gameCount: p.gameCount,
       level: p.level,
+      trophies: p.trophies ?? 0,
     })),
   };
 }
@@ -178,6 +179,7 @@ function courtFromFirestore(data: Record<string, unknown>): Court {
       name: p.name as string,
       gameCount: p.gameCount as number,
       level: p.level as Player['level'],
+      trophies: (p.trophies as number) ?? 0,
     })),
   };
 }
