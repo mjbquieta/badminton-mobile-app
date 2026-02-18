@@ -1,24 +1,26 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { v4 as uuidv4 } from 'uuid';
-import { PlayerLevel, type Player } from '@badminton/types';
+import { ConfirmDialog } from "@/components/ConfirmDialog";
+import { Modal } from "@/components/Modal";
+import { PlayerLevelBadge } from "@/components/PlayerLevelBadge";
+import { PlayerLevelSelector } from "@/components/PlayerLevelSelector";
+import { PlayerTrophyBadge } from "@/components/PlayerTrophyBadge";
+import { useAuth } from "@/contexts/AuthContext";
 import {
-  useAppSelector,
-  useAppDispatch,
   addPlayer,
-  removePlayer,
-  updatePlayerLevel,
-  updatePlayerGameCount,
   clearPlayers,
   clearPlayersError,
-} from '@badminton/store';
-import { Modal } from '@/components/Modal';
-import { ConfirmDialog } from '@/components/ConfirmDialog';
-import { PlayerLevelBadge } from '@/components/PlayerLevelBadge';
-import { PlayerLevelSelector } from '@/components/PlayerLevelSelector';
-import { useAuth } from '@/contexts/AuthContext';
-import { UNVERIFIED_LIMITS } from '@badminton/ui-shared';
+  removePlayer,
+  updatePlayerGameCount,
+  updatePlayerLevel,
+  useAppDispatch,
+  useAppSelector,
+} from "@badminton/store";
+import { PlayerLevel, type Player } from "@badminton/types";
+import { UNVERIFIED_LIMITS } from "@badminton/ui-shared";
+import { useState } from "react";
+import { FiEdit2, FiTrash2 } from "react-icons/fi";
+import { v4 as uuidv4 } from "uuid";
 
 export default function PlayersPage() {
   const { emailVerified } = useAuth();
@@ -28,14 +30,14 @@ export default function PlayersPage() {
   const courts = useAppSelector((state) => state.courts.items);
   const queue = useAppSelector((state) => state.queue.ids);
 
-  const [search, setSearch] = useState('');
+  const [search, setSearch] = useState("");
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingPlayer, setEditingPlayer] = useState<Player | null>(null);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Player | null>(null);
 
   // Add player form state
-  const [newName, setNewName] = useState('');
+  const [newName, setNewName] = useState("");
   const [newLevel, setNewLevel] = useState<PlayerLevel>(PlayerLevel.BEGINNER);
 
   // Edit player form state
@@ -43,19 +45,28 @@ export default function PlayersPage() {
   const [editGameCount, setEditGameCount] = useState(0);
 
   const filtered = players.filter((p) =>
-    p.name.toLowerCase().includes(search.toLowerCase())
+    p.name.toLowerCase().includes(search.toLowerCase()),
   );
 
   function getPlayerStatus(player: Player) {
-    const court = courts.find((c) => c.players.some((cp) => cp.id === player.id));
-    if (court) return { status: 'in_game' as const, courtName: court.name };
-    if (queue.includes(player.id)) return { status: 'in_queue' as const };
-    return { status: 'bench' as const };
+    const court = courts.find((c) =>
+      c.players.some((cp) => cp.id === player.id),
+    );
+    if (court) return { status: "in_game" as const, courtName: court.name };
+    if (queue.includes(player.id)) return { status: "in_queue" as const };
+    return { status: "bench" as const };
   }
 
   function handleAdd() {
-    dispatch(addPlayer({ id: uuidv4(), name: newName, level: newLevel, maxPlayers: emailVerified ? undefined : UNVERIFIED_LIMITS.MAX_PLAYERS }));
-    setNewName('');
+    dispatch(
+      addPlayer({
+        id: uuidv4(),
+        name: newName,
+        level: newLevel,
+        maxPlayers: emailVerified ? undefined : UNVERIFIED_LIMITS.MAX_PLAYERS,
+      }),
+    );
+    setNewName("");
     setNewLevel(PlayerLevel.BEGINNER);
     setShowAddModal(false);
   }
@@ -63,7 +74,9 @@ export default function PlayersPage() {
   function handleEdit() {
     if (!editingPlayer) return;
     dispatch(updatePlayerLevel({ id: editingPlayer.id, level: editLevel }));
-    dispatch(updatePlayerGameCount({ id: editingPlayer.id, gameCount: editGameCount }));
+    dispatch(
+      updatePlayerGameCount({ id: editingPlayer.id, gameCount: editGameCount }),
+    );
     setEditingPlayer(null);
   }
 
@@ -80,14 +93,14 @@ export default function PlayersPage() {
   }
 
   const statusColors = {
-    in_game: 'text-danger',
-    in_queue: 'text-success',
-    bench: 'text-light-300',
+    in_game: "text-danger",
+    in_queue: "text-success",
+    bench: "text-light-300",
   };
   const statusLabels = {
-    in_game: 'In Game',
-    in_queue: 'In Queue',
-    bench: 'Bench',
+    in_game: "In Game",
+    in_queue: "In Queue",
+    bench: "Bench",
   };
 
   return (
@@ -120,7 +133,12 @@ export default function PlayersPage() {
       {playersError && (
         <div className="bg-danger/10 border border-danger/30 text-danger rounded-xl px-4 py-3 mb-4 flex justify-between items-center">
           <span>{playersError}</span>
-          <button onClick={() => dispatch(clearPlayersError())} className="text-danger/60 hover:text-danger">&times;</button>
+          <button
+            onClick={() => dispatch(clearPlayersError())}
+            className="text-danger/60 hover:text-danger"
+          >
+            &times;
+          </button>
         </div>
       )}
 
@@ -136,7 +154,10 @@ export default function PlayersPage() {
       {/* Players Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
         {filtered.map((player) => {
-          const { status, courtName } = getPlayerStatus(player) as { status: 'in_game' | 'in_queue' | 'bench'; courtName?: string };
+          const { status, courtName } = getPlayerStatus(player) as {
+            status: "in_game" | "in_queue" | "bench";
+            courtName?: string;
+          };
           return (
             <div
               key={player.id}
@@ -150,24 +171,31 @@ export default function PlayersPage() {
                 <div className="flex gap-1">
                   <button
                     onClick={() => openEdit(player)}
-                    className="text-light-300 hover:text-accent text-sm px-2 py-1 rounded hover:bg-dark-200"
+                    className="p-1.5 rounded-lg text-light-300 hover:text-accent hover:bg-accent/10 transition-colors"
+                    title="Edit player"
                   >
-                    Edit
+                    <FiEdit2 size={14} />
                   </button>
                   <button
                     onClick={() => setDeleteTarget(player)}
-                    className="text-light-300 hover:text-danger text-sm px-2 py-1 rounded hover:bg-dark-200"
+                    className="p-1.5 rounded-lg text-light-300 hover:text-danger hover:bg-danger/10 transition-colors"
+                    title="Delete player"
                   >
-                    Del
+                    <FiTrash2 size={14} />
                   </button>
                 </div>
               </div>
               <div className="flex justify-between items-center text-sm">
-                <span className="text-light-300">
-                  {player.gameCount} {player.gameCount === 1 ? 'game' : 'games'}
-                </span>
+                <div className="flex items-center gap-3">
+                  <span className="text-light-300">
+                    {player.gameCount}{" "}
+                    {player.gameCount === 1 ? "game" : "games"}
+                  </span>
+                  <PlayerTrophyBadge trophies={player.trophies ?? 0} />
+                </div>
                 <span className={`text-xs font-medium ${statusColors[status]}`}>
-                  {statusLabels[status]}{courtName ? ` · ${courtName}` : ''}
+                  {statusLabels[status]}
+                  {courtName ? ` · ${courtName}` : ""}
                 </span>
               </div>
             </div>
@@ -177,12 +205,18 @@ export default function PlayersPage() {
 
       {filtered.length === 0 && (
         <p className="text-center text-light-300 py-12">
-          {search ? 'No players match your search' : 'No players yet. Add some!'}
+          {search
+            ? "No players match your search"
+            : "No players yet. Add some!"}
         </p>
       )}
 
       {/* Add Player Modal */}
-      <Modal open={showAddModal} onClose={() => setShowAddModal(false)} title="Add Player">
+      <Modal
+        open={showAddModal}
+        onClose={() => setShowAddModal(false)}
+        title="Add Player"
+      >
         <div className="space-y-4">
           <input
             type="text"
@@ -191,14 +225,21 @@ export default function PlayersPage() {
             onChange={(e) => setNewName(e.target.value)}
             className="w-full bg-dark-200 border border-dark-100 rounded-xl px-4 py-2.5 text-sm text-light-100 placeholder:text-light-300 outline-none focus:border-accent/50"
             autoFocus
-            onKeyDown={(e) => e.key === 'Enter' && newName.trim().length >= 3 && handleAdd()}
+            onKeyDown={(e) =>
+              e.key === "Enter" && newName.trim().length >= 3 && handleAdd()
+            }
           />
           <div>
-            <label className="text-sm text-light-200 mb-2 block">Skill Level</label>
+            <label className="text-sm text-light-200 mb-2 block">
+              Skill Level
+            </label>
             <PlayerLevelSelector value={newLevel} onChange={setNewLevel} />
           </div>
           <div className="flex gap-3 justify-end pt-2">
-            <button onClick={() => setShowAddModal(false)} className="px-4 py-2 rounded-xl text-light-200 hover:bg-dark-200">
+            <button
+              onClick={() => setShowAddModal(false)}
+              className="px-4 py-2 rounded-xl text-light-200 hover:bg-dark-200"
+            >
               Cancel
             </button>
             <button
@@ -213,14 +254,22 @@ export default function PlayersPage() {
       </Modal>
 
       {/* Edit Player Modal */}
-      <Modal open={!!editingPlayer} onClose={() => setEditingPlayer(null)} title={`Edit ${editingPlayer?.name ?? ''}`}>
+      <Modal
+        open={!!editingPlayer}
+        onClose={() => setEditingPlayer(null)}
+        title={`Edit ${editingPlayer?.name ?? ""}`}
+      >
         <div className="space-y-4">
           <div>
-            <label className="text-sm text-light-200 mb-2 block">Skill Level</label>
+            <label className="text-sm text-light-200 mb-2 block">
+              Skill Level
+            </label>
             <PlayerLevelSelector value={editLevel} onChange={setEditLevel} />
           </div>
           <div>
-            <label className="text-sm text-light-200 mb-2 block">Game Count</label>
+            <label className="text-sm text-light-200 mb-2 block">
+              Game Count
+            </label>
             <div className="flex items-center gap-4">
               <button
                 onClick={() => setEditGameCount(Math.max(0, editGameCount - 1))}
@@ -228,7 +277,9 @@ export default function PlayersPage() {
               >
                 -
               </button>
-              <span className="text-2xl font-bold w-12 text-center">{editGameCount}</span>
+              <span className="text-2xl font-bold w-12 text-center">
+                {editGameCount}
+              </span>
               <button
                 onClick={() => setEditGameCount(editGameCount + 1)}
                 className="w-10 h-10 rounded-xl bg-dark-200 text-light-100 text-xl hover:bg-dark-100"
@@ -238,10 +289,16 @@ export default function PlayersPage() {
             </div>
           </div>
           <div className="flex gap-3 justify-end pt-2">
-            <button onClick={() => setEditingPlayer(null)} className="px-4 py-2 rounded-xl text-light-200 hover:bg-dark-200">
+            <button
+              onClick={() => setEditingPlayer(null)}
+              className="px-4 py-2 rounded-xl text-light-200 hover:bg-dark-200"
+            >
               Cancel
             </button>
-            <button onClick={handleEdit} className="px-4 py-2 rounded-xl bg-accent text-primary font-semibold hover:bg-accent/80">
+            <button
+              onClick={handleEdit}
+              className="px-4 py-2 rounded-xl bg-accent text-primary font-semibold hover:bg-accent/80"
+            >
               Save
             </button>
           </div>

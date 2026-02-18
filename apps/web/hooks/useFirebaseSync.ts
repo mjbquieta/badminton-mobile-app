@@ -27,15 +27,17 @@ export function useFirebaseSync(store: SyncableStore, sessionId: string) {
         store.dispatch({ type: 'players/setPlayers', payload: [] });
         store.dispatch({ type: 'courts/setCourts', payload: [] });
         store.dispatch({ type: 'queue/setQueue', payload: [] });
+        store.dispatch({ type: 'drafts/setDrafts', payload: [] });
 
         const existing = await getSession(sessionId);
 
         if (!existing) {
-          await createSession(sessionId, [], [], []);
+          await createSession(sessionId, [], [], [], []);
         } else {
           store.dispatch({ type: 'players/setPlayers', payload: existing.players });
           store.dispatch({ type: 'courts/setCourts', payload: existing.courts });
           store.dispatch({ type: 'queue/setQueue', payload: existing.queue });
+          store.dispatch({ type: 'drafts/setDrafts', payload: existing.drafts });
         }
 
         if (!cancelled) {

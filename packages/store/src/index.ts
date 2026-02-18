@@ -10,6 +10,7 @@ export {
 	addPlayer,
 	removePlayer,
 	incrementPlayersGameCount,
+	incrementPlayersTrophies,
 	setPlayersAtEndOfQueue,
 	setPlayersError,
 	clearPlayersError,
@@ -37,6 +38,19 @@ export {
 	setCourts,
 	courtsReducer,
 } from './slices/courts';
+
+// Drafts slice
+export {
+	addDraft,
+	removeDraft,
+	updateDraftPlayers,
+	updateDraftCourt,
+	finishDraft,
+	clearDrafts,
+	clearDraftsError,
+	setDrafts,
+	draftsReducer,
+} from './slices/drafts';
 
 // Queue slice
 export { setQueue, clearQueue, queueReducer } from './slices/queue';

@@ -10,4 +10,5 @@ export type Player = {
 	name: string;
 	gameCount: number;
 	level: PlayerLevel;
+	trophies: number;
 };

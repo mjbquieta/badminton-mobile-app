@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { type Player } from '@badminton/types';
 import { Modal } from './Modal';
 import { PlayerLevelBadge } from './PlayerLevelBadge';
@@ -12,6 +12,7 @@ interface ManualSelectModalProps {
   players: Player[];
   maxSelect: number;
   onConfirm: (selectedIds: string[]) => void;
+  initialSelected?: string[];
 }
 
 export function ManualSelectModal({
@@ -21,9 +22,17 @@ export function ManualSelectModal({
   players,
   maxSelect,
   onConfirm,
+  initialSelected,
 }: ManualSelectModalProps) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [search, setSearch] = useState('');
+
+  useEffect(() => {
+    if (open) {
+      setSelected(new Set(initialSelected ?? []));
+      setSearch('');
+    }
+  }, [open, initialSelected]);
 
   const filtered = players.filter((p) =>
     p.name.toLowerCase().includes(search.toLowerCase())

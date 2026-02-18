@@ -208,6 +208,7 @@ const playersSlice = createSlice({
 				name,
 				gameCount: 0,
 				level: action.payload.level,
+				trophies: 0,
 			});
 			state.error = null;
 		},
@@ -219,6 +220,13 @@ const playersSlice = createSlice({
 			const idSet = new Set(action.payload);
 			for (const p of state.items) {
 				if (idSet.has(p.id)) p.gameCount += 1;
+			}
+			state.error = null;
+		},
+		incrementPlayersTrophies: (state, action: PayloadAction<string[]>) => {
+			const idSet = new Set(action.payload);
+			for (const p of state.items) {
+				if (idSet.has(p.id)) p.trophies = (p.trophies ?? 0) + 1;
 			}
 			state.error = null;
 		},
@@ -262,6 +270,7 @@ const playersSlice = createSlice({
 		resetAllGameCounts: (state) => {
 			for (const p of state.items) {
 				p.gameCount = 0;
+				p.trophies = 0;
 			}
 			state.error = null;
 		},
@@ -276,6 +285,7 @@ export const {
 	addPlayer,
 	removePlayer,
 	incrementPlayersGameCount,
+	incrementPlayersTrophies,
 	setPlayersAtEndOfQueue,
 	setPlayersError,
 	clearPlayersError,
