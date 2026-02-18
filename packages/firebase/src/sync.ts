@@ -1,4 +1,4 @@
-import { type Player, type Court } from '@badminton/types';
+import { type Player, type Court, type Draft } from '@badminton/types';
 import {
   updateSessionFull,
   subscribeToSession,
@@ -14,6 +14,7 @@ export interface SyncableStore {
     players: { items: Player[] };
     courts: { items: Court[] };
     queue: { ids: string[] };
+    drafts: { items: Draft[] };
   };
   dispatch: (action: { type: string; payload?: unknown }) => void;
   subscribe: (listener: () => void) => () => void;
@@ -55,6 +56,7 @@ export function createFirebaseSync(
         players: state.players.items,
         courts: state.courts.items,
         queue: state.queue.ids,
+        drafts: state.drafts.items,
       });
 
       // Skip if state hasn't actually changed
@@ -65,7 +67,8 @@ export function createFirebaseSync(
         sessionId,
         state.players.items,
         state.courts.items,
-        state.queue.ids
+        state.queue.ids,
+        state.drafts.items
       ).catch((err) => {
         console.error('[firebase-sync] Failed to write to Firestore:', err);
       });
@@ -80,6 +83,7 @@ export function createFirebaseSync(
         players: data.players,
         courts: data.courts,
         queue: data.queue,
+        drafts: data.drafts,
       });
 
       // Skip if data matches what we last synced (our own write echoing back)
@@ -91,6 +95,7 @@ export function createFirebaseSync(
         store.dispatch({ type: 'players/setPlayers', payload: data.players });
         store.dispatch({ type: 'courts/setCourts', payload: data.courts });
         store.dispatch({ type: 'queue/setQueue', payload: data.queue });
+        store.dispatch({ type: 'drafts/setDrafts', payload: data.drafts });
       } finally {
         isUpdatingFromFirestore = false;
       }

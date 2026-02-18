@@ -8,8 +8,11 @@ import {
   signOut,
   sendVerificationEmail as firebaseSendVerificationEmail,
   reloadUser,
+  setAuthInstance,
   type User,
 } from '@badminton/firebase';
+import { initializeAuth, getReactNativePersistence } from 'firebase/auth';
+import ReactNativeAsyncStorage from '@react-native-async-storage/async-storage';
 import { firebaseConfig } from '@/config/firebase';
 
 interface AuthContextType {
@@ -31,7 +34,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [refreshCounter, setRefreshCounter] = useState(0);
 
   useEffect(() => {
-    initializeFirebase(firebaseConfig);
+    const app = initializeFirebase(firebaseConfig);
+
+    const auth = initializeAuth(app, {
+      persistence: getReactNativePersistence(ReactNativeAsyncStorage),
+    });
+    setAuthInstance(auth);
 
     const unsubscribe = subscribeToAuthState((firebaseUser) => {
       setUser(firebaseUser);

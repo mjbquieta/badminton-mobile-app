@@ -9,13 +9,14 @@ import {
   type Firestore,
   type Unsubscribe,
 } from 'firebase/firestore';
-import { type Player, type Court } from '@badminton/types';
+import { type Player, type Court, type Draft } from '@badminton/types';
 import { getFirebaseApp } from './config';
 
 export interface SessionData {
   players: Player[];
   courts: Court[];
   queue: string[];
+  drafts: Draft[];
   createdAt: unknown;
   updatedAt: unknown;
 }
@@ -35,12 +36,14 @@ export async function createSession(
   sessionId: string,
   players: Player[],
   courts: Court[],
-  queue: string[]
+  queue: string[],
+  drafts: Draft[] = []
 ): Promise<void> {
   await setDoc(doc(getDb(), 'sessions', sessionId), {
     players,
     courts: courts.map(courtToFirestore),
     queue,
+    drafts,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   });
@@ -56,6 +59,7 @@ export async function getSession(
     players: data.players ?? [],
     courts: (data.courts ?? []).map(courtFromFirestore),
     queue: data.queue ?? [],
+    drafts: data.drafts ?? [],
     createdAt: data.createdAt,
     updatedAt: data.updatedAt,
   };
@@ -95,7 +99,8 @@ export async function updateSessionFull(
   sessionId: string,
   players: Player[],
   courts: Court[],
-  queue: string[]
+  queue: string[],
+  drafts: Draft[] = []
 ): Promise<void> {
   await setDoc(
     doc(getDb(), 'sessions', sessionId),
@@ -103,10 +108,21 @@ export async function updateSessionFull(
       players,
       courts: courts.map(courtToFirestore),
       queue,
+      drafts,
       updatedAt: serverTimestamp(),
     },
     { merge: true }
   );
+}
+
+export async function updateSessionDrafts(
+  sessionId: string,
+  drafts: Draft[]
+): Promise<void> {
+  await updateDoc(doc(getDb(), 'sessions', sessionId), {
+    drafts,
+    updatedAt: serverTimestamp(),
+  });
 }
 
 // --- Real-time Listener ---
@@ -125,6 +141,7 @@ export function subscribeToSession(
         players: data.players ?? [],
         courts: (data.courts ?? []).map(courtFromFirestore),
         queue: data.queue ?? [],
+        drafts: data.drafts ?? [],
         createdAt: data.createdAt,
         updatedAt: data.updatedAt,
       });

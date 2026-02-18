@@ -9,6 +9,7 @@ import { AiOutlineHome, AiOutlineTeam } from 'react-icons/ai';
 import { FiActivity } from 'react-icons/fi';
 import { MdOutlineSportsTennis } from 'react-icons/md';
 import { FiLogOut, FiMessageSquare } from 'react-icons/fi';
+import { RiDraftLine } from 'react-icons/ri';
 import type { IconType } from 'react-icons';
 
 const navItems: { href: string; label: string; icon: IconType }[] = [
@@ -16,6 +17,7 @@ const navItems: { href: string; label: string; icon: IconType }[] = [
   { href: '/activity', label: 'Activity', icon: FiActivity },
   { href: '/players', label: 'Players', icon: AiOutlineTeam },
   { href: '/courts', label: 'Courts', icon: MdOutlineSportsTennis },
+  { href: '/draft', label: 'Draft', icon: RiDraftLine },
   { href: '/feedback', label: 'Feedback', icon: FiMessageSquare },
 ];
 

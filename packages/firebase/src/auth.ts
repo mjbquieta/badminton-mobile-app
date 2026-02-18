@@ -14,6 +14,10 @@ import { getFirebaseApp } from './config';
 
 let auth: Auth | null = null;
 
+export function setAuthInstance(instance: Auth): void {
+  auth = instance;
+}
+
 function getAuthInstance(): Auth {
   if (!auth) {
     auth = getAuth(getFirebaseApp());

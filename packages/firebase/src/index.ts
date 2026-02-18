@@ -8,6 +8,7 @@ export {
   updateSessionPlayers,
   updateSessionCourts,
   updateSessionQueue,
+  updateSessionDrafts,
   updateSessionFull,
   subscribeToSession,
 } from './firestore';
@@ -25,4 +26,5 @@ export {
   getUserProfile,
   sendVerificationEmail,
   reloadUser,
+  setAuthInstance,
 } from './auth';
