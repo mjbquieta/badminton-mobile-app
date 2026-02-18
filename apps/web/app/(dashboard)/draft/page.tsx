@@ -18,7 +18,7 @@ import {
   useAppSelector,
 } from "@badminton/store";
 import { Modal } from "@/components/Modal";
-import { type Draft, type Player } from "@badminton/types";
+import { PlayerLevel, type Draft, type Player } from "@badminton/types";
 import { useState } from "react";
 import { FiAlertCircle, FiCheck, FiEdit2, FiPlus, FiTrash2, FiX, FiZap } from "react-icons/fi";
 import { RiDraftLine } from "react-icons/ri";
@@ -34,7 +34,6 @@ export default function DraftPage() {
   const [showSelectModal, setShowSelectModal] = useState(false);
   const [editingDraft, setEditingDraft] = useState<Draft | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Draft | null>(null);
-  const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [showAutoDraftConfirm, setShowAutoDraftConfirm] = useState(false);
   const [finishTarget, setFinishTarget] = useState<Draft | null>(null);
@@ -81,6 +80,25 @@ export default function DraftPage() {
     const maxNew = 30 - drafts.length;
     if (maxNew <= 0) return;
 
+    // Level ranking for adjacency check
+    const levelRank: Record<string, number> = {
+      [PlayerLevel.BEGINNER]: 0,
+      [PlayerLevel.INTERMEDIATE]: 1,
+      [PlayerLevel.ADVANCED]: 2,
+      [PlayerLevel.PRO]: 3,
+    };
+    const playerLevelRank = new Map(
+      players.map((p) => [p.id, levelRank[p.level] ?? 0]),
+    );
+
+    // Check if all 4 players are within 1 adjacent level
+    function isCompatible(combo: string[]): boolean {
+      const ranks = combo.map((id) => playerLevelRank.get(id)!);
+      const min = Math.min(...ranks);
+      const max = Math.max(...ranks);
+      return max - min <= 1;
+    }
+
     const usedCombos = new Set(
       drafts.map((d) => [...d.playerIds].sort().join(",")),
     );
@@ -98,6 +116,7 @@ export default function DraftPage() {
             for (let c = b + 1; c < pool.length - 1 && !found; c++) {
               for (let d = c + 1; d < pool.length && !found; d++) {
                 const combo = [pool[a], pool[b], pool[c], pool[d]];
+                if (!isCompatible(combo)) continue;
                 const key = [...combo].sort().join(",");
                 if (!usedCombos.has(key)) {
                   // Shuffle so team A/B assignment varies
@@ -106,7 +125,13 @@ export default function DraftPage() {
                     [combo[s], combo[j]] = [combo[j], combo[s]];
                   }
                   usedCombos.add(key);
-                  dispatch(addDraft({ id: uuidv4(), playerIds: combo }));
+                  const draftId = uuidv4();
+                  dispatch(addDraft({ id: draftId, playerIds: combo }));
+                  // Assign court in round-robin per round
+                  if (courts.length > 0) {
+                    const courtIndex = (drafts.length + i) % courts.length;
+                    dispatch(updateDraftCourt({ id: draftId, courtId: courts[courtIndex].id }));
+                  }
                   for (const id of combo) {
                     counts.set(id, counts.get(id)! + 1);
                   }
@@ -145,20 +170,12 @@ export default function DraftPage() {
           </div>
         </div>
         <div className="flex gap-2 sm:gap-3 shrink-0">
-          {players.length > 0 && (
+          {(drafts.length > 0 || players.length > 0) && (
             <button
               onClick={() => setShowResetConfirm(true)}
-              className="px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm text-light-300 border border-dark-100 hover:bg-dark-200 transition-colors"
-            >
-              Reset Stats
-            </button>
-          )}
-          {drafts.length > 0 && (
-            <button
-              onClick={() => setShowClearConfirm(true)}
               className="px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm text-danger border border-danger/30 hover:bg-danger/10 transition-colors"
             >
-              Clear All
+              Reset
             </button>
           )}
           <button
@@ -386,24 +403,16 @@ export default function DraftPage() {
         danger
       />
 
-      {/* Clear All Confirm */}
-      <ConfirmDialog
-        open={showClearConfirm}
-        onClose={() => setShowClearConfirm(false)}
-        onConfirm={() => dispatch(clearDrafts())}
-        title="Clear All Drafts"
-        message="This will remove all drafts. Are you sure?"
-        confirmLabel="Clear All"
-        danger
-      />
-
-      {/* Reset Stats Confirm */}
+      {/* Reset Confirm */}
       <ConfirmDialog
         open={showResetConfirm}
         onClose={() => setShowResetConfirm(false)}
-        onConfirm={() => dispatch(resetAllGameCounts())}
-        title="Reset All Stats"
-        message="This will reset all players' game counts and trophies to zero. Are you sure?"
+        onConfirm={() => {
+          dispatch(clearDrafts());
+          dispatch(resetAllGameCounts());
+        }}
+        title="Reset All"
+        message="This will clear all drafts and reset all players' game counts and trophies to zero. Are you sure?"
         confirmLabel="Reset"
         danger
       />
