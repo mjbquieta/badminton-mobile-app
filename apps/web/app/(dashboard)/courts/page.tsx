@@ -23,6 +23,7 @@ export default function CourtsPage() {
   const dispatch = useAppDispatch();
   const courts = useAppSelector((state) => state.courts.items);
   const courtsError = useAppSelector((state) => state.courts.error);
+  const hasDrafts = useAppSelector((state) => state.drafts.items.length > 0);
 
   const [showAddModal, setShowAddModal] = useState(false);
   const [addSingle, setAddSingle] = useState(false);
@@ -53,19 +54,29 @@ export default function CourtsPage() {
           {courts.length > 0 && (
             <button
               onClick={() => setShowClearConfirm(true)}
-              className="px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm text-danger border border-danger/30 hover:bg-danger/10"
+              disabled={hasDrafts}
+              className="px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm text-danger border border-danger/30 hover:bg-danger/10 disabled:opacity-40 disabled:cursor-not-allowed"
             >
               Clear All
             </button>
           )}
           <button
             onClick={() => setShowAddModal(true)}
-            className="px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm bg-accent text-primary font-semibold hover:bg-accent/80"
+            disabled={hasDrafts}
+            className="px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm bg-accent text-primary font-semibold hover:bg-accent/80 disabled:opacity-40 disabled:cursor-not-allowed"
+            title={hasDrafts ? 'Clear drafts first before adding courts' : undefined}
           >
             + Add Court
           </button>
         </div>
       </div>
+
+      {/* Drafts lock notice */}
+      {hasDrafts && (
+        <p className="text-xs text-light-300 bg-dark-200 rounded-lg px-3 py-2 mb-4">
+          Courts are locked while drafts exist. Clear all drafts first to add or remove courts.
+        </p>
+      )}
 
       {/* Error */}
       {courtsError && (
@@ -92,12 +103,14 @@ export default function CourtsPage() {
                     {court.isSingle ? 'Singles' : 'Doubles'}
                   </span>
                 </div>
-                <button
-                  onClick={() => setDeleteTarget(court)}
-                  className="p-1.5 rounded-lg text-light-300 hover:text-danger hover:bg-danger/10"
-                >
-                  <FiTrash2 size={16} />
-                </button>
+                {!hasDrafts && (
+                  <button
+                    onClick={() => setDeleteTarget(court)}
+                    className="p-1.5 rounded-lg text-light-300 hover:text-danger hover:bg-danger/10"
+                  >
+                    <FiTrash2 size={16} />
+                  </button>
+                )}
               </div>
 
               {hasPlayers && (
