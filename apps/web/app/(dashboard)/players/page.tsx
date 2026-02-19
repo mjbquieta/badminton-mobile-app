@@ -27,8 +27,6 @@ export default function PlayersPage() {
   const dispatch = useAppDispatch();
   const players = useAppSelector((state) => state.players.items);
   const playersError = useAppSelector((state) => state.players.error);
-  const courts = useAppSelector((state) => state.courts.items);
-
   const [search, setSearch] = useState("");
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingPlayer, setEditingPlayer] = useState<Player | null>(null);
@@ -46,14 +44,6 @@ export default function PlayersPage() {
   const filtered = players.filter((p) =>
     p.name.toLowerCase().includes(search.toLowerCase()),
   );
-
-  function getPlayerStatus(player: Player) {
-    const court = courts.find((c) =>
-      c.players.some((cp) => cp.id === player.id),
-    );
-    if (court) return { status: "in_game" as const, courtName: court.name };
-    return { status: "bench" as const };
-  }
 
   function handleAdd() {
     dispatch(
@@ -89,15 +79,6 @@ export default function PlayersPage() {
     setEditGameCount(player.gameCount);
     setEditingPlayer(player);
   }
-
-  const statusColors = {
-    in_game: "text-danger",
-    bench: "text-light-300",
-  };
-  const statusLabels = {
-    in_game: "In Game",
-    bench: "Bench",
-  };
 
   return (
     <div className="p-4 sm:p-6 md:p-8 max-w-5xl">
@@ -150,10 +131,6 @@ export default function PlayersPage() {
       {/* Players Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
         {filtered.map((player) => {
-          const { status, courtName } = getPlayerStatus(player) as {
-            status: "in_game" | "bench";
-            courtName?: string;
-          };
           return (
             <div
               key={player.id}
@@ -189,10 +166,6 @@ export default function PlayersPage() {
                   </span>
                   <PlayerTrophyBadge trophies={player.trophies ?? 0} />
                 </div>
-                <span className={`text-xs font-medium ${statusColors[status]}`}>
-                  {statusLabels[status]}
-                  {courtName ? ` · ${courtName}` : ""}
-                </span>
               </div>
             </div>
           );

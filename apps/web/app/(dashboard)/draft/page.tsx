@@ -128,17 +128,6 @@ export default function DraftPage() {
       return shuffle(combos);
     }
 
-    // Try to pick a combo from the given pool, excluding players already used in this round
-    function pickCombo(pool: string[], size: number): string[] | null {
-      const combos = generateCombos(pool, size);
-      for (const combo of combos) {
-        if (combo.some((id) => usedInRound.has(id))) continue;
-        const key = [...combo].sort().join(",");
-        if (!usedCombos.has(key)) return combo;
-      }
-      return null;
-    }
-
     // Determine combo size based on the court this draft will be assigned to
     function getComboSize(draftIndex: number): number {
       if (courts.length === 0) return 4;
@@ -169,48 +158,61 @@ export default function DraftPage() {
     }
 
     if (shuffleMode === "skill-match") {
-      // --- Skill Match: same-level drafts, round-robin across levels ---
-      // Group players by level (only selected levels)
-      const levelGroups = new Map<PlayerLevel, string[]>();
-      for (const p of players) {
-        if (!selectedLevels.has(p.level)) continue;
-        if (!levelGroups.has(p.level)) levelGroups.set(p.level, []);
-        levelGroups.get(p.level)!.push(p.id);
-      }
+      // --- Skill Match: drafts from selected levels only, mixed freely ---
+      const filteredIds = players
+        .filter((p) => selectedLevels.has(p.level))
+        .map((p) => p.id);
 
-      // Only keep levels with at least 2 players (minimum for singles)
-      const activeLevels = [...selectedLevels].filter(
-        (lvl) => (levelGroups.get(lvl)?.length ?? 0) >= 2,
-      );
-      if (activeLevels.length === 0) {
+      if (filteredIds.length < 2) {
         setShowAutoDraftConfirm(false);
         return;
       }
 
-      let drafted = 0;
-      let nextLevelIdx = 0;
+      const counts = new Map(filteredIds.map((id) => [id, 0]));
 
-      while (drafted < maxNew) {
-        if (drafted % roundSize === 0) usedInRound.clear();
-        const comboSize = getComboSize(drafted);
-        let found = false;
+      for (let i = 0; i < maxNew; i++) {
+        if (i % roundSize === 0) usedInRound.clear();
+        const comboSize = getComboSize(i);
 
-        for (let i = 0; i < activeLevels.length; i++) {
-          const level = activeLevels[(nextLevelIdx + i) % activeLevels.length];
-          const pool = levelGroups.get(level)!;
-          if (pool.length < comboSize) continue;
-
-          const combo = pickCombo(pool, comboSize);
-          if (!combo) continue;
-
-          nextLevelIdx = (nextLevelIdx + i + 1) % activeLevels.length;
-          for (const id of combo) usedInRound.add(id);
-          commitDraft(combo, drafted);
-          drafted++;
-          found = true;
-          break;
+        // Sort by game count, shuffle within same count tier
+        const sorted = [...filteredIds].sort(
+          (a, b) => counts.get(a)! - counts.get(b)!,
+        );
+        let idx = 0;
+        while (idx < sorted.length) {
+          const count = counts.get(sorted[idx])!;
+          let end = idx;
+          while (end < sorted.length && counts.get(sorted[end])! === count)
+            end++;
+          const tier = sorted.slice(idx, end);
+          shuffle(tier);
+          for (let t = 0; t < tier.length; t++) sorted[idx + t] = tier[t];
+          idx = end;
         }
 
+        let found = false;
+        for (
+          let poolSize = comboSize;
+          poolSize <= sorted.length && !found;
+          poolSize++
+        ) {
+          const pool = sorted.slice(0, poolSize);
+          const combos = generateCombos(pool, comboSize);
+
+          for (const combo of combos) {
+            if (combo.some((id) => usedInRound.has(id))) continue;
+            const key = [...combo].sort().join(",");
+            if (usedCombos.has(key)) continue;
+
+            for (const id of combo) usedInRound.add(id);
+            commitDraft(combo, i);
+            for (const id of combo) {
+              counts.set(id, counts.get(id)! + 1);
+            }
+            found = true;
+            break;
+          }
+        }
         if (!found) break;
       }
     } else {
