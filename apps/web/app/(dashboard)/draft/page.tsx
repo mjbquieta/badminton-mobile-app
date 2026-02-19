@@ -70,7 +70,7 @@ export default function DraftPage() {
   }
 
   function handleEditPlayers(selectedIds: string[]) {
-    if (!editingDraft || selectedIds.length !== 4) return;
+    if (!editingDraft || selectedIds.length !== editingDraft.playerIds.length) return;
     dispatch(
       updateDraftPlayers({ id: editingDraft.id, playerIds: selectedIds }),
     );
@@ -79,10 +79,11 @@ export default function DraftPage() {
 
   function handleFinish(winner: "A" | "B") {
     if (!finishTarget || finishTarget.finished) return;
+    const half = Math.ceil(finishTarget.playerIds.length / 2);
     const winnerIds =
       winner === "A"
-        ? finishTarget.playerIds.slice(0, 2)
-        : finishTarget.playerIds.slice(2, 4);
+        ? finishTarget.playerIds.slice(0, half)
+        : finishTarget.playerIds.slice(half);
     dispatch(incrementPlayersGameCount(finishTarget.playerIds));
     dispatch(incrementPlayersTrophies(winnerIds));
     dispatch(finishDraft({ id: finishTarget.id, winner }));
@@ -112,30 +113,42 @@ export default function DraftPage() {
       return arr;
     }
 
-    // Generate all 4-player combos from a pool, shuffled
-    function generateCombos(pool: string[]): string[][] {
+    // Generate all N-player combos from a pool, shuffled
+    function generateCombos(pool: string[], size: number): string[][] {
       const combos: string[][] = [];
-      for (let a = 0; a < pool.length - 3; a++) {
-        for (let b = a + 1; b < pool.length - 2; b++) {
-          for (let c = b + 1; c < pool.length - 1; c++) {
-            for (let d = c + 1; d < pool.length; d++) {
-              combos.push([pool[a], pool[b], pool[c], pool[d]]);
-            }
-          }
+      function build(start: number, current: string[]) {
+        if (current.length === size) { combos.push([...current]); return; }
+        for (let i = start; i < pool.length; i++) {
+          current.push(pool[i]);
+          build(i + 1, current);
+          current.pop();
         }
       }
+      build(0, []);
       return shuffle(combos);
     }
 
-    // Try to pick a combo from the given pool
-    function pickCombo(pool: string[]): string[] | null {
-      const combos = generateCombos(pool);
+    // Try to pick a combo from the given pool, excluding players already used in this round
+    function pickCombo(pool: string[], size: number): string[] | null {
+      const combos = generateCombos(pool, size);
       for (const combo of combos) {
+        if (combo.some((id) => usedInRound.has(id))) continue;
         const key = [...combo].sort().join(",");
         if (!usedCombos.has(key)) return combo;
       }
       return null;
     }
+
+    // Determine combo size based on the court this draft will be assigned to
+    function getComboSize(draftIndex: number): number {
+      if (courts.length === 0) return 4;
+      const courtIndex = (drafts.length + draftIndex) % courts.length;
+      return courts[courtIndex].isSingle ? 2 : 4;
+    }
+
+    // Track players already assigned within the current round/set
+    const roundSize = courts.length > 0 ? courts.length : Infinity;
+    const usedInRound = new Set<string>();
 
     // Dispatch a draft from a combo
     function commitDraft(combo: string[], draftIndex: number) {
@@ -165,40 +178,45 @@ export default function DraftPage() {
         levelGroups.get(p.level)!.push(p.id);
       }
 
-      // Only keep levels with at least 4 players
+      // Only keep levels with at least 2 players (minimum for singles)
       const activeLevels = [...selectedLevels].filter(
-        (lvl) => (levelGroups.get(lvl)?.length ?? 0) >= 4,
+        (lvl) => (levelGroups.get(lvl)?.length ?? 0) >= 2,
       );
       if (activeLevels.length === 0) {
         setShowAutoDraftConfirm(false);
         return;
       }
 
-      // Track which levels are exhausted (no more unused combos)
-      const exhausted = new Set<PlayerLevel>();
       let drafted = 0;
-      let levelIdx = 0;
+      let nextLevelIdx = 0;
 
-      while (drafted < maxNew && exhausted.size < activeLevels.length) {
-        const level = activeLevels[levelIdx % activeLevels.length];
-        levelIdx++;
+      while (drafted < maxNew) {
+        if (drafted % roundSize === 0) usedInRound.clear();
+        const comboSize = getComboSize(drafted);
+        let found = false;
 
-        if (exhausted.has(level)) continue;
+        for (let i = 0; i < activeLevels.length; i++) {
+          const level = activeLevels[(nextLevelIdx + i) % activeLevels.length];
+          const pool = levelGroups.get(level)!;
+          if (pool.length < comboSize) continue;
 
-        const pool = levelGroups.get(level)!;
-        const combo = pickCombo(pool);
-        if (!combo) {
-          exhausted.add(level);
-          continue;
+          const combo = pickCombo(pool, comboSize);
+          if (!combo) continue;
+
+          nextLevelIdx = (nextLevelIdx + i + 1) % activeLevels.length;
+          for (const id of combo) usedInRound.add(id);
+          commitDraft(combo, drafted);
+          drafted++;
+          found = true;
+          break;
         }
 
-        commitDraft(combo, drafted);
-        drafted++;
+        if (!found) break;
       }
     } else {
       // --- Balanced & Random modes ---
       const ids = players.map((p) => p.id);
-      if (ids.length < 4) return;
+      if (ids.length < 2) return;
 
       // Level ranking for adjacency check
       const levelRank: Record<string, number> = {
@@ -219,6 +237,9 @@ export default function DraftPage() {
       const counts = new Map(ids.map((id) => [id, 0]));
 
       for (let i = 0; i < maxNew; i++) {
+        if (i % roundSize === 0) usedInRound.clear();
+        const comboSize = getComboSize(i);
+
         // Build player order based on mode
         let sorted: string[];
         if (shuffleMode === "random") {
@@ -243,18 +264,20 @@ export default function DraftPage() {
 
         let found = false;
         for (
-          let poolSize = 4;
+          let poolSize = comboSize;
           poolSize <= sorted.length && !found;
           poolSize++
         ) {
           const pool = sorted.slice(0, poolSize);
-          const combos = generateCombos(pool);
+          const combos = generateCombos(pool, comboSize);
 
           for (const combo of combos) {
             if (!isCompatible(combo)) continue;
+            if (combo.some((id) => usedInRound.has(id))) continue;
             const key = [...combo].sort().join(",");
             if (usedCombos.has(key)) continue;
 
+            for (const id of combo) usedInRound.add(id);
             commitDraft(combo, i);
             for (const id of combo) {
               counts.set(id, counts.get(id)! + 1);
@@ -363,14 +386,13 @@ export default function DraftPage() {
               )}
               {round.map((draft, indexInRound) => {
                 const matchNumber = roundIndex * courtCount + indexInRound + 1;
-                const teamA = [
-                  resolvePlayer(draft.playerIds[0]),
-                  resolvePlayer(draft.playerIds[1]),
-                ].filter((p): p is Player => p !== undefined);
-                const teamB = [
-                  resolvePlayer(draft.playerIds[2]),
-                  resolvePlayer(draft.playerIds[3]),
-                ].filter((p): p is Player => p !== undefined);
+                const half = Math.ceil(draft.playerIds.length / 2);
+                const teamA = draft.playerIds.slice(0, half)
+                  .map(resolvePlayer)
+                  .filter((p): p is Player => p !== undefined);
+                const teamB = draft.playerIds.slice(half)
+                  .map(resolvePlayer)
+                  .filter((p): p is Player => p !== undefined);
 
                 const courtSelect = (
                   <select
@@ -536,7 +558,7 @@ export default function DraftPage() {
           onClose={() => setEditingDraft(null)}
           title={`Edit Players - ${editingDraft.name}`}
           players={players}
-          maxSelect={4}
+          maxSelect={editingDraft.playerIds.length}
           initialSelected={editingDraft.playerIds}
           onConfirm={handleEditPlayers}
         />
@@ -673,14 +695,13 @@ export default function DraftPage() {
       >
         {finishTarget &&
           (() => {
-            const tA = [
-              resolvePlayer(finishTarget.playerIds[0]),
-              resolvePlayer(finishTarget.playerIds[1]),
-            ].filter((p): p is Player => !!p);
-            const tB = [
-              resolvePlayer(finishTarget.playerIds[2]),
-              resolvePlayer(finishTarget.playerIds[3]),
-            ].filter((p): p is Player => !!p);
+            const half = Math.ceil(finishTarget.playerIds.length / 2);
+            const tA = finishTarget.playerIds.slice(0, half)
+              .map(resolvePlayer)
+              .filter((p): p is Player => !!p);
+            const tB = finishTarget.playerIds.slice(half)
+              .map(resolvePlayer)
+              .filter((p): p is Player => !!p);
             return (
               <div className="space-y-4">
                 <p className="text-sm text-light-300">
