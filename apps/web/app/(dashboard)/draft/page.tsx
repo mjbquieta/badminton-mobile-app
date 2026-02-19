@@ -19,6 +19,7 @@ import {
   useAppSelector,
 } from "@badminton/store";
 import { PlayerLevel, type Draft, type Player } from "@badminton/types";
+import { playerLevelConfig } from "@badminton/ui-shared";
 import { useState } from "react";
 import {
   FiAlertCircle,
@@ -45,6 +46,17 @@ export default function DraftPage() {
   const [deleteTarget, setDeleteTarget] = useState<Draft | null>(null);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [showAutoDraftConfirm, setShowAutoDraftConfirm] = useState(false);
+  const [shuffleMode, setShuffleMode] = useState<
+    "balanced" | "random" | "skill-match"
+  >("balanced");
+  const [selectedLevels, setSelectedLevels] = useState<Set<PlayerLevel>>(
+    new Set([
+      PlayerLevel.BEGINNER,
+      PlayerLevel.INTERMEDIATE,
+      PlayerLevel.ADVANCED,
+      PlayerLevel.PRO,
+    ]),
+  );
   const [finishTarget, setFinishTarget] = useState<Draft | null>(null);
   const playerMap = new Map(players.map((p) => [p.id, p]));
 
@@ -84,81 +96,177 @@ export default function DraftPage() {
   }
 
   function handleAutoDraft() {
-    const ids = players.map((p) => p.id);
-    if (ids.length < 4) return;
-
     const maxNew = 30 - drafts.length;
     if (maxNew <= 0) return;
-
-    // Level ranking for adjacency check
-    const levelRank: Record<string, number> = {
-      [PlayerLevel.BEGINNER]: 0,
-      [PlayerLevel.INTERMEDIATE]: 1,
-      [PlayerLevel.ADVANCED]: 2,
-      [PlayerLevel.PRO]: 3,
-    };
-    const playerLevelRank = new Map(
-      players.map((p) => [p.id, levelRank[p.level] ?? 0]),
-    );
-
-    // Check if all 4 players are within 1 adjacent level
-    function isCompatible(combo: string[]): boolean {
-      const ranks = combo.map((id) => playerLevelRank.get(id)!);
-      const min = Math.min(...ranks);
-      const max = Math.max(...ranks);
-      return max - min <= 1;
-    }
 
     const usedCombos = new Set(
       drafts.map((d) => [...d.playerIds].sort().join(",")),
     );
-    const counts = new Map(ids.map((id) => [id, 0]));
 
-    for (let i = 0; i < maxNew; i++) {
-      const sorted = [...ids].sort((a, b) => counts.get(a)! - counts.get(b)!);
+    // Shuffle array helper (Fisher-Yates)
+    function shuffle<T>(arr: T[]): T[] {
+      for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+      }
+      return arr;
+    }
 
-      let found = false;
-      // Try increasing pool sizes from lowest-count players
-      for (let poolSize = 4; poolSize <= sorted.length && !found; poolSize++) {
-        const pool = sorted.slice(0, poolSize);
-        for (let a = 0; a < pool.length - 3 && !found; a++) {
-          for (let b = a + 1; b < pool.length - 2 && !found; b++) {
-            for (let c = b + 1; c < pool.length - 1 && !found; c++) {
-              for (let d = c + 1; d < pool.length && !found; d++) {
-                const combo = [pool[a], pool[b], pool[c], pool[d]];
-                if (!isCompatible(combo)) continue;
-                const key = [...combo].sort().join(",");
-                if (!usedCombos.has(key)) {
-                  // Shuffle so team A/B assignment varies
-                  for (let s = combo.length - 1; s > 0; s--) {
-                    const j = Math.floor(Math.random() * (s + 1));
-                    [combo[s], combo[j]] = [combo[j], combo[s]];
-                  }
-                  usedCombos.add(key);
-                  const draftId = uuidv4();
-                  dispatch(addDraft({ id: draftId, playerIds: combo }));
-                  // Assign court in round-robin per round
-                  if (courts.length > 0) {
-                    const courtIndex = (drafts.length + i) % courts.length;
-                    dispatch(
-                      updateDraftCourt({
-                        id: draftId,
-                        courtId: courts[courtIndex].id,
-                      }),
-                    );
-                  }
-                  for (const id of combo) {
-                    counts.set(id, counts.get(id)! + 1);
-                  }
-                  found = true;
-                }
-              }
+    // Generate all 4-player combos from a pool, shuffled
+    function generateCombos(pool: string[]): string[][] {
+      const combos: string[][] = [];
+      for (let a = 0; a < pool.length - 3; a++) {
+        for (let b = a + 1; b < pool.length - 2; b++) {
+          for (let c = b + 1; c < pool.length - 1; c++) {
+            for (let d = c + 1; d < pool.length; d++) {
+              combos.push([pool[a], pool[b], pool[c], pool[d]]);
             }
           }
         }
       }
-      if (!found) break;
+      return shuffle(combos);
     }
+
+    // Try to pick a combo from the given pool
+    function pickCombo(pool: string[]): string[] | null {
+      const combos = generateCombos(pool);
+      for (const combo of combos) {
+        const key = [...combo].sort().join(",");
+        if (!usedCombos.has(key)) return combo;
+      }
+      return null;
+    }
+
+    // Dispatch a draft from a combo
+    function commitDraft(combo: string[], draftIndex: number) {
+      shuffle(combo); // shuffle team A/B assignment
+      const key = [...combo].sort().join(",");
+      usedCombos.add(key);
+      const draftId = uuidv4();
+      dispatch(addDraft({ id: draftId, playerIds: combo }));
+      if (courts.length > 0) {
+        const courtIndex = (drafts.length + draftIndex) % courts.length;
+        dispatch(
+          updateDraftCourt({
+            id: draftId,
+            courtId: courts[courtIndex].id,
+          }),
+        );
+      }
+    }
+
+    if (shuffleMode === "skill-match") {
+      // --- Skill Match: same-level drafts, round-robin across levels ---
+      // Group players by level (only selected levels)
+      const levelGroups = new Map<PlayerLevel, string[]>();
+      for (const p of players) {
+        if (!selectedLevels.has(p.level)) continue;
+        if (!levelGroups.has(p.level)) levelGroups.set(p.level, []);
+        levelGroups.get(p.level)!.push(p.id);
+      }
+
+      // Only keep levels with at least 4 players
+      const activeLevels = [...selectedLevels].filter(
+        (lvl) => (levelGroups.get(lvl)?.length ?? 0) >= 4,
+      );
+      if (activeLevels.length === 0) {
+        setShowAutoDraftConfirm(false);
+        return;
+      }
+
+      // Track which levels are exhausted (no more unused combos)
+      const exhausted = new Set<PlayerLevel>();
+      let drafted = 0;
+      let levelIdx = 0;
+
+      while (drafted < maxNew && exhausted.size < activeLevels.length) {
+        const level = activeLevels[levelIdx % activeLevels.length];
+        levelIdx++;
+
+        if (exhausted.has(level)) continue;
+
+        const pool = levelGroups.get(level)!;
+        const combo = pickCombo(pool);
+        if (!combo) {
+          exhausted.add(level);
+          continue;
+        }
+
+        commitDraft(combo, drafted);
+        drafted++;
+      }
+    } else {
+      // --- Balanced & Random modes ---
+      const ids = players.map((p) => p.id);
+      if (ids.length < 4) return;
+
+      // Level ranking for adjacency check
+      const levelRank: Record<string, number> = {
+        [PlayerLevel.BEGINNER]: 0,
+        [PlayerLevel.INTERMEDIATE]: 1,
+        [PlayerLevel.ADVANCED]: 2,
+        [PlayerLevel.PRO]: 3,
+      };
+      const playerLevelRank = new Map(
+        players.map((p) => [p.id, levelRank[p.level] ?? 0]),
+      );
+
+      function isCompatible(combo: string[]): boolean {
+        const ranks = combo.map((id) => playerLevelRank.get(id)!);
+        return Math.max(...ranks) - Math.min(...ranks) <= 1;
+      }
+
+      const counts = new Map(ids.map((id) => [id, 0]));
+
+      for (let i = 0; i < maxNew; i++) {
+        // Build player order based on mode
+        let sorted: string[];
+        if (shuffleMode === "random") {
+          sorted = shuffle([...ids]);
+        } else {
+          // "balanced" — sort by game count, shuffle within same count tier
+          sorted = [...ids].sort(
+            (a, b) => counts.get(a)! - counts.get(b)!,
+          );
+          let idx = 0;
+          while (idx < sorted.length) {
+            const count = counts.get(sorted[idx])!;
+            let end = idx;
+            while (end < sorted.length && counts.get(sorted[end])! === count)
+              end++;
+            const tier = sorted.slice(idx, end);
+            shuffle(tier);
+            for (let t = 0; t < tier.length; t++) sorted[idx + t] = tier[t];
+            idx = end;
+          }
+        }
+
+        let found = false;
+        for (
+          let poolSize = 4;
+          poolSize <= sorted.length && !found;
+          poolSize++
+        ) {
+          const pool = sorted.slice(0, poolSize);
+          const combos = generateCombos(pool);
+
+          for (const combo of combos) {
+            if (!isCompatible(combo)) continue;
+            const key = [...combo].sort().join(",");
+            if (usedCombos.has(key)) continue;
+
+            commitDraft(combo, i);
+            for (const id of combo) {
+              counts.set(id, counts.get(id)! + 1);
+            }
+            found = true;
+            break;
+          }
+        }
+        if (!found) break;
+      }
+    }
+
     setShowAutoDraftConfirm(false);
   }
 
@@ -460,14 +568,102 @@ export default function DraftPage() {
       />
 
       {/* Auto Draft Confirm */}
-      <ConfirmDialog
+      <Modal
         open={showAutoDraftConfirm}
         onClose={() => setShowAutoDraftConfirm(false)}
-        onConfirm={handleAutoDraft}
         title="Auto Draft"
-        message={`This will automatically generate up to ${30 - drafts.length} drafts with balanced game distribution. No duplicate matchups will be created. Continue?`}
-        confirmLabel="Generate"
-      />
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-light-300">
+            This will automatically generate up to {30 - drafts.length} drafts.
+            No duplicate matchups will be created.
+          </p>
+          <div>
+            <label className="block text-xs font-semibold text-light-300 uppercase tracking-wide mb-1.5">
+              Shuffle Mode
+            </label>
+            <select
+              value={shuffleMode}
+              onChange={(e) =>
+                setShuffleMode(
+                  e.target.value as "balanced" | "random" | "skill-match",
+                )
+              }
+              className="w-full bg-dark-200 border border-dark-100 rounded-lg px-3 py-2 text-sm text-light-100 outline-none focus:border-accent/50 transition-colors cursor-pointer"
+            >
+              <option value="balanced">Balanced — Equal game distribution</option>
+              <option value="random">Random — Fully randomized</option>
+              <option value="skill-match">
+                Skill Match — Same skill levels first
+              </option>
+            </select>
+          </div>
+          {shuffleMode === "skill-match" && (
+            <div>
+              <label className="block text-xs font-semibold text-light-300 uppercase tracking-wide mb-1.5">
+                Include Levels
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {Object.values(PlayerLevel).map((level) => {
+                  const config = playerLevelConfig[level];
+                  const checked = selectedLevels.has(level);
+                  return (
+                    <button
+                      key={level}
+                      onClick={() => {
+                        setSelectedLevels((prev) => {
+                          const next = new Set(prev);
+                          if (next.has(level)) next.delete(level);
+                          else next.add(level);
+                          return next;
+                        });
+                      }}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm border transition-colors ${
+                        checked
+                          ? "border-accent/50 bg-accent/10"
+                          : "border-dark-100 bg-dark-200 opacity-50"
+                      }`}
+                    >
+                      <span
+                        className="inline-flex items-center justify-center font-bold rounded text-[10px] w-5 h-5"
+                        style={{
+                          color: config.color,
+                          backgroundColor: `${config.color}15`,
+                        }}
+                      >
+                        {config.shortLabel}
+                      </span>
+                      <span className="text-light-100">{config.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+              {selectedLevels.size === 0 && (
+                <p className="text-xs text-danger mt-1">
+                  Select at least one level
+                </p>
+              )}
+            </div>
+          )}
+          <div className="flex justify-end gap-2 pt-2">
+            <button
+              onClick={() => setShowAutoDraftConfirm(false)}
+              className="px-4 py-2 rounded-xl text-sm text-light-300 hover:text-light-100 hover:bg-dark-200 transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleAutoDraft}
+              disabled={
+                shuffleMode === "skill-match" && selectedLevels.size === 0
+              }
+              className="px-4 py-2 rounded-xl text-sm bg-accent text-primary font-semibold hover:bg-accent/80 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            >
+              Generate
+            </button>
+          </div>
+        </div>
+      </Modal>
 
       {/* Winner Selection Modal */}
       <Modal
