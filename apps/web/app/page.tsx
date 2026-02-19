@@ -3,7 +3,8 @@
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import { FiMenu, FiX } from "react-icons/fi";
 
 function LandingContent() {
   const { user, loading } = useAuth();
@@ -14,6 +15,8 @@ function LandingContent() {
       router.replace("/home");
     }
   }, [user, loading, router]);
+
+  const [menuOpen, setMenuOpen] = useState(false);
 
   if (loading || user) {
     return null;
@@ -29,18 +32,61 @@ function LandingContent() {
 
       {/* Nav */}
       <header className="relative z-10 px-6 sm:px-10 py-5">
-        {/* Mobile: centered logo only */}
-        <div className="flex sm:hidden justify-center items-center gap-2">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/potato-logo.svg"
-            alt="Smash Potatoes"
-            className="w-8 h-8"
-          />
-          <span className="text-xl font-bold text-light-100">
-            Smash Potatoes
-          </span>
+        {/* Mobile: logo left, hamburger right */}
+        <div className="flex sm:hidden items-center justify-between">
+          <div className="flex items-center gap-2">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/potato-logo.svg"
+              alt="Smash Potatoes"
+              className="w-8 h-8"
+            />
+            <span className="text-xl font-bold text-light-100">
+              Smash Potatoes
+            </span>
+          </div>
+          <button
+            onClick={() => setMenuOpen(!menuOpen)}
+            className="p-2 text-light-200 hover:text-light-100 transition-colors"
+          >
+            {menuOpen ? <FiX size={22} /> : <FiMenu size={22} />}
+          </button>
         </div>
+        {/* Mobile menu dropdown */}
+        {menuOpen && (
+          <div className="sm:hidden mt-3 flex flex-col gap-1 bg-secondary/90 backdrop-blur border border-dark-100 rounded-2xl p-3">
+            <a
+              href="https://michaelquieta.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-sm font-bold text-white hover:text-accent transition-colors px-3 py-2.5 rounded-xl hover:bg-dark-200"
+              onClick={() => setMenuOpen(false)}
+            >
+              About the Developer
+            </a>
+            <Link
+              href="/feedback"
+              className="text-sm text-light-200 hover:text-light-100 transition-colors px-3 py-2.5 rounded-xl hover:bg-dark-200"
+              onClick={() => setMenuOpen(false)}
+            >
+              Feedback
+            </Link>
+            <Link
+              href="/login"
+              className="text-sm text-light-200 hover:text-light-100 transition-colors px-3 py-2.5 rounded-xl hover:bg-dark-200"
+              onClick={() => setMenuOpen(false)}
+            >
+              Sign In
+            </Link>
+            <Link
+              href="/register"
+              className="text-sm font-semibold bg-accent text-primary px-4 py-2.5 rounded-xl hover:bg-accent/80 transition-colors text-center mt-1"
+              onClick={() => setMenuOpen(false)}
+            >
+              Get Started
+            </Link>
+          </div>
+        )}
         {/* Desktop: logo left, nav right */}
         <div className="hidden sm:flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -55,6 +101,14 @@ function LandingContent() {
             </span>
           </div>
           <div className="flex items-center gap-3">
+            <a
+              href="https://michaelquieta.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-sm font-bold text-white hover:text-accent transition-colors px-4 py-2"
+            >
+              About the Developer
+            </a>
             <Link
               href="/feedback"
               className="text-sm text-light-200 hover:text-light-100 transition-colors px-4 py-2"
@@ -326,39 +380,6 @@ function LandingContent() {
             </div>
           </div>
         </section>
-
-        {/* Creator */}
-        <div className="mt-20 flex justify-center">
-          <div className="flex items-center gap-4 bg-secondary/60 backdrop-blur border border-dark-100 rounded-2xl px-6 py-4">
-            <div className="w-10 h-10 rounded-full bg-court-deep/30 flex items-center justify-center flex-shrink-0">
-              <svg
-                viewBox="0 0 24 24"
-                className="w-5 h-5 text-court-lime"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-                <circle cx="12" cy="7" r="4" />
-              </svg>
-            </div>
-            <div className="text-left">
-              <p className="text-xs text-light-300 uppercase tracking-widest font-medium mb-0.5">
-                Built by
-              </p>
-              <a
-                href="https://michaelquieta.com"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-sm font-semibold text-light-100 hover:text-accent transition-colors"
-              >
-                Michael Quieta →
-              </a>
-            </div>
-          </div>
-        </div>
       </main>
 
       {/* Footer */}
