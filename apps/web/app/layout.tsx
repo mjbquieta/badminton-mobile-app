@@ -5,7 +5,7 @@ import "./globals.css";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Smash Potato - Court Manager",
+  title: "Smash Potatoes - Court Manager",
   description: "Manage players, courts, and matchmaking for badminton sessions",
 };
 

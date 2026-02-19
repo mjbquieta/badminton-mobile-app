@@ -1,29 +1,29 @@
-import { useState } from 'react';
+import { BadmintonPalette } from "@/constants/palette";
+import { useAuth } from "@/contexts/AuthContext";
+import { getAuthErrorMessage } from "@badminton/firebase";
+import { Link } from "expo-router";
+import { useState } from "react";
 import {
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { Link } from 'expo-router';
-import { useAuth } from '@/contexts/AuthContext';
-import { getAuthErrorMessage } from '@badminton/firebase';
-import { BadmintonPalette } from '@/constants/palette';
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function LoginScreen() {
   const { login } = useAuth();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   const handleLogin = async () => {
-    setError('');
+    setError("");
     setSubmitting(true);
     try {
       await login(email, password);
@@ -37,16 +37,18 @@ export default function LoginScreen() {
   return (
     <SafeAreaView className="flex-1 bg-primary">
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
         className="flex-1"
       >
         <ScrollView
           contentContainerClassName="flex-1 justify-center px-6"
           keyboardShouldPersistTaps="handled"
         >
-          <Text className="text-light-100 text-3xl font-bold mb-2">Sign In</Text>
+          <Text className="text-light-100 text-3xl font-bold mb-2">
+            Sign In
+          </Text>
           <Text className="text-light-200 text-base mb-8">
-            Welcome back to Smash Potato
+            Welcome back to Smash Potatoes
           </Text>
 
           {error ? (
@@ -90,15 +92,13 @@ export default function LoginScreen() {
             {submitting ? (
               <ActivityIndicator color={BadmintonPalette.text.onAccent} />
             ) : (
-              <Text className="text-primary font-bold text-base">
-                Sign In
-              </Text>
+              <Text className="text-primary font-bold text-base">Sign In</Text>
             )}
           </TouchableOpacity>
 
           <View className="flex-row justify-center mt-6">
             <Text className="text-light-300 text-sm">
-              Don&apos;t have an account?{' '}
+              Don&apos;t have an account?{" "}
             </Text>
             <Link href="/(auth)/register">
               <Text className="text-court-lime text-sm font-semibold">

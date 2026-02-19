@@ -1,9 +1,9 @@
-'use client';
+"use client";
 
-import Link from "next/link";
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useEffect } from "react";
 
 function LandingContent() {
   const { user, loading } = useAuth();
@@ -11,7 +11,7 @@ function LandingContent() {
 
   useEffect(() => {
     if (!loading && user) {
-      router.replace('/home');
+      router.replace("/home");
     }
   }, [user, loading, router]);
 
@@ -32,15 +32,27 @@ function LandingContent() {
         {/* Mobile: centered logo only */}
         <div className="flex sm:hidden justify-center items-center gap-2">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/potato-logo.svg" alt="Smash Potato" className="w-8 h-8" />
-          <span className="text-xl font-bold text-light-100">Smash Potato</span>
+          <img
+            src="/potato-logo.svg"
+            alt="Smash Potatoes"
+            className="w-8 h-8"
+          />
+          <span className="text-xl font-bold text-light-100">
+            Smash Potatoes
+          </span>
         </div>
         {/* Desktop: logo left, nav right */}
         <div className="hidden sm:flex items-center justify-between">
           <div className="flex items-center gap-2">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/potato-logo.svg" alt="Smash Potato" className="w-8 h-8" />
-            <span className="text-xl font-bold text-light-100">Smash Potato</span>
+            <img
+              src="/potato-logo.svg"
+              alt="Smash Potatoes"
+              className="w-8 h-8"
+            />
+            <span className="text-xl font-bold text-light-100">
+              Smash Potatoes
+            </span>
           </div>
           <div className="flex items-center gap-3">
             <Link
@@ -279,7 +291,9 @@ function LandingContent() {
               <div className="w-12 h-12 rounded-full bg-accent/10 border border-accent/30 flex items-center justify-center mx-auto mb-3">
                 <span className="text-accent font-bold text-sm">1</span>
               </div>
-              <h4 className="font-semibold text-sm mb-1">Add Players & Courts</h4>
+              <h4 className="font-semibold text-sm mb-1">
+                Add Players & Courts
+              </h4>
               <p className="text-light-300 text-xs">
                 Set up your courts and register players with their skill level
               </p>
@@ -303,7 +317,9 @@ function LandingContent() {
               <div className="w-12 h-12 rounded-full bg-accent/10 border border-accent/30 flex items-center justify-center mx-auto mb-3">
                 <span className="text-accent font-bold text-sm">3</span>
               </div>
-              <h4 className="font-semibold text-sm mb-1">Play & Record Results</h4>
+              <h4 className="font-semibold text-sm mb-1">
+                Play & Record Results
+              </h4>
               <p className="text-light-300 text-xs">
                 Mark winners, earn trophies, and track stats in real time
               </p>
@@ -329,7 +345,9 @@ function LandingContent() {
               </svg>
             </div>
             <div className="text-left">
-              <p className="text-xs text-light-300 uppercase tracking-widest font-medium mb-0.5">Built by</p>
+              <p className="text-xs text-light-300 uppercase tracking-widest font-medium mb-0.5">
+                Built by
+              </p>
               <a
                 href="https://michaelquieta.com"
                 target="_blank"
@@ -351,7 +369,7 @@ function LandingContent() {
         >
           Feedback &amp; Bug Reports
         </Link>
-        <span>Smash Potato &copy; {new Date().getFullYear()}</span>
+        <span>Smash Potatoes &copy; {new Date().getFullYear()}</span>
       </footer>
     </div>
   );
