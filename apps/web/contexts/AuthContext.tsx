@@ -10,6 +10,8 @@ import {
   getUserProfile,
   sendVerificationEmail as firebaseSendVerificationEmail,
   reloadUser,
+  updateUserPassword,
+  updateUserClubName,
   type User,
   type UserProfile,
 } from '@badminton/firebase';
@@ -25,6 +27,8 @@ interface AuthContextType {
   logout: () => Promise<void>;
   sendVerificationEmail: () => Promise<void>;
   refreshUser: () => Promise<void>;
+  updatePassword: (currentPassword: string, newPassword: string) => Promise<void>;
+  updateClubName: (newClubName: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -93,10 +97,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setRefreshCounter((c) => c + 1);
   };
 
+  const updatePassword = async (currentPassword: string, newPassword: string) => {
+    await updateUserPassword(currentPassword, newPassword);
+  };
+
+  const updateClubName = async (newClubName: string) => {
+    if (!user) throw new Error('No user logged in');
+    await updateUserClubName(user.uid, newClubName);
+    const updatedProfile = await getUserProfile(user.uid);
+    setProfile(updatedProfile);
+  };
+
   return (
     <AuthContext.Provider value={{
       user, profile, loading, emailVerified,
       login, register, logout, sendVerificationEmail, refreshUser,
+      updatePassword, updateClubName,
     }}>
       {children}
     </AuthContext.Provider>

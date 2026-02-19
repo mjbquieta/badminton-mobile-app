@@ -1,6 +1,6 @@
-import { BadmintonPalette } from "@/constants/palette";
 import ConfirmationAlert from "@/components/ConfirmationAlert";
 import { useToast } from "@/components/Toast";
+import { BadmintonPalette } from "@/constants/palette";
 import { useAuth } from "@/contexts/AuthContext";
 import { getAuthErrorMessage } from "@badminton/firebase";
 import AntDesign from "@expo/vector-icons/AntDesign";
@@ -25,7 +25,7 @@ const AboutContent = () => {
 
       {/* App Name */}
       <Text className="text-light-100 text-3xl font-bold mb-2">
-        Smash Potato
+        Smash Potatoes
       </Text>
 
       {/* Version */}
@@ -47,7 +47,8 @@ const AboutContent = () => {
 };
 
 const settings = () => {
-  const { logout, emailVerified, sendVerificationEmail, refreshUser } = useAuth();
+  const { logout, emailVerified, sendVerificationEmail, refreshUser } =
+    useAuth();
   const { showToast } = useToast();
   const [activeTab, setActiveTab] = useState<
     "menu" | "manage_players" | "courts" | "feedback" | "about"
@@ -64,7 +65,10 @@ const settings = () => {
           onPress: async () => {
             try {
               await sendVerificationEmail();
-              showToast({ message: "Verification email sent!", type: "success" });
+              showToast({
+                message: "Verification email sent!",
+                type: "success",
+              });
             } catch (err) {
               showToast({ message: getAuthErrorMessage(err), type: "error" });
             }
@@ -76,19 +80,27 @@ const settings = () => {
             await refreshUser();
           },
         },
-      ]
+      ],
     );
   };
 
   const menuItems = [
-    ...(!emailVerified ? [{
-      key: "verify_email" as const,
-      label: "Verify Email",
-      description: "Unlock unlimited players & courts",
-      icon: (
-        <AntDesign name="mail" size={22} color={BadmintonPalette.accent.primary} />
-      ),
-    }] : []),
+    ...(!emailVerified
+      ? [
+          {
+            key: "verify_email" as const,
+            label: "Verify Email",
+            description: "Unlock unlimited players & courts",
+            icon: (
+              <AntDesign
+                name="mail"
+                size={22}
+                color={BadmintonPalette.accent.primary}
+              />
+            ),
+          },
+        ]
+      : []),
     {
       key: "manage_players" as const,
       label: "Players",
@@ -198,7 +210,13 @@ const settings = () => {
                   if (item.key === "verify_email") {
                     handleVerifyEmail();
                   } else {
-                    setActiveTab(item.key as "manage_players" | "courts" | "feedback" | "about");
+                    setActiveTab(
+                      item.key as
+                        | "manage_players"
+                        | "courts"
+                        | "feedback"
+                        | "about",
+                    );
                   }
                 }}
                 accessibilityRole="button"

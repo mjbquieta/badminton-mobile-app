@@ -26,4 +26,6 @@ export {
   sendVerificationEmail,
   reloadUser,
   setAuthInstance,
+  updateUserPassword,
+  updateUserClubName,
 } from './auth';

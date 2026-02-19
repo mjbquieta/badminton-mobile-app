@@ -1,0 +1,282 @@
+"use client";
+
+import { useAuth } from "@/contexts/AuthContext";
+import { getAuthErrorMessage } from "@badminton/firebase";
+import { useState } from "react";
+import {
+	FiCheck,
+	FiEdit2,
+	FiLock,
+	FiMail,
+	FiSettings,
+	FiX,
+} from "react-icons/fi";
+
+export default function SettingsPage() {
+	const { profile, user, updatePassword, updateClubName } = useAuth();
+
+	// Club name state
+	const [editingClubName, setEditingClubName] = useState(false);
+	const [clubName, setClubName] = useState("");
+	const [clubNameSaving, setClubNameSaving] = useState(false);
+	const [clubNameError, setClubNameError] = useState<string | null>(null);
+	const [clubNameSuccess, setClubNameSuccess] = useState(false);
+
+	// Password state
+	const [currentPassword, setCurrentPassword] = useState("");
+	const [newPassword, setNewPassword] = useState("");
+	const [confirmPassword, setConfirmPassword] = useState("");
+	const [passwordSaving, setPasswordSaving] = useState(false);
+	const [passwordError, setPasswordError] = useState<string | null>(null);
+	const [passwordSuccess, setPasswordSuccess] = useState(false);
+
+	function startEditClubName() {
+		setClubName(profile?.clubName ?? "");
+		setClubNameError(null);
+		setClubNameSuccess(false);
+		setEditingClubName(true);
+	}
+
+	function cancelEditClubName() {
+		setEditingClubName(false);
+		setClubNameError(null);
+	}
+
+	async function handleSaveClubName() {
+		const trimmed = clubName.trim();
+		if (!trimmed) {
+			setClubNameError("Club name cannot be empty.");
+			return;
+		}
+		if (trimmed === profile?.clubName) {
+			setEditingClubName(false);
+			return;
+		}
+
+		setClubNameSaving(true);
+		setClubNameError(null);
+		try {
+			await updateClubName(trimmed);
+			setClubNameSuccess(true);
+			setEditingClubName(false);
+			setTimeout(() => setClubNameSuccess(false), 3000);
+		} catch (err) {
+			setClubNameError(getAuthErrorMessage(err));
+		} finally {
+			setClubNameSaving(false);
+		}
+	}
+
+	async function handleChangePassword() {
+		setPasswordError(null);
+		setPasswordSuccess(false);
+
+		if (!currentPassword) {
+			setPasswordError("Please enter your current password.");
+			return;
+		}
+		if (newPassword.length < 8) {
+			setPasswordError("New password must be at least 8 characters.");
+			return;
+		}
+		if (newPassword !== confirmPassword) {
+			setPasswordError("New passwords do not match.");
+			return;
+		}
+
+		setPasswordSaving(true);
+		try {
+			await updatePassword(currentPassword, newPassword);
+			setPasswordSuccess(true);
+			setCurrentPassword("");
+			setNewPassword("");
+			setConfirmPassword("");
+			setTimeout(() => setPasswordSuccess(false), 3000);
+		} catch (err) {
+			setPasswordError(getAuthErrorMessage(err));
+		} finally {
+			setPasswordSaving(false);
+		}
+	}
+
+	return (
+		<div className="p-4 sm:p-6 md:p-8 pb-24 md:pb-8 max-w-2xl">
+			{/* Header */}
+			<div className="flex items-center gap-3 mb-6">
+				<div className="w-10 h-10 rounded-xl bg-accent/10 flex items-center justify-center">
+					<FiSettings className="text-accent" size={20} />
+				</div>
+				<div>
+					<h1 className="text-2xl sm:text-3xl font-bold">Settings</h1>
+					<p className="text-light-300 text-sm mt-0.5">
+						Manage your account
+					</p>
+				</div>
+			</div>
+
+			<div className="space-y-4">
+				{/* Account Info */}
+				<div className="bg-secondary rounded-2xl border border-dark-100 p-4 sm:p-5">
+					<div className="flex items-center gap-2 mb-3">
+						<FiMail size={16} className="text-light-300" />
+						<h2 className="text-sm font-semibold text-light-200 uppercase tracking-wide">
+							Email
+						</h2>
+					</div>
+					<p className="text-light-100 text-sm">{user?.email ?? "—"}</p>
+				</div>
+
+				{/* Club Name */}
+				<div className="bg-secondary rounded-2xl border border-dark-100 p-4 sm:p-5">
+					<div className="flex items-center justify-between mb-3">
+						<h2 className="text-sm font-semibold text-light-200 uppercase tracking-wide">
+							Club Name
+						</h2>
+						{!editingClubName && (
+							<button
+								onClick={startEditClubName}
+								className="flex items-center gap-1.5 text-xs text-light-300 hover:text-accent transition-colors"
+							>
+								<FiEdit2 size={12} />
+								Edit
+							</button>
+						)}
+					</div>
+
+					{clubNameError && (
+						<div className="bg-danger/10 border border-danger/30 text-danger rounded-xl px-3 py-2 mb-3 flex items-center gap-2 text-sm">
+							<span className="flex-1">{clubNameError}</span>
+							<button
+								onClick={() => setClubNameError(null)}
+								className="text-danger/60 hover:text-danger"
+							>
+								<FiX size={14} />
+							</button>
+						</div>
+					)}
+
+					{clubNameSuccess && (
+						<div className="bg-green-500/10 border border-green-500/30 text-green-400 rounded-xl px-3 py-2 mb-3 text-sm flex items-center gap-2">
+							<FiCheck size={14} />
+							Club name updated successfully.
+						</div>
+					)}
+
+					{editingClubName ? (
+						<div className="flex gap-2">
+							<input
+								type="text"
+								value={clubName}
+								onChange={(e) => setClubName(e.target.value)}
+								className="flex-1 px-3 py-2 rounded-xl bg-dark-200 border border-dark-100 text-light-100 text-sm placeholder:text-light-300 focus:outline-none focus:border-accent/50"
+								placeholder="Enter club name"
+								autoFocus
+								onKeyDown={(e) => {
+									if (e.key === "Enter") handleSaveClubName();
+									if (e.key === "Escape") cancelEditClubName();
+								}}
+							/>
+							<button
+								onClick={handleSaveClubName}
+								disabled={clubNameSaving}
+								className="px-4 py-2 rounded-xl text-sm bg-accent text-primary font-semibold hover:bg-accent/80 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+							>
+								{clubNameSaving ? "Saving..." : "Save"}
+							</button>
+							<button
+								onClick={cancelEditClubName}
+								className="px-3 py-2 rounded-xl text-sm text-light-300 hover:text-light-100 hover:bg-dark-200 transition-colors"
+							>
+								Cancel
+							</button>
+						</div>
+					) : (
+						<p className="text-light-100 text-sm">
+							{profile?.clubName ?? "—"}
+						</p>
+					)}
+				</div>
+
+				{/* Change Password */}
+				<div className="bg-secondary rounded-2xl border border-dark-100 p-4 sm:p-5">
+					<div className="flex items-center gap-2 mb-4">
+						<FiLock size={16} className="text-light-300" />
+						<h2 className="text-sm font-semibold text-light-200 uppercase tracking-wide">
+							Change Password
+						</h2>
+					</div>
+
+					{passwordError && (
+						<div className="bg-danger/10 border border-danger/30 text-danger rounded-xl px-3 py-2 mb-3 flex items-center gap-2 text-sm">
+							<span className="flex-1">{passwordError}</span>
+							<button
+								onClick={() => setPasswordError(null)}
+								className="text-danger/60 hover:text-danger"
+							>
+								<FiX size={14} />
+							</button>
+						</div>
+					)}
+
+					{passwordSuccess && (
+						<div className="bg-green-500/10 border border-green-500/30 text-green-400 rounded-xl px-3 py-2 mb-3 text-sm flex items-center gap-2">
+							<FiCheck size={14} />
+							Password changed successfully.
+						</div>
+					)}
+
+					<div className="space-y-3">
+						<div>
+							<label className="text-xs text-light-300 mb-1 block">
+								Current Password
+							</label>
+							<input
+								type="password"
+								value={currentPassword}
+								onChange={(e) => setCurrentPassword(e.target.value)}
+								className="w-full px-3 py-2 rounded-xl bg-dark-200 border border-dark-100 text-light-100 text-sm placeholder:text-light-300 focus:outline-none focus:border-accent/50"
+								placeholder="Enter current password"
+							/>
+						</div>
+						<div>
+							<label className="text-xs text-light-300 mb-1 block">
+								New Password
+							</label>
+							<input
+								type="password"
+								value={newPassword}
+								onChange={(e) => setNewPassword(e.target.value)}
+								className="w-full px-3 py-2 rounded-xl bg-dark-200 border border-dark-100 text-light-100 text-sm placeholder:text-light-300 focus:outline-none focus:border-accent/50"
+								placeholder="At least 8 characters"
+							/>
+						</div>
+						<div>
+							<label className="text-xs text-light-300 mb-1 block">
+								Confirm New Password
+							</label>
+							<input
+								type="password"
+								value={confirmPassword}
+								onChange={(e) => setConfirmPassword(e.target.value)}
+								className="w-full px-3 py-2 rounded-xl bg-dark-200 border border-dark-100 text-light-100 text-sm placeholder:text-light-300 focus:outline-none focus:border-accent/50"
+								placeholder="Re-enter new password"
+								onKeyDown={(e) => {
+									if (e.key === "Enter") handleChangePassword();
+								}}
+							/>
+						</div>
+						<div className="flex justify-end pt-1">
+							<button
+								onClick={handleChangePassword}
+								disabled={passwordSaving}
+								className="px-4 py-2 rounded-xl text-sm bg-accent text-primary font-semibold hover:bg-accent/80 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+							>
+								{passwordSaving ? "Updating..." : "Update Password"}
+							</button>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	);
+}

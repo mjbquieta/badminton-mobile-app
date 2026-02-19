@@ -1,26 +1,26 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import Link from 'next/link';
-import { useAuth } from '@/contexts/AuthContext';
-import { getAuthErrorMessage } from '@badminton/firebase';
+import { useAuth } from "@/contexts/AuthContext";
+import { getAuthErrorMessage } from "@badminton/firebase";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
 
 export default function LoginPage() {
   const { login } = useAuth();
   const router = useRouter();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
+    setError("");
     setSubmitting(true);
     try {
       await login(email, password);
-      router.replace('/home');
+      router.replace("/home");
     } catch (err: unknown) {
       setError(getAuthErrorMessage(err));
     } finally {
@@ -30,11 +30,16 @@ export default function LoginPage() {
 
   return (
     <div className="bg-secondary border border-dark-100 rounded-2xl p-8 w-full max-w-md">
-      <Link href="/" className="inline-flex items-center gap-1 text-light-300 text-sm hover:text-light-100 transition-colors mb-4">
+      <Link
+        href="/"
+        className="inline-flex items-center gap-1 text-light-300 text-sm hover:text-light-100 transition-colors mb-4"
+      >
         &larr; Back to home
       </Link>
       <h1 className="text-2xl font-bold mb-2">Sign In</h1>
-      <p className="text-light-300 text-sm mb-6">Welcome back to Smash Potato</p>
+      <p className="text-light-300 text-sm mb-6">
+        Welcome back to Smash Potatoes
+      </p>
 
       {error && (
         <div className="bg-danger/10 border border-danger/30 rounded-xl p-3 mb-4">
@@ -70,12 +75,12 @@ export default function LoginPage() {
           disabled={submitting}
           className="w-full py-2.5 rounded-xl bg-accent text-primary font-semibold hover:bg-accent/80 disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {submitting ? 'Signing in...' : 'Sign In'}
+          {submitting ? "Signing in..." : "Sign In"}
         </button>
       </form>
 
       <p className="text-light-300 text-sm text-center mt-6">
-        Don&apos;t have an account?{' '}
+        Don&apos;t have an account?{" "}
         <Link href="/register" className="text-accent hover:underline">
           Register
         </Link>

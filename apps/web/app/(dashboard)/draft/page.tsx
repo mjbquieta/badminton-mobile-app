@@ -59,6 +59,7 @@ export default function DraftPage() {
   );
   const [finishTarget, setFinishTarget] = useState<Draft | null>(null);
   const [maxDrafts, setMaxDrafts] = useState(30);
+  const [showNoCourts, setShowNoCourts] = useState(false);
   const playerMap = new Map(players.map((p) => [p.id, p]));
 
   function resolvePlayer(id: string): Player | undefined {
@@ -397,7 +398,7 @@ export default function DraftPage() {
             </button>
           )}
           <button
-            onClick={() => setShowAutoDraftConfirm(true)}
+            onClick={() => courts.length === 0 ? setShowNoCourts(true) : setShowAutoDraftConfirm(true)}
             disabled={drafts.length >= maxDrafts || players.length < 4}
             className="flex items-center gap-1.5 p-2 sm:px-4 sm:py-2 rounded-xl text-xs sm:text-sm bg-accent/20 text-accent font-semibold hover:bg-accent/30 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             title="Auto Draft"
@@ -406,7 +407,7 @@ export default function DraftPage() {
             <span className="hidden sm:inline">Auto Draft</span>
           </button>
           <button
-            onClick={() => setShowSelectModal(true)}
+            onClick={() => courts.length === 0 ? setShowNoCourts(true) : setShowSelectModal(true)}
             disabled={drafts.length >= maxDrafts || players.length < 4}
             className="flex items-center gap-1.5 p-2 sm:px-4 sm:py-2 rounded-xl text-xs sm:text-sm bg-accent text-primary font-semibold hover:bg-accent/80 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             title="New Draft"
@@ -810,6 +811,28 @@ export default function DraftPage() {
               </div>
             );
           })()}
+      </Modal>
+
+      {/* No Courts Prompt */}
+      <Modal
+        open={showNoCourts}
+        onClose={() => setShowNoCourts(false)}
+        title="No Courts Available"
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-light-300">
+            Please add at least one court before creating drafts. Courts are
+            used to assign matches and determine singles or doubles play.
+          </p>
+          <div className="flex justify-end">
+            <button
+              onClick={() => setShowNoCourts(false)}
+              className="px-4 py-2 rounded-xl text-sm bg-accent text-primary font-semibold hover:bg-accent/80 transition-colors"
+            >
+              OK
+            </button>
+          </div>
+        </div>
       </Modal>
     </div>
   );
