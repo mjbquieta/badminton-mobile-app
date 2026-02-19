@@ -15,7 +15,6 @@ import { getFirebaseApp } from './config';
 export interface SessionData {
   players: Player[];
   courts: Court[];
-  queue: string[];
   drafts: Draft[];
   createdAt: unknown;
   updatedAt: unknown;
@@ -36,13 +35,11 @@ export async function createSession(
   sessionId: string,
   players: Player[],
   courts: Court[],
-  queue: string[],
   drafts: Draft[] = []
 ): Promise<void> {
   await setDoc(doc(getDb(), 'sessions', sessionId), {
     players,
     courts: courts.map(courtToFirestore),
-    queue,
     drafts,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
@@ -58,7 +55,6 @@ export async function getSession(
   return {
     players: data.players ?? [],
     courts: (data.courts ?? []).map(courtFromFirestore),
-    queue: data.queue ?? [],
     drafts: data.drafts ?? [],
     createdAt: data.createdAt,
     updatedAt: data.updatedAt,
@@ -85,21 +81,10 @@ export async function updateSessionCourts(
   });
 }
 
-export async function updateSessionQueue(
-  sessionId: string,
-  queue: string[]
-): Promise<void> {
-  await updateDoc(doc(getDb(), 'sessions', sessionId), {
-    queue,
-    updatedAt: serverTimestamp(),
-  });
-}
-
 export async function updateSessionFull(
   sessionId: string,
   players: Player[],
   courts: Court[],
-  queue: string[],
   drafts: Draft[] = []
 ): Promise<void> {
   await setDoc(
@@ -107,7 +92,6 @@ export async function updateSessionFull(
     {
       players,
       courts: courts.map(courtToFirestore),
-      queue,
       drafts,
       updatedAt: serverTimestamp(),
     },
@@ -140,7 +124,6 @@ export function subscribeToSession(
       onData({
         players: data.players ?? [],
         courts: (data.courts ?? []).map(courtFromFirestore),
-        queue: data.queue ?? [],
         drafts: data.drafts ?? [],
         createdAt: data.createdAt,
         updatedAt: data.updatedAt,

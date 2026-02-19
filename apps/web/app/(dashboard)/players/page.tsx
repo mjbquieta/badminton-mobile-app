@@ -28,7 +28,6 @@ export default function PlayersPage() {
   const players = useAppSelector((state) => state.players.items);
   const playersError = useAppSelector((state) => state.players.error);
   const courts = useAppSelector((state) => state.courts.items);
-  const queue = useAppSelector((state) => state.queue.ids);
 
   const [search, setSearch] = useState("");
   const [showAddModal, setShowAddModal] = useState(false);
@@ -53,7 +52,6 @@ export default function PlayersPage() {
       c.players.some((cp) => cp.id === player.id),
     );
     if (court) return { status: "in_game" as const, courtName: court.name };
-    if (queue.includes(player.id)) return { status: "in_queue" as const };
     return { status: "bench" as const };
   }
 
@@ -94,12 +92,10 @@ export default function PlayersPage() {
 
   const statusColors = {
     in_game: "text-danger",
-    in_queue: "text-success",
     bench: "text-light-300",
   };
   const statusLabels = {
     in_game: "In Game",
-    in_queue: "In Queue",
     bench: "Bench",
   };
 
@@ -155,7 +151,7 @@ export default function PlayersPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
         {filtered.map((player) => {
           const { status, courtName } = getPlayerStatus(player) as {
-            status: "in_game" | "in_queue" | "bench";
+            status: "in_game" | "bench";
             courtName?: string;
           };
           return (

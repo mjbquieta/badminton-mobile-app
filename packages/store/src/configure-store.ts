@@ -2,7 +2,6 @@ import { configureStore } from '@reduxjs/toolkit';
 import { courtsReducer } from './slices/courts';
 import { draftsReducer } from './slices/drafts';
 import { playersReducer } from './slices/players';
-import { queueReducer } from './slices/queue';
 
 export const configureAppStore = () => {
 	return configureStore({
@@ -10,7 +9,6 @@ export const configureAppStore = () => {
 			courts: courtsReducer,
 			drafts: draftsReducer,
 			players: playersReducer,
-			queue: queueReducer,
 		},
 	});
 };

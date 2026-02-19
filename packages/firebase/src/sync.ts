@@ -13,7 +13,6 @@ export interface SyncableStore {
   getState: () => {
     players: { items: Player[] };
     courts: { items: Court[] };
-    queue: { ids: string[] };
     drafts: { items: Draft[] };
   };
   dispatch: (action: { type: string; payload?: unknown }) => void;
@@ -29,7 +28,7 @@ export interface FirebaseSyncOptions {
  * Creates a bidirectional sync between a Redux store and a Firestore session.
  *
  * - Store changes are debounced and written to Firestore
- * - Firestore changes are pushed into the store via setPlayers/setCourts/setQueue
+ * - Firestore changes are pushed into the store via setPlayers/setCourts/setDrafts
  * - Prevents infinite loops by skipping store writes triggered by Firestore updates
  *
  * Returns a cleanup function to stop syncing.
@@ -55,7 +54,6 @@ export function createFirebaseSync(
       const stateSnapshot = JSON.stringify({
         players: state.players.items,
         courts: state.courts.items,
-        queue: state.queue.ids,
         drafts: state.drafts.items,
       });
 
@@ -67,7 +65,6 @@ export function createFirebaseSync(
         sessionId,
         state.players.items,
         state.courts.items,
-        state.queue.ids,
         state.drafts.items
       ).catch((err) => {
         console.error('[firebase-sync] Failed to write to Firestore:', err);
@@ -82,7 +79,6 @@ export function createFirebaseSync(
       const incomingSnapshot = JSON.stringify({
         players: data.players,
         courts: data.courts,
-        queue: data.queue,
         drafts: data.drafts,
       });
 
@@ -94,7 +90,6 @@ export function createFirebaseSync(
       try {
         store.dispatch({ type: 'players/setPlayers', payload: data.players });
         store.dispatch({ type: 'courts/setCourts', payload: data.courts });
-        store.dispatch({ type: 'queue/setQueue', payload: data.queue });
         store.dispatch({ type: 'drafts/setDrafts', payload: data.drafts });
       } finally {
         isUpdatingFromFirestore = false;

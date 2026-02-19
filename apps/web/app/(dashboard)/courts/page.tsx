@@ -10,15 +10,13 @@ import {
   removeCourt,
   clearCourts,
   clearCourtsError,
-  endGameAndAdvanceQueue,
-  dissolveCourt,
-  backToQueue,
 } from '@badminton/store';
 import { Modal } from '@/components/Modal';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { PlayerTag } from '@/components/PlayerTag';
 import { useAuth } from '@/contexts/AuthContext';
 import { UNVERIFIED_LIMITS } from '@badminton/ui-shared';
+import { FiTrash2 } from 'react-icons/fi';
 
 export default function CourtsPage() {
   const { emailVerified } = useAuth();
@@ -30,28 +28,10 @@ export default function CourtsPage() {
   const [addSingle, setAddSingle] = useState(false);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Court | null>(null);
-  const [actionTarget, setActionTarget] = useState<{ court: Court; action: string } | null>(null);
 
   function handleAddCourt() {
     dispatch(addCourt({ id: uuidv4(), name: '', players: [], isSingle: addSingle, maxCourts: emailVerified ? undefined : UNVERIFIED_LIMITS.MAX_COURTS }));
     setShowAddModal(false);
-  }
-
-  function handleCourtAction() {
-    if (!actionTarget) return;
-    const { court, action } = actionTarget;
-    switch (action) {
-      case 'finish':
-        dispatch(endGameAndAdvanceQueue(court.id));
-        break;
-      case 'dissolve':
-        dispatch(dissolveCourt(court.id));
-        break;
-      case 'backToQueue':
-        dispatch(backToQueue(court.id));
-        break;
-    }
-    setActionTarget(null);
   }
 
   function getCourtBorderColor(court: Court) {
@@ -60,12 +40,6 @@ export default function CourtsPage() {
     if (court.players.length > 0) return 'border-accent';
     return 'border-dark-100';
   }
-
-  const actionMessages: Record<string, { title: string; message: string; label: string; danger: boolean }> = {
-    finish: { title: 'Finish Game', message: 'End this game and advance the queue? Game counts will be incremented.', label: 'Finish', danger: false },
-    dissolve: { title: 'Dissolve Court', message: 'Remove all players from this court? No game counts will be changed.', label: 'Dissolve', danger: true },
-    backToQueue: { title: 'Back to Queue', message: 'Send these players back to the end of the queue?', label: 'Back to Queue', danger: false },
-  };
 
   return (
     <div className="p-4 sm:p-6 md:p-8 max-w-5xl">
@@ -104,91 +78,35 @@ export default function CourtsPage() {
       {/* Courts Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {courts.map((court) => {
-          const needed = court.isSingle ? 2 : 4;
-          const isFull = court.players.length === needed;
           const hasPlayers = court.players.length > 0;
 
           return (
             <div
               key={court.id}
-              className={`bg-secondary p-5 rounded-2xl border-2 ${getCourtBorderColor(court)} transition-colors`}
+              className={`bg-secondary p-4 rounded-2xl border-2 ${getCourtBorderColor(court)} transition-colors`}
             >
-              {/* Court Header */}
-              <div className="flex justify-between items-start mb-3">
-                <div>
-                  <h3 className="text-lg font-semibold">{court.name}</h3>
-                  <span
-                    className={`inline-block px-2 py-0.5 rounded text-xs font-semibold mt-1 ${
-                      court.isSingle ? 'bg-info/15 text-info' : 'bg-success/15 text-success'
-                    }`}
-                  >
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <h3 className="font-semibold">{court.name}</h3>
+                  <span className="text-xs text-light-300">
                     {court.isSingle ? 'Singles' : 'Doubles'}
                   </span>
                 </div>
-                <div className="flex items-center gap-2">
-                  {isFull && (
-                    <span className="text-xs bg-success/15 text-success px-2 py-0.5 rounded font-semibold">
-                      Ready
-                    </span>
-                  )}
-                  <span className="text-sm text-light-300">
-                    {court.players.length}/{needed}
-                  </span>
-                </div>
+                <button
+                  onClick={() => setDeleteTarget(court)}
+                  className="p-1.5 rounded-lg text-light-300 hover:text-danger hover:bg-danger/10"
+                >
+                  <FiTrash2 size={16} />
+                </button>
               </div>
 
-              {/* Players */}
-              <div className="flex flex-wrap gap-1.5 mb-4 min-h-[32px]">
-                {court.players.length > 0 ? (
-                  court.players.map((player) => (
+              {hasPlayers && (
+                <div className="flex flex-wrap gap-1.5">
+                  {court.players.map((player) => (
                     <PlayerTag key={player.id} player={player} />
-                  ))
-                ) : (
-                  <span className="text-light-300 text-sm">Empty</span>
-                )}
-              </div>
-
-              {/* Actions */}
-              <div className="flex flex-wrap gap-2">
-                {isFull && (
-                  <>
-                    <button
-                      onClick={() => setActionTarget({ court, action: 'finish' })}
-                      className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-success/15 text-success hover:bg-success/25"
-                    >
-                      Finish Game
-                    </button>
-                    <button
-                      onClick={() => setActionTarget({ court, action: 'backToQueue' })}
-                      className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-info/15 text-info hover:bg-info/25"
-                    >
-                      Back to Queue
-                    </button>
-                    <button
-                      onClick={() => setActionTarget({ court, action: 'dissolve' })}
-                      className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-danger/15 text-danger hover:bg-danger/25"
-                    >
-                      Dissolve
-                    </button>
-                  </>
-                )}
-                {hasPlayers && !isFull && (
-                  <button
-                    onClick={() => setActionTarget({ court, action: 'dissolve' })}
-                    className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-danger/15 text-danger hover:bg-danger/25"
-                  >
-                    Dissolve
-                  </button>
-                )}
-                {!hasPlayers && (
-                  <button
-                    onClick={() => setDeleteTarget(court)}
-                    className="px-3 py-1.5 rounded-lg text-xs font-semibold text-light-300 hover:text-danger hover:bg-danger/10"
-                  >
-                    Remove Court
-                  </button>
-                )}
-              </div>
+                  ))}
+                </div>
+              )}
             </div>
           );
         })}
@@ -234,19 +152,6 @@ export default function CourtsPage() {
           </div>
         </div>
       </Modal>
-
-      {/* Court Action Confirm */}
-      {actionTarget && (
-        <ConfirmDialog
-          open
-          onClose={() => setActionTarget(null)}
-          onConfirm={handleCourtAction}
-          title={actionMessages[actionTarget.action].title}
-          message={actionMessages[actionTarget.action].message}
-          confirmLabel={actionMessages[actionTarget.action].label}
-          danger={actionMessages[actionTarget.action].danger}
-        />
-      )}
 
       {/* Delete Court Confirm */}
       <ConfirmDialog
