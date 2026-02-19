@@ -6,26 +6,18 @@ import { usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { ConfirmDialog } from './ConfirmDialog';
 import { AiOutlineHome, AiOutlineTeam } from 'react-icons/ai';
-import { FiActivity } from 'react-icons/fi';
 import { MdOutlineSportsTennis } from 'react-icons/md';
 import { FiLogOut, FiMessageSquare } from 'react-icons/fi';
 import { RiDraftLine } from 'react-icons/ri';
 import type { IconType } from 'react-icons';
 
-const allNavItems: { href: string; label: string; icon: IconType }[] = [
+const navItems: { href: string; label: string; icon: IconType }[] = [
   { href: '/home', label: 'Dashboard', icon: AiOutlineHome },
-  { href: '/activity', label: 'Activity', icon: FiActivity },
   { href: '/players', label: 'Players', icon: AiOutlineTeam },
   { href: '/courts', label: 'Courts', icon: MdOutlineSportsTennis },
   { href: '/draft', label: 'Draft', icon: RiDraftLine },
   { href: '/feedback', label: 'Feedback', icon: FiMessageSquare },
 ];
-
-const hiddenMenus = new Set(
-  (process.env.NEXT_PUBLIC_HIDDEN_MENUS ?? '').split(',').map((s) => s.trim().toLowerCase()).filter(Boolean),
-);
-
-const navItems = allNavItems.filter((item) => !hiddenMenus.has(item.label.toLowerCase()));
 
 export function Sidebar() {
   const pathname = usePathname();

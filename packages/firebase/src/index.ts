@@ -7,7 +7,6 @@ export {
   getSession,
   updateSessionPlayers,
   updateSessionCourts,
-  updateSessionQueue,
   updateSessionDrafts,
   updateSessionFull,
   subscribeToSession,

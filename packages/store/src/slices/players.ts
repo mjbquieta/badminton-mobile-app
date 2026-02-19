@@ -230,13 +230,6 @@ const playersSlice = createSlice({
 			}
 			state.error = null;
 		},
-		setPlayersAtEndOfQueue: (state, action: PayloadAction<string[]>) => {
-			const endedIds = new Set(action.payload);
-			const filteredPlayers = state.items.filter((p) => !endedIds.has(p.id));
-			const endedPlayers = state.items.filter((p) => endedIds.has(p.id));
-			state.items = [...filteredPlayers, ...endedPlayers];
-			state.error = null;
-		},
 		setPlayersError: (state, action: PayloadAction<string>) => {
 			state.error = action.payload;
 		},
@@ -286,7 +279,6 @@ export const {
 	removePlayer,
 	incrementPlayersGameCount,
 	incrementPlayersTrophies,
-	setPlayersAtEndOfQueue,
 	setPlayersError,
 	clearPlayersError,
 	clearPlayers,

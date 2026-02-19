@@ -11,7 +11,6 @@ export {
 	removePlayer,
 	incrementPlayersGameCount,
 	incrementPlayersTrophies,
-	setPlayersAtEndOfQueue,
 	setPlayersError,
 	clearPlayersError,
 	clearPlayers,
@@ -51,16 +50,3 @@ export {
 	setDrafts,
 	draftsReducer,
 } from './slices/drafts';
-
-// Queue slice
-export { setQueue, clearQueue, queueReducer } from './slices/queue';
-
-// Thunks
-export {
-	fillDoublesCourtsFromQueue,
-	rollDice,
-	endGameAndAdvanceQueue,
-	dissolveCourt,
-	backToQueue,
-	resetSession,
-} from './thunks';

@@ -11,8 +11,7 @@ const initialState: DraftsState = {
 	error: null,
 };
 
-const MAX_DRAFTS = 30;
-const PLAYERS_PER_DRAFT = 4;
+const DEFAULT_MAX_DRAFTS = 30;
 
 const draftsSlice = createSlice({
 	name: 'drafts',
@@ -20,14 +19,16 @@ const draftsSlice = createSlice({
 	reducers: {
 		addDraft: (
 			state,
-			action: PayloadAction<{ id: string; name?: string; playerIds: string[] }>
+			action: PayloadAction<{ id: string; name?: string; playerIds: string[]; maxDrafts?: number }>
 		) => {
-			if (state.items.length >= MAX_DRAFTS) {
-				state.error = `Draft limit reached (${MAX_DRAFTS}).`;
+			const limit = action.payload.maxDrafts ?? DEFAULT_MAX_DRAFTS;
+			if (state.items.length >= limit) {
+				state.error = `Draft limit reached (${limit}).`;
 				return;
 			}
-			if (action.payload.playerIds.length !== PLAYERS_PER_DRAFT) {
-				state.error = `A draft must have exactly ${PLAYERS_PER_DRAFT} players.`;
+			const playerCount = action.payload.playerIds.length;
+			if (playerCount !== 2 && playerCount !== 4) {
+				state.error = `A draft must have 2 or 4 players.`;
 				return;
 			}
 			state.items.push({
@@ -48,8 +49,9 @@ const draftsSlice = createSlice({
 			state,
 			action: PayloadAction<{ id: string; playerIds: string[] }>
 		) => {
-			if (action.payload.playerIds.length !== PLAYERS_PER_DRAFT) {
-				state.error = `A draft must have exactly ${PLAYERS_PER_DRAFT} players.`;
+			const playerCount = action.payload.playerIds.length;
+			if (playerCount !== 2 && playerCount !== 4) {
+				state.error = `A draft must have 2 or 4 players.`;
 				return;
 			}
 			const draft = state.items.find((d) => d.id === action.payload.id);

@@ -58,6 +58,7 @@ export default function DraftPage() {
     ]),
   );
   const [finishTarget, setFinishTarget] = useState<Draft | null>(null);
+  const [maxDrafts, setMaxDrafts] = useState(30);
   const playerMap = new Map(players.map((p) => [p.id, p]));
 
   function resolvePlayer(id: string): Player | undefined {
@@ -66,11 +67,11 @@ export default function DraftPage() {
 
   function handleCreateDraft(selectedIds: string[]) {
     if (selectedIds.length !== 4) return;
-    dispatch(addDraft({ id: uuidv4(), playerIds: selectedIds }));
+    dispatch(addDraft({ id: uuidv4(), playerIds: selectedIds, maxDrafts }));
   }
 
   function handleEditPlayers(selectedIds: string[]) {
-    if (!editingDraft || selectedIds.length !== 4) return;
+    if (!editingDraft || selectedIds.length !== editingDraft.playerIds.length) return;
     dispatch(
       updateDraftPlayers({ id: editingDraft.id, playerIds: selectedIds }),
     );
@@ -79,10 +80,11 @@ export default function DraftPage() {
 
   function handleFinish(winner: "A" | "B") {
     if (!finishTarget || finishTarget.finished) return;
+    const half = Math.ceil(finishTarget.playerIds.length / 2);
     const winnerIds =
       winner === "A"
-        ? finishTarget.playerIds.slice(0, 2)
-        : finishTarget.playerIds.slice(2, 4);
+        ? finishTarget.playerIds.slice(0, half)
+        : finishTarget.playerIds.slice(half);
     dispatch(incrementPlayersGameCount(finishTarget.playerIds));
     dispatch(incrementPlayersTrophies(winnerIds));
     dispatch(finishDraft({ id: finishTarget.id, winner }));
@@ -96,7 +98,7 @@ export default function DraftPage() {
   }
 
   function handleAutoDraft() {
-    const maxNew = 30 - drafts.length;
+    const maxNew = maxDrafts - drafts.length;
     if (maxNew <= 0) return;
 
     const usedCombos = new Set(
@@ -112,30 +114,31 @@ export default function DraftPage() {
       return arr;
     }
 
-    // Generate all 4-player combos from a pool, shuffled
-    function generateCombos(pool: string[]): string[][] {
+    // Generate all N-player combos from a pool, shuffled
+    function generateCombos(pool: string[], size: number): string[][] {
       const combos: string[][] = [];
-      for (let a = 0; a < pool.length - 3; a++) {
-        for (let b = a + 1; b < pool.length - 2; b++) {
-          for (let c = b + 1; c < pool.length - 1; c++) {
-            for (let d = c + 1; d < pool.length; d++) {
-              combos.push([pool[a], pool[b], pool[c], pool[d]]);
-            }
-          }
+      function build(start: number, current: string[]) {
+        if (current.length === size) { combos.push([...current]); return; }
+        for (let i = start; i < pool.length; i++) {
+          current.push(pool[i]);
+          build(i + 1, current);
+          current.pop();
         }
       }
+      build(0, []);
       return shuffle(combos);
     }
 
-    // Try to pick a combo from the given pool
-    function pickCombo(pool: string[]): string[] | null {
-      const combos = generateCombos(pool);
-      for (const combo of combos) {
-        const key = [...combo].sort().join(",");
-        if (!usedCombos.has(key)) return combo;
-      }
-      return null;
+    // Determine combo size based on the court this draft will be assigned to
+    function getComboSize(draftIndex: number): number {
+      if (courts.length === 0) return 4;
+      const courtIndex = (drafts.length + draftIndex) % courts.length;
+      return courts[courtIndex].isSingle ? 2 : 4;
     }
+
+    // Track players already assigned within the current round/set
+    const roundSize = courts.length > 0 ? courts.length : Infinity;
+    const usedInRound = new Set<string>();
 
     // Dispatch a draft from a combo
     function commitDraft(combo: string[], draftIndex: number) {
@@ -143,7 +146,7 @@ export default function DraftPage() {
       const key = [...combo].sort().join(",");
       usedCombos.add(key);
       const draftId = uuidv4();
-      dispatch(addDraft({ id: draftId, playerIds: combo }));
+      dispatch(addDraft({ id: draftId, playerIds: combo, maxDrafts }));
       if (courts.length > 0) {
         const courtIndex = (drafts.length + draftIndex) % courts.length;
         dispatch(
@@ -156,69 +159,102 @@ export default function DraftPage() {
     }
 
     if (shuffleMode === "skill-match") {
-      // --- Skill Match: same-level drafts, round-robin across levels ---
-      // Group players by level (only selected levels)
-      const levelGroups = new Map<PlayerLevel, string[]>();
-      for (const p of players) {
-        if (!selectedLevels.has(p.level)) continue;
-        if (!levelGroups.has(p.level)) levelGroups.set(p.level, []);
-        levelGroups.get(p.level)!.push(p.id);
-      }
+      // --- Skill Match: drafts from selected levels only, mixed freely ---
+      const filteredIds = players
+        .filter((p) => selectedLevels.has(p.level))
+        .map((p) => p.id);
 
-      // Only keep levels with at least 4 players
-      const activeLevels = [...selectedLevels].filter(
-        (lvl) => (levelGroups.get(lvl)?.length ?? 0) >= 4,
-      );
-      if (activeLevels.length === 0) {
+      if (filteredIds.length < 2) {
         setShowAutoDraftConfirm(false);
         return;
       }
 
-      // Track which levels are exhausted (no more unused combos)
-      const exhausted = new Set<PlayerLevel>();
-      let drafted = 0;
-      let levelIdx = 0;
+      const counts = new Map(filteredIds.map((id) => [id, 0]));
 
-      while (drafted < maxNew && exhausted.size < activeLevels.length) {
-        const level = activeLevels[levelIdx % activeLevels.length];
-        levelIdx++;
+      for (let i = 0; i < maxNew; i++) {
+        if (i % roundSize === 0) usedInRound.clear();
+        const comboSize = getComboSize(i);
 
-        if (exhausted.has(level)) continue;
-
-        const pool = levelGroups.get(level)!;
-        const combo = pickCombo(pool);
-        if (!combo) {
-          exhausted.add(level);
-          continue;
+        // Sort by game count, shuffle within same count tier
+        const sorted = [...filteredIds].sort(
+          (a, b) => counts.get(a)! - counts.get(b)!,
+        );
+        let idx = 0;
+        while (idx < sorted.length) {
+          const count = counts.get(sorted[idx])!;
+          let end = idx;
+          while (end < sorted.length && counts.get(sorted[end])! === count)
+            end++;
+          const tier = sorted.slice(idx, end);
+          shuffle(tier);
+          for (let t = 0; t < tier.length; t++) sorted[idx + t] = tier[t];
+          idx = end;
         }
 
-        commitDraft(combo, drafted);
-        drafted++;
+        let found = false;
+        for (
+          let poolSize = comboSize;
+          poolSize <= sorted.length && !found;
+          poolSize++
+        ) {
+          const pool = sorted.slice(0, poolSize);
+          const combos = generateCombos(pool, comboSize);
+
+          for (const combo of combos) {
+            if (combo.some((id) => usedInRound.has(id))) continue;
+            const key = [...combo].sort().join(",");
+            if (usedCombos.has(key)) continue;
+
+            for (const id of combo) usedInRound.add(id);
+            commitDraft(combo, i);
+            for (const id of combo) {
+              counts.set(id, counts.get(id)! + 1);
+            }
+            found = true;
+            break;
+          }
+        }
+        // If no unique combo found, allow reuse and retry
+        if (!found) {
+          usedCombos.clear();
+          for (
+            let poolSize = comboSize;
+            poolSize <= sorted.length && !found;
+            poolSize++
+          ) {
+            const pool = sorted.slice(0, poolSize);
+            const combos = generateCombos(pool, comboSize);
+
+            for (const combo of combos) {
+              if (combo.some((id) => usedInRound.has(id))) continue;
+
+              for (const id of combo) usedInRound.add(id);
+              commitDraft(combo, i);
+              for (const id of combo) {
+                counts.set(id, counts.get(id)! + 1);
+              }
+              found = true;
+              break;
+            }
+          }
+        }
+        if (!found) {
+          if (i % roundSize === 0) break;
+          const nextRound = (Math.floor(i / roundSize) + 1) * roundSize;
+          i = nextRound - 1;
+        }
       }
     } else {
       // --- Balanced & Random modes ---
       const ids = players.map((p) => p.id);
-      if (ids.length < 4) return;
-
-      // Level ranking for adjacency check
-      const levelRank: Record<string, number> = {
-        [PlayerLevel.BEGINNER]: 0,
-        [PlayerLevel.INTERMEDIATE]: 1,
-        [PlayerLevel.ADVANCED]: 2,
-        [PlayerLevel.PRO]: 3,
-      };
-      const playerLevelRank = new Map(
-        players.map((p) => [p.id, levelRank[p.level] ?? 0]),
-      );
-
-      function isCompatible(combo: string[]): boolean {
-        const ranks = combo.map((id) => playerLevelRank.get(id)!);
-        return Math.max(...ranks) - Math.min(...ranks) <= 1;
-      }
+      if (ids.length < 2) return;
 
       const counts = new Map(ids.map((id) => [id, 0]));
 
       for (let i = 0; i < maxNew; i++) {
+        if (i % roundSize === 0) usedInRound.clear();
+        const comboSize = getComboSize(i);
+
         // Build player order based on mode
         let sorted: string[];
         if (shuffleMode === "random") {
@@ -243,18 +279,19 @@ export default function DraftPage() {
 
         let found = false;
         for (
-          let poolSize = 4;
+          let poolSize = comboSize;
           poolSize <= sorted.length && !found;
           poolSize++
         ) {
           const pool = sorted.slice(0, poolSize);
-          const combos = generateCombos(pool);
+          const combos = generateCombos(pool, comboSize);
 
           for (const combo of combos) {
-            if (!isCompatible(combo)) continue;
+            if (combo.some((id) => usedInRound.has(id))) continue;
             const key = [...combo].sort().join(",");
             if (usedCombos.has(key)) continue;
 
+            for (const id of combo) usedInRound.add(id);
             commitDraft(combo, i);
             for (const id of combo) {
               counts.set(id, counts.get(id)! + 1);
@@ -263,7 +300,35 @@ export default function DraftPage() {
             break;
           }
         }
-        if (!found) break;
+        // If no unique combo found, allow reuse and retry
+        if (!found) {
+          usedCombos.clear();
+          for (
+            let poolSize = comboSize;
+            poolSize <= sorted.length && !found;
+            poolSize++
+          ) {
+            const pool = sorted.slice(0, poolSize);
+            const combos = generateCombos(pool, comboSize);
+
+            for (const combo of combos) {
+              if (combo.some((id) => usedInRound.has(id))) continue;
+
+              for (const id of combo) usedInRound.add(id);
+              commitDraft(combo, i);
+              for (const id of combo) {
+                counts.set(id, counts.get(id)! + 1);
+              }
+              found = true;
+              break;
+            }
+          }
+        }
+        if (!found) {
+          if (i % roundSize === 0) break;
+          const nextRound = (Math.floor(i / roundSize) + 1) * roundSize;
+          i = nextRound - 1;
+        }
       }
     }
 
@@ -287,9 +352,37 @@ export default function DraftPage() {
           </div>
           <div>
             <h1 className="text-2xl sm:text-3xl font-bold">Draft</h1>
-            <p className="text-light-300 text-sm mt-0.5">
-              {drafts.length} / 30 matches
-            </p>
+            <div className="flex items-center gap-1.5 mt-0.5">
+              {drafts.length > 0 ? (
+                <span className="text-sm font-bold text-light-100">{maxDrafts}</span>
+              ) : (
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => setMaxDrafts(Math.max(1, maxDrafts - 5))}
+                    className="w-6 h-6 rounded-md bg-dark-200 text-light-100 text-sm hover:bg-dark-100 flex items-center justify-center"
+                  >
+                    -
+                  </button>
+                  <input
+                    type="number"
+                    min={1}
+                    value={maxDrafts}
+                    onChange={(e) => {
+                      const val = parseInt(e.target.value, 10);
+                      if (!isNaN(val) && val >= 1) setMaxDrafts(val);
+                    }}
+                    className="w-10 bg-transparent text-sm font-bold text-light-100 text-center outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                  />
+                  <button
+                    onClick={() => setMaxDrafts(maxDrafts + 5)}
+                    className="w-6 h-6 rounded-md bg-dark-200 text-light-100 text-sm hover:bg-dark-100 flex items-center justify-center"
+                  >
+                    +
+                  </button>
+                </div>
+              )}
+              <span className="text-light-300 text-sm">matches</span>
+            </div>
           </div>
         </div>
         <div className="flex flex-wrap gap-2 sm:gap-3 justify-end">
@@ -305,7 +398,7 @@ export default function DraftPage() {
           )}
           <button
             onClick={() => setShowAutoDraftConfirm(true)}
-            disabled={drafts.length >= 30 || players.length < 4}
+            disabled={drafts.length >= maxDrafts || players.length < 4}
             className="flex items-center gap-1.5 p-2 sm:px-4 sm:py-2 rounded-xl text-xs sm:text-sm bg-accent/20 text-accent font-semibold hover:bg-accent/30 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             title="Auto Draft"
           >
@@ -314,7 +407,7 @@ export default function DraftPage() {
           </button>
           <button
             onClick={() => setShowSelectModal(true)}
-            disabled={drafts.length >= 30 || players.length < 4}
+            disabled={drafts.length >= maxDrafts || players.length < 4}
             className="flex items-center gap-1.5 p-2 sm:px-4 sm:py-2 rounded-xl text-xs sm:text-sm bg-accent text-primary font-semibold hover:bg-accent/80 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             title="New Draft"
           >
@@ -363,14 +456,13 @@ export default function DraftPage() {
               )}
               {round.map((draft, indexInRound) => {
                 const matchNumber = roundIndex * courtCount + indexInRound + 1;
-                const teamA = [
-                  resolvePlayer(draft.playerIds[0]),
-                  resolvePlayer(draft.playerIds[1]),
-                ].filter((p): p is Player => p !== undefined);
-                const teamB = [
-                  resolvePlayer(draft.playerIds[2]),
-                  resolvePlayer(draft.playerIds[3]),
-                ].filter((p): p is Player => p !== undefined);
+                const half = Math.ceil(draft.playerIds.length / 2);
+                const teamA = draft.playerIds.slice(0, half)
+                  .map(resolvePlayer)
+                  .filter((p): p is Player => p !== undefined);
+                const teamB = draft.playerIds.slice(half)
+                  .map(resolvePlayer)
+                  .filter((p): p is Player => p !== undefined);
 
                 const courtSelect = (
                   <select
@@ -536,7 +628,7 @@ export default function DraftPage() {
           onClose={() => setEditingDraft(null)}
           title={`Edit Players - ${editingDraft.name}`}
           players={players}
-          maxSelect={4}
+          maxSelect={editingDraft.playerIds.length}
           initialSelected={editingDraft.playerIds}
           onConfirm={handleEditPlayers}
         />
@@ -575,8 +667,8 @@ export default function DraftPage() {
       >
         <div className="space-y-4">
           <p className="text-sm text-light-300">
-            This will automatically generate up to {30 - drafts.length} drafts.
-            No duplicate matchups will be created.
+            This will automatically generate up to {maxDrafts - drafts.length} drafts.
+            Unique matchups are prioritized, duplicates allowed when exhausted.
           </p>
           <div>
             <label className="block text-xs font-semibold text-light-300 uppercase tracking-wide mb-1.5">
@@ -673,14 +765,13 @@ export default function DraftPage() {
       >
         {finishTarget &&
           (() => {
-            const tA = [
-              resolvePlayer(finishTarget.playerIds[0]),
-              resolvePlayer(finishTarget.playerIds[1]),
-            ].filter((p): p is Player => !!p);
-            const tB = [
-              resolvePlayer(finishTarget.playerIds[2]),
-              resolvePlayer(finishTarget.playerIds[3]),
-            ].filter((p): p is Player => !!p);
+            const half = Math.ceil(finishTarget.playerIds.length / 2);
+            const tA = finishTarget.playerIds.slice(0, half)
+              .map(resolvePlayer)
+              .filter((p): p is Player => !!p);
+            const tB = finishTarget.playerIds.slice(half)
+              .map(resolvePlayer)
+              .filter((p): p is Player => !!p);
             return (
               <div className="space-y-4">
                 <p className="text-sm text-light-300">
