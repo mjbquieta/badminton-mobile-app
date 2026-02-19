@@ -58,6 +58,7 @@ export default function DraftPage() {
     ]),
   );
   const [finishTarget, setFinishTarget] = useState<Draft | null>(null);
+  const [maxDrafts, setMaxDrafts] = useState(30);
   const playerMap = new Map(players.map((p) => [p.id, p]));
 
   function resolvePlayer(id: string): Player | undefined {
@@ -66,7 +67,7 @@ export default function DraftPage() {
 
   function handleCreateDraft(selectedIds: string[]) {
     if (selectedIds.length !== 4) return;
-    dispatch(addDraft({ id: uuidv4(), playerIds: selectedIds }));
+    dispatch(addDraft({ id: uuidv4(), playerIds: selectedIds, maxDrafts }));
   }
 
   function handleEditPlayers(selectedIds: string[]) {
@@ -97,7 +98,7 @@ export default function DraftPage() {
   }
 
   function handleAutoDraft() {
-    const maxNew = 30 - drafts.length;
+    const maxNew = maxDrafts - drafts.length;
     if (maxNew <= 0) return;
 
     const usedCombos = new Set(
@@ -145,7 +146,7 @@ export default function DraftPage() {
       const key = [...combo].sort().join(",");
       usedCombos.add(key);
       const draftId = uuidv4();
-      dispatch(addDraft({ id: draftId, playerIds: combo }));
+      dispatch(addDraft({ id: draftId, playerIds: combo, maxDrafts }));
       if (courts.length > 0) {
         const courtIndex = (drafts.length + draftIndex) % courts.length;
         dispatch(
@@ -213,28 +214,40 @@ export default function DraftPage() {
             break;
           }
         }
-        if (!found) break;
+        // If no unique combo found, allow reuse and retry
+        if (!found) {
+          usedCombos.clear();
+          for (
+            let poolSize = comboSize;
+            poolSize <= sorted.length && !found;
+            poolSize++
+          ) {
+            const pool = sorted.slice(0, poolSize);
+            const combos = generateCombos(pool, comboSize);
+
+            for (const combo of combos) {
+              if (combo.some((id) => usedInRound.has(id))) continue;
+
+              for (const id of combo) usedInRound.add(id);
+              commitDraft(combo, i);
+              for (const id of combo) {
+                counts.set(id, counts.get(id)! + 1);
+              }
+              found = true;
+              break;
+            }
+          }
+        }
+        if (!found) {
+          if (i % roundSize === 0) break;
+          const nextRound = (Math.floor(i / roundSize) + 1) * roundSize;
+          i = nextRound - 1;
+        }
       }
     } else {
       // --- Balanced & Random modes ---
       const ids = players.map((p) => p.id);
       if (ids.length < 2) return;
-
-      // Level ranking for adjacency check
-      const levelRank: Record<string, number> = {
-        [PlayerLevel.BEGINNER]: 0,
-        [PlayerLevel.INTERMEDIATE]: 1,
-        [PlayerLevel.ADVANCED]: 2,
-        [PlayerLevel.PRO]: 3,
-      };
-      const playerLevelRank = new Map(
-        players.map((p) => [p.id, levelRank[p.level] ?? 0]),
-      );
-
-      function isCompatible(combo: string[]): boolean {
-        const ranks = combo.map((id) => playerLevelRank.get(id)!);
-        return Math.max(...ranks) - Math.min(...ranks) <= 1;
-      }
 
       const counts = new Map(ids.map((id) => [id, 0]));
 
@@ -274,7 +287,6 @@ export default function DraftPage() {
           const combos = generateCombos(pool, comboSize);
 
           for (const combo of combos) {
-            if (!isCompatible(combo)) continue;
             if (combo.some((id) => usedInRound.has(id))) continue;
             const key = [...combo].sort().join(",");
             if (usedCombos.has(key)) continue;
@@ -288,7 +300,35 @@ export default function DraftPage() {
             break;
           }
         }
-        if (!found) break;
+        // If no unique combo found, allow reuse and retry
+        if (!found) {
+          usedCombos.clear();
+          for (
+            let poolSize = comboSize;
+            poolSize <= sorted.length && !found;
+            poolSize++
+          ) {
+            const pool = sorted.slice(0, poolSize);
+            const combos = generateCombos(pool, comboSize);
+
+            for (const combo of combos) {
+              if (combo.some((id) => usedInRound.has(id))) continue;
+
+              for (const id of combo) usedInRound.add(id);
+              commitDraft(combo, i);
+              for (const id of combo) {
+                counts.set(id, counts.get(id)! + 1);
+              }
+              found = true;
+              break;
+            }
+          }
+        }
+        if (!found) {
+          if (i % roundSize === 0) break;
+          const nextRound = (Math.floor(i / roundSize) + 1) * roundSize;
+          i = nextRound - 1;
+        }
       }
     }
 
@@ -312,9 +352,37 @@ export default function DraftPage() {
           </div>
           <div>
             <h1 className="text-2xl sm:text-3xl font-bold">Draft</h1>
-            <p className="text-light-300 text-sm mt-0.5">
-              {drafts.length} / 30 matches
-            </p>
+            <div className="flex items-center gap-1.5 mt-0.5">
+              {drafts.length > 0 ? (
+                <span className="text-sm font-bold text-light-100">{maxDrafts}</span>
+              ) : (
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => setMaxDrafts(Math.max(1, maxDrafts - 5))}
+                    className="w-6 h-6 rounded-md bg-dark-200 text-light-100 text-sm hover:bg-dark-100 flex items-center justify-center"
+                  >
+                    -
+                  </button>
+                  <input
+                    type="number"
+                    min={1}
+                    value={maxDrafts}
+                    onChange={(e) => {
+                      const val = parseInt(e.target.value, 10);
+                      if (!isNaN(val) && val >= 1) setMaxDrafts(val);
+                    }}
+                    className="w-10 bg-transparent text-sm font-bold text-light-100 text-center outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                  />
+                  <button
+                    onClick={() => setMaxDrafts(maxDrafts + 5)}
+                    className="w-6 h-6 rounded-md bg-dark-200 text-light-100 text-sm hover:bg-dark-100 flex items-center justify-center"
+                  >
+                    +
+                  </button>
+                </div>
+              )}
+              <span className="text-light-300 text-sm">matches</span>
+            </div>
           </div>
         </div>
         <div className="flex flex-wrap gap-2 sm:gap-3 justify-end">
@@ -330,7 +398,7 @@ export default function DraftPage() {
           )}
           <button
             onClick={() => setShowAutoDraftConfirm(true)}
-            disabled={drafts.length >= 30 || players.length < 4}
+            disabled={drafts.length >= maxDrafts || players.length < 4}
             className="flex items-center gap-1.5 p-2 sm:px-4 sm:py-2 rounded-xl text-xs sm:text-sm bg-accent/20 text-accent font-semibold hover:bg-accent/30 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             title="Auto Draft"
           >
@@ -339,7 +407,7 @@ export default function DraftPage() {
           </button>
           <button
             onClick={() => setShowSelectModal(true)}
-            disabled={drafts.length >= 30 || players.length < 4}
+            disabled={drafts.length >= maxDrafts || players.length < 4}
             className="flex items-center gap-1.5 p-2 sm:px-4 sm:py-2 rounded-xl text-xs sm:text-sm bg-accent text-primary font-semibold hover:bg-accent/80 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             title="New Draft"
           >
@@ -599,8 +667,8 @@ export default function DraftPage() {
       >
         <div className="space-y-4">
           <p className="text-sm text-light-300">
-            This will automatically generate up to {30 - drafts.length} drafts.
-            No duplicate matchups will be created.
+            This will automatically generate up to {maxDrafts - drafts.length} drafts.
+            Unique matchups are prioritized, duplicates allowed when exhausted.
           </p>
           <div>
             <label className="block text-xs font-semibold text-light-300 uppercase tracking-wide mb-1.5">
