@@ -2,6 +2,7 @@ import AddPInput from "@/components/AddInput";
 import AddPlayerModal from "@/components/AddPlayerModal";
 import ConfirmationAlert from "@/components/ConfirmationAlert";
 import EditPlayerModal from "@/components/EditPlayerModal";
+import ImportPlayersModal from "@/components/ImportPlayersModal";
 import PlayerCard from "@/components/PlayerCard";
 import { useToast } from "@/components/Toast";
 import { BadmintonPalette } from "@/constants/palette";
@@ -15,8 +16,6 @@ import {
   removePlayer,
   updatePlayerGameCount,
   updatePlayerLevel,
-  clearQueue,
-  setQueue,
 } from "@badminton/store";
 import { Player, PlayerLevel } from "@badminton/types";
 import { useAuth } from "@/contexts/AuthContext";
@@ -52,6 +51,7 @@ export const PlayersContent = ({
 }) => {
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [showAddModal, setShowAddModal] = useState<boolean>(false);
+  const [showImportModal, setShowImportModal] = useState<boolean>(false);
   const [editingPlayer, setEditingPlayer] = useState<Player | null>(null);
 
   const { emailVerified } = useAuth();
@@ -59,7 +59,6 @@ export const PlayersContent = ({
   const { showToast } = useToast();
   const players = useAppSelector((s: RootState) => s.players.items);
   const courts = useAppSelector((s: RootState) => s.courts.items);
-  const queueIds = useAppSelector((s: RootState) => s.queue.ids);
   const sliceError = useAppSelector((s: RootState) => s.players.error);
 
   useEffect(() => {
@@ -74,14 +73,10 @@ export const PlayersContent = ({
   const statusMetaById = useMemo(() => {
     const map: Record<
       string,
-      { status: "in_game" | "in_queue" | "bench"; courtName?: string }
+      { status: "in_game" | "bench"; courtName?: string }
     > = {};
 
     for (const p of players) map[p.id] = { status: "bench" };
-
-    for (const id of queueIds) {
-      if (map[id]) map[id] = { status: "in_queue" };
-    }
 
     for (const c of courts) {
       for (const p of c.players) {
@@ -90,7 +85,7 @@ export const PlayersContent = ({
     }
 
     return map;
-  }, [players, queueIds, courts]);
+  }, [players, courts]);
 
   const filteredPlayers = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
@@ -136,22 +131,38 @@ export const PlayersContent = ({
 
   return (
     <View className={`flex-1 bg-primary ${contentContainerClassName}`}>
-      {/* Add Player Button */}
-      <TouchableOpacity
-        onPress={() => setShowAddModal(true)}
-        className="flex-row items-center justify-center py-3.5 rounded-2xl mb-6"
-        style={{ backgroundColor: BadmintonPalette.accent.primary }}
-        accessibilityRole="button"
-        accessibilityLabel="Add player"
-      >
-        <AntDesign name="plus" size={18} color={BadmintonPalette.bg.base} />
-        <Text
-          className="text-base font-bold ml-2"
-          style={{ color: BadmintonPalette.bg.base }}
+      {/* Add / Import Buttons */}
+      <View className="flex-row gap-3 mb-6">
+        <TouchableOpacity
+          onPress={() => setShowAddModal(true)}
+          className="flex-1 flex-row items-center justify-center py-3.5 rounded-2xl"
+          style={{ backgroundColor: BadmintonPalette.accent.primary }}
+          accessibilityRole="button"
+          accessibilityLabel="Add player"
         >
-          Add Player
-        </Text>
-      </TouchableOpacity>
+          <AntDesign name="plus" size={18} color={BadmintonPalette.bg.base} />
+          <Text
+            className="text-base font-bold ml-2"
+            style={{ color: BadmintonPalette.bg.base }}
+          >
+            Add Player
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          onPress={() => setShowImportModal(true)}
+          className="flex-row items-center justify-center py-3.5 px-4 rounded-2xl border border-dark-100 bg-secondary"
+          accessibilityRole="button"
+          accessibilityLabel="Import players"
+        >
+          <AntDesign name="download" size={18} color={BadmintonPalette.court.lime} />
+          <Text
+            className="text-sm font-bold ml-2"
+            style={{ color: BadmintonPalette.court.lime }}
+          >
+            Import
+          </Text>
+        </TouchableOpacity>
+      </View>
 
       {/* Players List */}
       {players.length > 0 && (
@@ -199,7 +210,6 @@ export const PlayersContent = ({
                     LayoutAnimation.configureNext(
                       LayoutAnimation.Presets.spring
                     );
-                    dispatch(clearQueue());
                     dispatch(clearPlayers());
                   },
                 });
@@ -258,21 +268,6 @@ export const PlayersContent = ({
                     title: "Delete Player",
                     message: `Remove ${item.name}?`,
                     onConfirm: () => {
-                      if (status === "in_queue") {
-                        const idx = queueIds.indexOf(item.id);
-                        if (idx >= 0) {
-                          const groupStart = Math.floor(idx / 4) * 4;
-                          const groupIds = queueIds.slice(
-                            groupStart,
-                            groupStart + 4
-                          );
-                          const groupSet = new Set(groupIds);
-                          dispatch(
-                            setQueue(queueIds.filter((id) => !groupSet.has(id)))
-                          );
-                        }
-                      }
-
                       LayoutAnimation.configureNext(
                         LayoutAnimation.Presets.spring
                       );
@@ -340,6 +335,35 @@ export const PlayersContent = ({
         playerName={editingPlayer?.name ?? ""}
         currentLevel={editingPlayer?.level ?? PlayerLevel.BEGINNER}
         currentGameCount={editingPlayer?.gameCount ?? 0}
+      />
+
+      <ImportPlayersModal
+        visible={showImportModal}
+        onClose={() => setShowImportModal(false)}
+        onImport={(entries) => {
+          let imported = 0;
+          let skipped = 0;
+          LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+          for (const entry of entries) {
+            dispatch(
+              addPlayer({
+                id: uuidv4(),
+                name: entry.name,
+                level: entry.level,
+                maxPlayers: emailVerified
+                  ? undefined
+                  : UNVERIFIED_LIMITS.MAX_PLAYERS,
+              })
+            );
+            imported++;
+          }
+          const msg =
+            skipped > 0
+              ? `Imported ${imported} players, ${skipped} skipped`
+              : `Imported ${imported} players`;
+          showToast({ message: msg, type: "success" });
+          return { imported, skipped };
+        }}
       />
     </View>
   );

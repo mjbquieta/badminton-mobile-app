@@ -1,335 +1,330 @@
 import ConfirmationAlert from "@/components/ConfirmationAlert";
-import CourtCard from "@/components/CourtCard";
 import ManualAddPlayersModal from "@/components/ManualAddPlayersModal";
 import PlayerTag from "@/components/PlayerTag";
-import SelectQueueGroupModal, {
-  type QueueGroup,
-} from "@/components/SelectQueueGroupModal";
 import { useToast } from "@/components/Toast";
 import { BadmintonPalette } from "@/constants/palette";
 import {
-  addPlayersToCourtManually,
-  assignPlayersToCourt,
-  clearCourtsError,
-  removePlayerFromCourt,
+  addDraft,
+  clearDrafts,
+  clearDraftsError,
+  finishDraft,
+  incrementPlayersGameCount,
+  incrementPlayersTrophies,
+  removeDraft,
+  resetAllGameCounts,
+  updateDraftCourt,
+  useAppDispatch,
+  useAppSelector,
 } from "@badminton/store";
-import { useAppDispatch, useAppSelector } from "@badminton/store";
-import { setQueue } from "@badminton/store";
-import {
-  backToQueue,
-  dissolveCourt,
-  endGameAndAdvanceQueue,
-  rollDice,
-} from "@badminton/store";
-import { type Player, type PlayerLevel } from "@badminton/types";
-import { shuffle } from "@badminton/core";
-import Feather from "@expo/vector-icons/Feather";
+import { type Player, PlayerLevel, type Draft } from "@badminton/types";
+import { playerLevelConfig } from "@badminton/ui-shared";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useMemo, useState } from "react";
 import {
   Alert,
-  LayoutAnimation,
-  Platform,
+  Modal,
+  Pressable,
   ScrollView,
   Text,
+  TextInput,
   TouchableOpacity,
-  UIManager,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { v4 as uuidv4 } from "uuid";
 
-type QueueCardVariant = "in_game" | "waiting";
-
-const QueueCard = ({
-  queueNumber,
-  playersText,
-  players,
-  assignedCourtText,
-  variant,
-  onEndGame,
-  onRemovePlayer,
-  onDissolve,
-  onManuallyAddPlayers,
-  showManuallyAddPlayers,
-}: {
-  queueNumber: number;
-  playersText: string;
-  players?: {
-    id: string;
-    name: string;
-    level?: PlayerLevel;
-    gameCount?: number;
-  }[];
-  assignedCourtText: string;
-  variant: QueueCardVariant;
-  onEndGame?: () => void;
-  onRemovePlayer?: (playerId: string) => void;
-  onDissolve?: () => void;
-  onManuallyAddPlayers?: () => void;
-  showManuallyAddPlayers?: boolean;
-}) => {
-  const isInGame = variant === "in_game";
-  const badgeLabel = isInGame ? "IN GAME" : "WAITING";
-
-  return (
-    <View
-      className={`rounded-2xl overflow-hidden ${
-        isInGame
-          ? "bg-secondary border border-danger/30"
-          : "bg-dark-200 border-4 border-dashed border-dark-100"
-      }`}
-    >
-      {/* Header */}
-      <View className="flex-row items-center justify-between p-4 border-b border-dark-100">
-        <View className="flex-1 gap-0.5">
-          <Text className="text-light-100 text-lg font-bold">
-            Queue {queueNumber}
-          </Text>
-          <Text className="text-light-300 text-xs">
-            Court: {assignedCourtText}
-          </Text>
-        </View>
-
-        <View
-          className={`flex-row items-center gap-1.5 px-3 py-1.5 rounded-full ${
-            isInGame ? "bg-danger/15" : "bg-success/15"
-          }`}
-        >
-          <View
-            className={`size-2 rounded-full ${
-              isInGame ? "bg-danger" : "bg-success"
-            }`}
-          />
-          <Text
-            className={`text-xs font-bold ${
-              isInGame ? "text-danger" : "text-success"
-            }`}
-          >
-            {badgeLabel}
-          </Text>
-        </View>
-      </View>
-
-      {/* Players */}
-      <View className="p-4 gap-3">
-        <Text className="text-light-300 text-xs font-semibold uppercase tracking-wide">
-          Players
-        </Text>
-        {players ? (
-          players.length === 0 ? (
-            <Text className="text-light-300 text-sm">No players assigned</Text>
-          ) : (
-            <View className="flex-row flex-wrap gap-2">
-              {players.map((p) => (
-                <PlayerTag
-                  key={p.id}
-                  name={p.name}
-                  level={p.level}
-                  gameCount={p.gameCount}
-                  onDeleteTag={
-                    onRemovePlayer && !isInGame
-                      ? () => onRemovePlayer(p.id)
-                      : undefined
-                  }
-                />
-              ))}
-            </View>
-          )
-        ) : (
-          <Text className="text-light-200 text-sm">{playersText}</Text>
-        )}
-      </View>
-
-      {/* Actions for waiting queues */}
-      {!isInGame ? (
-        <View className="flex-row items-center gap-2 px-4 pb-4">
-          {onDissolve ? (
-            <TouchableOpacity
-              className="bg-danger/10 border border-danger/30 px-4 py-2.5 rounded-xl active:bg-danger/20"
-              onPress={onDissolve}
-              accessibilityRole="button"
-              accessibilityLabel={`Dissolve queue ${queueNumber}`}
-            >
-              <Text className="text-danger text-sm font-bold">Dissolve</Text>
-            </TouchableOpacity>
-          ) : null}
-
-          {showManuallyAddPlayers && onManuallyAddPlayers ? (
-            <TouchableOpacity
-              className="flex-1 bg-dark-100 border border-dark-100 px-4 py-2.5 rounded-xl items-center active:bg-dark-200"
-              onPress={onManuallyAddPlayers}
-              accessibilityRole="button"
-              accessibilityLabel={`Manually add players to queue ${queueNumber}`}
-            >
-              <Text className="text-light-200 text-sm font-bold">
-                Add Players
-              </Text>
-            </TouchableOpacity>
-          ) : null}
-        </View>
-      ) : null}
-    </View>
-  );
-};
+const DEFAULT_MAX_DRAFTS = 30;
 
 const activity = () => {
   const dispatch = useAppDispatch();
   const { showToast } = useToast();
   const players = useAppSelector((s) => s.players.items);
   const courts = useAppSelector((s) => s.courts.items);
-  const queueIds = useAppSelector((s) => s.queue.ids);
-  const [manualAdd, setManualAdd] = useState<{
-    visible: boolean;
-    courtId: string | null;
-  }>({ visible: false, courtId: null });
-  const [assignFromQueue, setAssignFromQueue] = useState<{
-    visible: boolean;
-    courtId: string | null;
-  }>({ visible: false, courtId: null });
-  const [manualAddQueue, setManualAddQueue] = useState<{
-    visible: boolean;
-    insertIndex: number;
-    missingCount: number;
-    queueNumber: number;
-  }>({ visible: false, insertIndex: 0, missingCount: 0, queueNumber: 0 });
+  const drafts = useAppSelector((s) => s.drafts.items);
+  const draftsError = useAppSelector((s) => s.drafts.error);
 
-  useEffect(() => {
-    if (
-      Platform.OS === "android" &&
-      UIManager.setLayoutAnimationEnabledExperimental
-    ) {
-      UIManager.setLayoutAnimationEnabledExperimental(true);
-    }
-  }, []);
+  const [maxDrafts, setMaxDrafts] = useState(DEFAULT_MAX_DRAFTS);
+  const [showMaxDraftsModal, setShowMaxDraftsModal] = useState(false);
+  const [showSelectModal, setShowSelectModal] = useState(false);
+  const [showAutoDraftModal, setShowAutoDraftModal] = useState(false);
+  const [shuffleMode, setShuffleMode] = useState<"balanced" | "random" | "skill-match">("balanced");
+  const [selectedLevels, setSelectedLevels] = useState<Set<PlayerLevel>>(
+    new Set([PlayerLevel.BEGINNER, PlayerLevel.INTERMEDIATE, PlayerLevel.ADVANCED, PlayerLevel.PRO]),
+  );
+  const [finishTarget, setFinishTarget] = useState<Draft | null>(null);
 
-  const doublesCourtsCount = useMemo(
-    () => courts.filter((c) => !c.isSingle).length,
-    [courts],
+  const playerMap = useMemo(
+    () => new Map(players.map((p) => [p.id, p])),
+    [players],
   );
 
-  const fullGroupsRemaining = Math.floor(queueIds.length / 4);
-  const isQueueAlmostEmpty =
-    doublesCourtsCount > 0 && fullGroupsRemaining < doublesCourtsCount;
+  const resolvePlayer = (id: string) => playerMap.get(id);
 
-  const warnedRef = useRef(false);
-  useEffect(() => {
-    if (!isQueueAlmostEmpty) {
-      warnedRef.current = false;
+  const activeDrafts = useMemo(
+    () => drafts.filter((d) => !d.finished),
+    [drafts],
+  );
+
+  const completedDrafts = useMemo(
+    () => drafts.filter((d) => d.finished),
+    [drafts],
+  );
+
+  // Group drafts into rounds based on court count
+  const courtCount = Math.max(courts.length, 1);
+  const rounds: Draft[][] = useMemo(() => {
+    const r: Draft[][] = [];
+    for (let i = 0; i < drafts.length; i += courtCount) {
+      r.push(drafts.slice(i, i + courtCount));
+    }
+    return r;
+  }, [drafts, courtCount]);
+
+  function handleCreateDraft(selectedIds: string[]) {
+    if (selectedIds.length !== 4) return;
+    const draftId = uuidv4();
+    dispatch(addDraft({ id: draftId, playerIds: selectedIds, maxDrafts }));
+    if (courts.length > 0) {
+      const courtIndex = drafts.length % courts.length;
+      dispatch(updateDraftCourt({ id: draftId, courtId: courts[courtIndex].id }));
+    }
+    showToast({ type: "success", message: "Draft created" });
+    setShowSelectModal(false);
+  }
+
+  function handleFinish(winner: "A" | "B") {
+    if (!finishTarget || finishTarget.finished) return;
+    const half = Math.ceil(finishTarget.playerIds.length / 2);
+    const winnerIds =
+      winner === "A"
+        ? finishTarget.playerIds.slice(0, half)
+        : finishTarget.playerIds.slice(half);
+    dispatch(incrementPlayersGameCount(finishTarget.playerIds));
+    dispatch(incrementPlayersTrophies(winnerIds));
+    dispatch(finishDraft({ id: finishTarget.id, winner }));
+    showToast({ type: "success", message: "Match finished" });
+    setFinishTarget(null);
+  }
+
+  function handleAutoDraft(mode: "balanced" | "random" | "skill-match", levels: Set<PlayerLevel>) {
+    const maxNew = maxDrafts - drafts.length;
+    if (maxNew <= 0) {
+      showToast({ type: "info", message: "Draft limit reached" });
       return;
     }
-    if (warnedRef.current) return;
-    warnedRef.current = true;
-    Alert.alert(
-      "Queue almost empty",
-      "The queue is almost empty. Please re-roll the dice to add more players from the bench.",
-      [
-        { text: "Not now", style: "cancel" },
-        { text: "Auto Queue", onPress: () => handleRollDice() },
-      ],
-    );
-  }, [isQueueAlmostEmpty, dispatch]);
 
-  const handleRollDice = () => {
-    const res = dispatch(rollDice()) as any;
-    if (res?.needsConfirmation) {
-      Alert.alert("Confirm mismatched levels", res.message, [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Proceed",
-          style: "destructive",
-          onPress: () => {
-            dispatch(rollDice({ allowIncompatible: true }));
-            showToast({
-              type: "success",
-              message: "Players auto-assigned to queue",
-            });
-          },
-        },
-      ]);
-    } else if (res?.playersAdded && res.playersAdded > 0) {
-      showToast({
-        type: "success",
-        message: `${res.playersAdded} player${
-          res.playersAdded > 1 ? "s" : ""
-        } added to queue`,
-      });
-    } else if (!res?.needsConfirmation) {
-      showToast({
-        type: "info",
-        message: "No available players to assign",
-      });
+    const usedCombos = new Set(
+      drafts.map((d) => [...d.playerIds].sort().join(",")),
+    );
+
+    function shuffle<T>(arr: T[]): T[] {
+      for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+      }
+      return arr;
     }
-  };
 
-  const playerMap = useMemo(() => {
-    const m = new Map(players.map((p) => [p.id, p]));
-    return m;
-  }, [players]);
-
-  const queueGroups = useMemo(() => {
-    const groups: { ids: string[]; index: number; start: number }[] = [];
-    for (let i = 0; i < queueIds.length; i += 4) {
-      const ids = queueIds.slice(i, i + 4);
-      if (ids.length > 0) groups.push({ ids, index: i / 4, start: i });
+    function generateCombos(pool: string[], size: number): string[][] {
+      const combos: string[][] = [];
+      function build(start: number, current: string[]) {
+        if (current.length === size) {
+          combos.push([...current]);
+          return;
+        }
+        for (let i = start; i < pool.length; i++) {
+          current.push(pool[i]);
+          build(i + 1, current);
+          current.pop();
+        }
+      }
+      build(0, []);
+      return shuffle(combos);
     }
-    return groups;
-  }, [queueIds]);
 
-  const doublesCourts = useMemo(
-    () => courts.filter((c) => !c.isSingle),
-    [courts],
-  );
+    function getComboSize(draftIndex: number): number {
+      if (courts.length === 0) return 4;
+      const courtIndex = (drafts.length + draftIndex) % courts.length;
+      return courts[courtIndex].isSingle ? 2 : 4;
+    }
 
-  const fullQueueGroups: QueueGroup[] = useMemo(() => {
-    return queueGroups
-      .filter((g) => g.ids.length === 4)
-      .map((g) => ({
-        index: g.index,
-        ids: g.ids,
-        players: g.ids.map((id) => {
-          const p = playerMap.get(id);
-          return {
-            id,
-            name: p?.name ?? "Unknown",
-            level: p?.level,
-            gameCount: p?.gameCount,
-          };
-        }),
-      }));
-  }, [queueGroups, playerMap]);
+    function commitDraft(combo: string[], draftIndex: number) {
+      shuffle(combo);
+      const key = [...combo].sort().join(",");
+      usedCombos.add(key);
+      const draftId = uuidv4();
+      dispatch(addDraft({ id: draftId, playerIds: combo, maxDrafts }));
+      if (courts.length > 0) {
+        const courtIndex = (drafts.length + draftIndex) % courts.length;
+        dispatch(updateDraftCourt({ id: draftId, courtId: courts[courtIndex].id }));
+      }
+    }
 
-  const animatePlayersUpdate = () => {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.spring);
-  };
+    const roundSize = courts.length > 0 ? courts.length : Infinity;
+    const usedInRound = new Set<string>();
+    let created = 0;
 
-  const removeFirstOccurrence = (ids: string[], idToRemove: string) => {
-    const idx = ids.indexOf(idToRemove);
-    if (idx < 0) return ids;
-    return [...ids.slice(0, idx), ...ids.slice(idx + 1)];
-  };
+    if (mode === "skill-match") {
+      const filteredIds = players
+        .filter((p) => levels.has(p.level))
+        .map((p) => p.id);
 
-  const playersOnAnyCourtIds = useMemo(() => {
-    return new Set(courts.flatMap((c) => c.players.map((p) => p.id)));
-  }, [courts]);
+      if (filteredIds.length < 2) {
+        showToast({ type: "info", message: "Not enough players with selected levels" });
+        setShowAutoDraftModal(false);
+        return;
+      }
 
-  const availablePlayers: Player[] = useMemo(() => {
-    const queuedIds = new Set(queueIds);
-    return players.filter(
-      (p) => !playersOnAnyCourtIds.has(p.id) && !queuedIds.has(p.id),
-    );
-  }, [players, playersOnAnyCourtIds, queueIds]);
+      const counts = new Map(filteredIds.map((id) => [id, 0]));
 
-  const activeCourt = manualAdd.courtId
-    ? (courts.find((c) => c.id === manualAdd.courtId) ?? null)
-    : null;
+      for (let i = 0; i < maxNew; i++) {
+        if (i % roundSize === 0) usedInRound.clear();
+        const comboSize = getComboSize(i);
 
-  const maxToSelect = useMemo(() => {
-    if (!activeCourt) return 0;
-    return Math.max(
-      0,
-      (activeCourt.isSingle ? 2 : 4) - activeCourt.players.length,
-    );
-  }, [activeCourt]);
+        const sorted = [...filteredIds].sort(
+          (a, b) => counts.get(a)! - counts.get(b)!,
+        );
+        let idx = 0;
+        while (idx < sorted.length) {
+          const count = counts.get(sorted[idx])!;
+          let end = idx;
+          while (end < sorted.length && counts.get(sorted[end])! === count) end++;
+          const tier = sorted.slice(idx, end);
+          shuffle(tier);
+          for (let t = 0; t < tier.length; t++) sorted[idx + t] = tier[t];
+          idx = end;
+        }
+
+        let found = false;
+        for (let poolSize = comboSize; poolSize <= sorted.length && !found; poolSize++) {
+          const pool = sorted.slice(0, poolSize);
+          const combos = generateCombos(pool, comboSize);
+          for (const combo of combos) {
+            if (combo.some((id) => usedInRound.has(id))) continue;
+            const key = [...combo].sort().join(",");
+            if (usedCombos.has(key)) continue;
+            for (const id of combo) usedInRound.add(id);
+            commitDraft(combo, i);
+            for (const id of combo) counts.set(id, counts.get(id)! + 1);
+            found = true;
+            created++;
+            break;
+          }
+        }
+        if (!found) {
+          usedCombos.clear();
+          for (let poolSize = comboSize; poolSize <= sorted.length && !found; poolSize++) {
+            const pool = sorted.slice(0, poolSize);
+            const combos = generateCombos(pool, comboSize);
+            for (const combo of combos) {
+              if (combo.some((id) => usedInRound.has(id))) continue;
+              for (const id of combo) usedInRound.add(id);
+              commitDraft(combo, i);
+              for (const id of combo) counts.set(id, counts.get(id)! + 1);
+              found = true;
+              created++;
+              break;
+            }
+          }
+        }
+        if (!found) {
+          if (i % roundSize === 0) break;
+          const nextRound = (Math.floor(i / roundSize) + 1) * roundSize;
+          i = nextRound - 1;
+        }
+      }
+    } else {
+      const ids = players.map((p) => p.id);
+      if (ids.length < 2) {
+        showToast({ type: "info", message: "Not enough players" });
+        setShowAutoDraftModal(false);
+        return;
+      }
+
+      const counts = new Map(ids.map((id) => [id, 0]));
+
+      for (let i = 0; i < maxNew; i++) {
+        if (i % roundSize === 0) usedInRound.clear();
+        const comboSize = getComboSize(i);
+
+        let sorted: string[];
+        if (mode === "random") {
+          sorted = shuffle([...ids]);
+        } else {
+          sorted = [...ids].sort(
+            (a, b) => counts.get(a)! - counts.get(b)!,
+          );
+          let idx = 0;
+          while (idx < sorted.length) {
+            const count = counts.get(sorted[idx])!;
+            let end = idx;
+            while (end < sorted.length && counts.get(sorted[end])! === count) end++;
+            const tier = sorted.slice(idx, end);
+            shuffle(tier);
+            for (let t = 0; t < tier.length; t++) sorted[idx + t] = tier[t];
+            idx = end;
+          }
+        }
+
+        let found = false;
+        for (let poolSize = comboSize; poolSize <= sorted.length && !found; poolSize++) {
+          const pool = sorted.slice(0, poolSize);
+          const combos = generateCombos(pool, comboSize);
+          for (const combo of combos) {
+            if (combo.some((id) => usedInRound.has(id))) continue;
+            const key = [...combo].sort().join(",");
+            if (usedCombos.has(key)) continue;
+            for (const id of combo) usedInRound.add(id);
+            commitDraft(combo, i);
+            for (const id of combo) counts.set(id, counts.get(id)! + 1);
+            found = true;
+            created++;
+            break;
+          }
+        }
+        if (!found) {
+          usedCombos.clear();
+          for (let poolSize = comboSize; poolSize <= sorted.length && !found; poolSize++) {
+            const pool = sorted.slice(0, poolSize);
+            const combos = generateCombos(pool, comboSize);
+            for (const combo of combos) {
+              if (combo.some((id) => usedInRound.has(id))) continue;
+              for (const id of combo) usedInRound.add(id);
+              commitDraft(combo, i);
+              for (const id of combo) counts.set(id, counts.get(id)! + 1);
+              found = true;
+              created++;
+              break;
+            }
+          }
+        }
+        if (!found) {
+          if (i % roundSize === 0) break;
+          const nextRound = (Math.floor(i / roundSize) + 1) * roundSize;
+          i = nextRound - 1;
+        }
+      }
+    }
+
+    showToast({
+      type: created > 0 ? "success" : "info",
+      message: created > 0 ? `${created} draft${created > 1 ? "s" : ""} created` : "No new drafts could be generated",
+    });
+    setShowAutoDraftModal(false);
+  }
+
+  function handleReset() {
+    ConfirmationAlert({
+      title: "Reset All",
+      message:
+        "This will clear all drafts and reset all players' game counts and trophies to zero. Are you sure?",
+      onConfirm: () => {
+        dispatch(clearDrafts());
+        dispatch(resetAllGameCounts());
+        showToast({ type: "info", message: "All drafts reset" });
+      },
+    });
+  }
 
   return (
     <SafeAreaView className="flex-1 bg-primary">
@@ -337,16 +332,44 @@ const activity = () => {
       <View className="px-6 pt-4 pb-2">
         <View className="flex-row items-center gap-3">
           <View className="size-12 rounded-2xl bg-court-deep/30 items-center justify-center">
-            <Feather
-              name="activity"
+            <MaterialCommunityIcons
+              name="file-document-edit-outline"
               size={24}
               color={BadmintonPalette.court.lime}
             />
           </View>
-          <View>
-            <Text className="text-light-100 text-2xl font-bold">Activity</Text>
+          <View className="flex-1">
+            <View className="flex-row items-center gap-2">
+              <Text className="text-light-100 text-2xl font-bold">Draft</Text>
+              <TouchableOpacity
+                onPress={() => setShowMaxDraftsModal(true)}
+                disabled={drafts.length > 0}
+                className="flex-row items-center gap-1.5 px-2.5 py-1 rounded-lg bg-dark-200 border border-dark-100"
+                style={{ opacity: drafts.length > 0 ? 0.5 : 1 }}
+              >
+                <Text
+                  className="text-sm font-bold"
+                  style={{ color: BadmintonPalette.accent.primary }}
+                >
+                  {maxDrafts}
+                </Text>
+                <Text
+                  className="text-xs"
+                  style={{ color: BadmintonPalette.text.muted }}
+                >
+                  matches
+                </Text>
+                {drafts.length === 0 && (
+                  <MaterialCommunityIcons
+                    name="pencil"
+                    size={12}
+                    color={BadmintonPalette.text.muted}
+                  />
+                )}
+              </TouchableOpacity>
+            </View>
             <Text className="text-light-300 text-sm">
-              Manage matches and queues
+              Manage matches and drafts
             </Text>
           </View>
         </View>
@@ -356,22 +379,21 @@ const activity = () => {
         className="flex-1"
         contentContainerStyle={{ padding: 24, gap: 16, paddingBottom: 140 }}
       >
-        {/* Quick Actions */}
+        {/* Stats Row */}
         <View className="bg-secondary border border-dark-100 rounded-2xl overflow-hidden">
-          {/* Stats Row */}
           <View className="flex-row border-b border-dark-100">
             <View className="flex-1 p-3 items-center border-r border-dark-100">
               <Text
                 className="text-2xl font-bold"
                 style={{ color: BadmintonPalette.court.lime }}
               >
-                {availablePlayers.length}
+                {players.length}
               </Text>
               <Text
                 className="text-xs"
                 style={{ color: BadmintonPalette.text.muted }}
               >
-                On Bench
+                Players
               </Text>
             </View>
             <View className="flex-1 p-3 items-center border-r border-dark-100">
@@ -379,62 +401,76 @@ const activity = () => {
                 className="text-2xl font-bold"
                 style={{ color: BadmintonPalette.status.waiting }}
               >
-                {queueGroups.length}
+                {activeDrafts.length}
               </Text>
               <Text
                 className="text-xs"
                 style={{ color: BadmintonPalette.text.muted }}
               >
-                In Queue
+                Active
               </Text>
             </View>
             <View className="flex-1 p-3 items-center">
               <Text
                 className="text-2xl font-bold"
-                style={{ color: BadmintonPalette.court.lime }}
+                style={{ color: BadmintonPalette.accent.primary }}
               >
-                {doublesCourts.filter((c) => c.players.length === 0).length}
+                {completedDrafts.length}
               </Text>
               <Text
                 className="text-xs"
                 style={{ color: BadmintonPalette.text.muted }}
               >
-                Available Courts
+                Completed
               </Text>
             </View>
           </View>
 
           {/* Actions */}
-          <View className="p-4">
-            {/* Low queue warning */}
-            {isQueueAlmostEmpty && (
-              <View
-                className="flex-row items-center p-3 rounded-xl mb-3"
-                style={{
-                  backgroundColor: `${BadmintonPalette.accent.primary}15`,
-                }}
-              >
+          <View className="p-4 gap-3">
+            {/* Error */}
+            {draftsError && (
+              <View className="flex-row items-center p-3 rounded-xl bg-danger/10 border border-danger/30">
                 <MaterialCommunityIcons
                   name="alert-circle-outline"
                   size={18}
-                  color={BadmintonPalette.accent.primary}
+                  color={BadmintonPalette.accent.danger}
                 />
-                <Text
-                  className="text-xs font-medium ml-2 flex-1"
-                  style={{ color: BadmintonPalette.accent.primary }}
-                >
-                  Queue is running low. Auto queue to add more players!
+                <Text className="text-xs font-medium ml-2 flex-1 text-danger">
+                  {draftsError}
                 </Text>
+                <TouchableOpacity onPress={() => dispatch(clearDraftsError())}>
+                  <MaterialCommunityIcons
+                    name="close"
+                    size={18}
+                    color={BadmintonPalette.accent.danger}
+                  />
+                </TouchableOpacity>
               </View>
             )}
 
-            {/* Auto Queue - Primary Action */}
+            {/* Auto Draft */}
             <TouchableOpacity
-              onPress={handleRollDice}
-              className="flex-row items-center p-4 rounded-xl mb-3"
-              style={{ backgroundColor: BadmintonPalette.accent.primary }}
+              onPress={() => {
+                if (courts.length === 0) {
+                  Alert.alert("No Courts Available", "Please add at least one court before creating drafts.");
+                  return;
+                }
+                if (players.length < 4) {
+                  Alert.alert("Not Enough Players", "You need at least 4 players to auto-draft.");
+                  return;
+                }
+                setShowAutoDraftModal(true);
+              }}
+              disabled={drafts.length >= maxDrafts || players.length < 4}
+              className="flex-row items-center p-4 rounded-xl"
+              style={{
+                backgroundColor: BadmintonPalette.accent.primary,
+                opacity:
+                  drafts.length >= maxDrafts || players.length < 4 ? 0.4 : 1,
+              }}
               accessibilityRole="button"
-              accessibilityLabel="Auto queue bench players"
+              accessibilityLabel="Auto draft players"
             >
               <View
                 className="size-10 rounded-xl items-center justify-center mr-3"
@@ -451,10 +487,10 @@ const activity = () => {
                   className="text-base font-bold"
                   style={{ color: BadmintonPalette.bg.base }}
                 >
-                  Auto Queue
+                  Auto Draft
                 </Text>
                 <Text className="text-xs" style={{ color: "rgba(0,0,0,0.6)" }}>
-                  Randomly add bench players to queue
+                  Randomly generate match drafts
                 </Text>
               </View>
               <MaterialCommunityIcons
@@ -464,24 +500,27 @@ const activity = () => {
               />
             </TouchableOpacity>
 
-            {/* Manual Queue - Secondary Action */}
+            {/* New Draft */}
             <TouchableOpacity
               onPress={() => {
-                const remainder = queueIds.length % 4;
-                const missingCount = remainder === 0 ? 4 : 4 - remainder;
-                const groupIndex = Math.floor(queueIds.length / 4);
-                const queueNumber = doublesCourts.length + groupIndex + 1;
-                setManualAddQueue({
-                  visible: true,
-                  insertIndex: queueIds.length,
-                  missingCount,
-                  queueNumber,
-                });
+                if (courts.length === 0) {
+                  Alert.alert(
+                    "No Courts Available",
+                    "Please add at least one court before creating drafts.",
+                  );
+                  return;
+                }
+                setShowSelectModal(true);
               }}
+              disabled={drafts.length >= maxDrafts || players.length < 4}
               className="flex-row items-center p-4 rounded-xl border border-dark-100"
-              style={{ backgroundColor: BadmintonPalette.bg.elevated }}
+              style={{
+                backgroundColor: BadmintonPalette.bg.elevated,
+                opacity:
+                  drafts.length >= maxDrafts || players.length < 4 ? 0.4 : 1,
+              }}
               accessibilityRole="button"
-              accessibilityLabel="Manually queue specific players"
+              accessibilityLabel="Create new draft manually"
             >
               <View
                 className="size-10 rounded-xl items-center justify-center mr-3"
@@ -490,8 +529,8 @@ const activity = () => {
                 }}
               >
                 <MaterialCommunityIcons
-                  name="account-plus"
-                  size={20}
+                  name="plus"
+                  size={22}
                   color={BadmintonPalette.court.lime}
                 />
               </View>
@@ -500,13 +539,13 @@ const activity = () => {
                   className="text-base font-bold"
                   style={{ color: BadmintonPalette.text.primary }}
                 >
-                  Manual Queue
+                  New Draft
                 </Text>
                 <Text
                   className="text-xs"
                   style={{ color: BadmintonPalette.text.muted }}
                 >
-                  Choose specific players to add
+                  Select 4 players manually
                 </Text>
               </View>
               <MaterialCommunityIcons
@@ -515,306 +554,575 @@ const activity = () => {
                 color={BadmintonPalette.text.muted}
               />
             </TouchableOpacity>
-          </View>
-        </View>
 
-        {/* In Game Section */}
-        <View style={{ gap: 12 }}>
-          <View className="flex-row items-center gap-2">
-            <View className="size-2 rounded-full bg-danger" />
-            <Text className="text-light-100 text-lg font-bold">In Game</Text>
-            <Text className="text-light-300 text-sm ml-auto">
-              {doublesCourts.length} courts
-            </Text>
-          </View>
-
-          {doublesCourts.length === 0 ? (
-            <View className="bg-secondary border border-dark-100 rounded-2xl p-8 items-center">
-              <MaterialCommunityIcons
-                name="badminton"
-                size={40}
-                color={BadmintonPalette.text.muted}
-              />
-              <Text className="text-light-300 text-sm mt-3 text-center">
-                No doubles courts configured
-              </Text>
-            </View>
-          ) : (
-            doublesCourts.map((court) => (
-              <CourtCard
-                key={court.id}
-                name={court.name}
-                players={court.players}
-                isSingle={court.isSingle}
-                onDeleteTag={(playerId) => {
-                  animatePlayersUpdate();
-                  dispatch(
-                    removePlayerFromCourt({ courtId: court.id, playerId }),
-                  );
-                }}
-                onEndGame={() => {
-                  ConfirmationAlert({
-                    title: "End Game",
-                    message: `Mark the game on ${court.name} as finished and count the players' games?`,
-                    onConfirm: () => {
-                      animatePlayersUpdate();
-                      const result = dispatch(
-                        endGameAndAdvanceQueue(court.id),
-                      ) as any;
-                      showToast({
-                        type: "success",
-                        message: `Game ended on ${court.name}`,
-                      });
-                      if (result?.warnedQueueEmpty) {
-                        Alert.alert(
-                          "Queue almost empty",
-                          "Use Auto Queue to add more players from the bench.",
-                        );
-                      }
-                    },
-                  });
-                }}
-                onDissolve={() => {
-                  ConfirmationAlert({
-                    title: "Dissolve Game",
-                    message: `Send players on ${court.name} back to the bench? Games will NOT be counted.`,
-                    onConfirm: () => {
-                      animatePlayersUpdate();
-                      dispatch(dissolveCourt(court.id));
-                      showToast({
-                        type: "info",
-                        message: `${court.name} dissolved`,
-                      });
-                    },
-                  });
-                }}
-                onBackToQueue={() => {
-                  ConfirmationAlert({
-                    title: "Back to Queue",
-                    message: `Send players on ${court.name} back to the queue? Games will NOT be counted.`,
-                    onConfirm: () => {
-                      animatePlayersUpdate();
-                      dispatch(backToQueue(court.id));
-                      showToast({
-                        type: "info",
-                        message: `${court.name} players sent back to queue`,
-                      });
-                    },
-                  });
-                }}
-                onAssignPlayers={() => {
-                  animatePlayersUpdate();
-                  dispatch(
-                    assignPlayersToCourt({
-                      courtId: court.id,
-                      players: shuffle([...availablePlayers]),
-                    }),
-                  );
-                }}
-                onManuallyAddPlayers={() => {
-                  dispatch(clearCourtsError());
-                  setManualAdd({ visible: true, courtId: court.id });
-                }}
-                onAssignFromQueue={
-                  fullQueueGroups.length > 0
-                    ? () =>
-                        setAssignFromQueue({ visible: true, courtId: court.id })
-                    : undefined
-                }
-              />
-            ))
-          )}
-        </View>
-
-        {/* Waiting Queue Section */}
-        {queueGroups.length > 0 ? (
-          <View className="bg-secondary border border-dark-100 rounded-2xl overflow-hidden">
-            <View className="flex-row items-center justify-between p-4 border-b border-dark-100">
-              <View className="flex-row items-center gap-2">
-                <View className="size-2 rounded-full bg-success" />
-                <Text className="text-light-100 text-lg font-bold">
-                  Waiting Queue
+            {/* Reset */}
+            {drafts.length > 0 && (
+              <TouchableOpacity
+                onPress={handleReset}
+                className="flex-row items-center justify-center p-3 rounded-xl border border-danger/30"
+                style={{ backgroundColor: `${BadmintonPalette.accent.danger}10` }}
+                accessibilityRole="button"
+                accessibilityLabel="Reset all drafts"
+              >
+                <MaterialCommunityIcons
+                  name="refresh"
+                  size={18}
+                  color={BadmintonPalette.accent.danger}
+                />
+                <Text className="text-sm font-bold text-danger ml-2">
+                  Reset All
                 </Text>
-              </View>
-              <Text className="text-light-300 text-sm">
-                {queueGroups.length} groups
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+
+        {/* Draft List */}
+        {drafts.length > 0 ? (
+          <View style={{ gap: 12 }}>
+            <View className="flex-row items-center gap-2">
+              <MaterialCommunityIcons
+                name="file-document-outline"
+                size={18}
+                color={BadmintonPalette.court.lime}
+              />
+              <Text className="text-light-100 text-lg font-bold">
+                Matches
+              </Text>
+              <Text className="text-light-300 text-sm ml-auto">
+                {drafts.length} draft{drafts.length !== 1 ? "s" : ""}
               </Text>
             </View>
 
-            <View className="p-4 gap-3">
-              {queueGroups.map((g) => {
-                const groupPlayers = g.ids.map((id) => {
-                  const player = playerMap.get(id);
-                  return {
-                    id,
-                    name: player?.name ?? "Unknown",
-                    level: player?.level,
-                    gameCount: player?.gameCount,
-                  };
-                });
-                const isIncomplete = g.ids.length < 4;
-                return (
-                  <QueueCard
-                    key={`waiting-${g.index}`}
-                    queueNumber={g.index + 1}
-                    playersText={groupPlayers.map((p) => p.name).join(", ")}
-                    players={groupPlayers}
-                    assignedCourtText="Waiting"
-                    variant="waiting"
-                    onRemovePlayer={(playerId) => {
-                      animatePlayersUpdate();
-                      dispatch(
-                        setQueue(removeFirstOccurrence(queueIds, playerId)),
-                      );
-                    }}
-                    onDissolve={() => {
-                      const queueNumber = g.index + 1;
-                      Alert.alert(
-                        "Dissolve Queue",
-                        `Return Queue ${queueNumber} players to bench?`,
-                        [
-                          { text: "Cancel", style: "cancel" },
-                          {
-                            text: "Dissolve",
-                            style: "destructive",
-                            onPress: () => {
-                              const groupSet = new Set(g.ids);
-                              animatePlayersUpdate();
-                              dispatch(
-                                setQueue(
-                                  queueIds.filter((id) => !groupSet.has(id)),
-                                ),
-                              );
-                            },
-                          },
-                        ],
-                      );
-                    }}
-                    showManuallyAddPlayers={isIncomplete}
-                    onManuallyAddPlayers={() => {
-                      const queueNumber = g.index + 1;
-                      const missingCount = Math.max(0, 4 - g.ids.length);
-                      const insertIndex = g.start + g.ids.length;
-                      setManualAddQueue({
-                        visible: true,
-                        insertIndex,
-                        missingCount,
-                        queueNumber,
-                      });
-                    }}
-                  />
-                );
-              })}
-            </View>
+            {rounds.map((round, roundIndex) => (
+              <View key={roundIndex} style={{ gap: 8 }}>
+                {roundIndex > 0 && (
+                  <View className="flex-row items-center gap-3 py-1">
+                    <View className="flex-1 h-px bg-accent/20" />
+                    <Text className="text-xs font-semibold text-accent/50 uppercase tracking-widest">
+                      Set {roundIndex + 1}
+                    </Text>
+                    <View className="flex-1 h-px bg-accent/20" />
+                  </View>
+                )}
+                {round.map((draft, indexInRound) => {
+                  const matchNumber =
+                    roundIndex * courtCount + indexInRound + 1;
+                  const half = Math.ceil(draft.playerIds.length / 2);
+                  const teamA = draft.playerIds
+                    .slice(0, half)
+                    .map(resolvePlayer)
+                    .filter((p): p is Player => p !== undefined);
+                  const teamB = draft.playerIds
+                    .slice(half)
+                    .map(resolvePlayer)
+                    .filter((p): p is Player => p !== undefined);
+                  const court = courts.find((c) => c.id === draft.courtId);
+
+                  return (
+                    <View
+                      key={draft.id}
+                      className={`rounded-2xl bg-secondary border overflow-hidden ${
+                        draft.finished
+                          ? "border-dark-100 opacity-50"
+                          : "border-dark-100"
+                      }`}
+                    >
+                      {/* Draft Header */}
+                      <View className="flex-row items-center justify-between p-4 border-b border-dark-100">
+                        <View className="flex-row items-center gap-2">
+                          <Text
+                            className="text-sm font-bold"
+                            style={{ color: BadmintonPalette.accent.primary }}
+                          >
+                            #{matchNumber}
+                          </Text>
+                          {court && (
+                            <View className="px-2 py-0.5 rounded-md bg-dark-200 border border-dark-100">
+                              <Text
+                                className="text-xs"
+                                style={{ color: BadmintonPalette.text.secondary }}
+                              >
+                                {court.name}
+                              </Text>
+                            </View>
+                          )}
+                        </View>
+                        {draft.finished ? (
+                          <View className="px-2 py-1 rounded-full bg-accent/15">
+                            <Text className="text-xs font-bold" style={{ color: BadmintonPalette.accent.primary }}>
+                              FINISHED
+                            </Text>
+                          </View>
+                        ) : (
+                          <View className="flex-row gap-2">
+                            <TouchableOpacity
+                              onPress={() => setFinishTarget(draft)}
+                              className="px-3 py-1.5 rounded-lg bg-success/10 border border-success/30"
+                              accessibilityRole="button"
+                              accessibilityLabel={`Finish match ${matchNumber}`}
+                            >
+                              <Text className="text-xs font-bold text-success">
+                                Finish
+                              </Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                              onPress={() => {
+                                ConfirmationAlert({
+                                  title: "Delete Draft",
+                                  message: `Delete draft #${matchNumber}?`,
+                                  onConfirm: () => {
+                                    dispatch(removeDraft(draft.id));
+                                    showToast({
+                                      type: "info",
+                                      message: "Draft deleted",
+                                    });
+                                  },
+                                });
+                              }}
+                              className="px-3 py-1.5 rounded-lg bg-danger/10 border border-danger/30"
+                              accessibilityRole="button"
+                              accessibilityLabel={`Delete draft ${matchNumber}`}
+                            >
+                              <Text className="text-xs font-bold text-danger">
+                                Delete
+                              </Text>
+                            </TouchableOpacity>
+                          </View>
+                        )}
+                      </View>
+
+                      {/* Teams */}
+                      <View className="p-4">
+                        <View className="flex-row items-center">
+                          {/* Team A */}
+                          <View className="flex-1 gap-1.5">
+                            <Text
+                              className="text-[10px] font-bold uppercase tracking-wide mb-1"
+                              style={{
+                                color:
+                                  draft.finished && draft.winner === "A"
+                                    ? BadmintonPalette.accent.primary
+                                    : BadmintonPalette.text.muted,
+                              }}
+                            >
+                              Team A{" "}
+                              {draft.finished && draft.winner === "A"
+                                ? "★"
+                                : ""}
+                            </Text>
+                            {teamA.map((p) => (
+                              <PlayerTag
+                                key={p.id}
+                                name={p.name}
+                                level={p.level}
+                                gameCount={p.gameCount}
+                              />
+                            ))}
+                          </View>
+
+                          {/* VS */}
+                          <View className="px-3">
+                            <Text className="text-xs font-bold text-danger uppercase">
+                              vs
+                            </Text>
+                          </View>
+
+                          {/* Team B */}
+                          <View className="flex-1 gap-1.5">
+                            <Text
+                              className="text-[10px] font-bold uppercase tracking-wide mb-1"
+                              style={{
+                                color:
+                                  draft.finished && draft.winner === "B"
+                                    ? BadmintonPalette.accent.primary
+                                    : BadmintonPalette.text.muted,
+                              }}
+                            >
+                              Team B{" "}
+                              {draft.finished && draft.winner === "B"
+                                ? "★"
+                                : ""}
+                            </Text>
+                            {teamB.map((p) => (
+                              <PlayerTag
+                                key={p.id}
+                                name={p.name}
+                                level={p.level}
+                                gameCount={p.gameCount}
+                              />
+                            ))}
+                          </View>
+                        </View>
+                      </View>
+                    </View>
+                  );
+                })}
+              </View>
+            ))}
           </View>
         ) : (
           <View className="bg-secondary border border-dark-100 rounded-2xl p-8 items-center">
             <MaterialCommunityIcons
-              name="timer-sand-empty"
+              name="file-document-outline"
               size={48}
               color={BadmintonPalette.text.muted}
             />
             <Text className="text-light-300 text-sm mt-3 text-center">
-              No players in queue{"\n"}Tap Auto Queue to start
+              No drafts yet{"\n"}Tap Auto Draft or New Draft to start
             </Text>
           </View>
         )}
       </ScrollView>
 
+      {/* Select Players Modal */}
       <ManualAddPlayersModal
-        visible={manualAdd.visible}
-        onClose={() => setManualAdd({ visible: false, courtId: null })}
-        title={
-          activeCourt ? `Add players to ${activeCourt.name}` : "Add players"
-        }
-        players={availablePlayers}
-        maxSelect={maxToSelect}
-        onConfirm={(selectedIds) => {
-          if (!activeCourt) return;
-          const selectedPlayers = availablePlayers.filter((p) =>
-            selectedIds.includes(p.id),
-          );
-          animatePlayersUpdate();
-          dispatch(
-            addPlayersToCourtManually({
-              courtId: activeCourt.id,
-              players: selectedPlayers,
-            }),
-          );
-          showToast({
-            type: "success",
-            message: `${selectedPlayers.length} player${
-              selectedPlayers.length > 1 ? "s" : ""
-            } added to ${activeCourt.name}`,
-          });
-          setManualAdd({ visible: false, courtId: null });
-        }}
+        visible={showSelectModal}
+        onClose={() => setShowSelectModal(false)}
+        title="Select 4 Players for Draft"
+        players={players}
+        maxSelect={4}
+        onConfirm={handleCreateDraft}
       />
 
-      <ManualAddPlayersModal
-        visible={manualAddQueue.visible}
-        onClose={() =>
-          setManualAddQueue({
-            visible: false,
-            insertIndex: 0,
-            missingCount: 0,
-            queueNumber: 0,
-          })
-        }
-        title={`Add to Queue ${manualAddQueue.queueNumber}`}
-        players={availablePlayers}
-        maxSelect={manualAddQueue.missingCount}
-        onConfirm={(selectedIds) => {
-          if (selectedIds.length === 0) return;
-          animatePlayersUpdate();
-          const next = [...queueIds];
-          next.splice(manualAddQueue.insertIndex, 0, ...selectedIds);
-          dispatch(setQueue(next));
-          showToast({
-            type: "success",
-            message: `${selectedIds.length} player${
-              selectedIds.length > 1 ? "s" : ""
-            } added to queue`,
-          });
-          setManualAddQueue({
-            visible: false,
-            insertIndex: 0,
-            missingCount: 0,
-            queueNumber: 0,
-          });
-        }}
-      />
+      {/* Finish Match Modal */}
+      <Modal
+        transparent
+        animationType="fade"
+        visible={!!finishTarget}
+        onRequestClose={() => setFinishTarget(null)}
+      >
+        <Pressable
+          className="flex-1 items-center justify-center bg-black/70 px-5"
+          onPress={() => setFinishTarget(null)}
+        >
+          <Pressable
+            className="w-full max-w-sm rounded-2xl bg-secondary border border-dark-100 overflow-hidden"
+            onPress={() => {}}
+          >
+            <View className="p-4 border-b border-dark-100">
+              <Text
+                className="text-lg font-bold"
+                style={{ color: BadmintonPalette.text.primary }}
+              >
+                Select Winner
+              </Text>
+              <Text
+                className="text-sm mt-1"
+                style={{ color: BadmintonPalette.text.muted }}
+              >
+                Which team won this match?
+              </Text>
+            </View>
 
-      <SelectQueueGroupModal
-        visible={assignFromQueue.visible}
-        onClose={() => setAssignFromQueue({ visible: false, courtId: null })}
-        courtName={
-          courts.find((c) => c.id === assignFromQueue.courtId)?.name ?? "Court"
-        }
-        queueGroups={fullQueueGroups}
-        onSelect={(group) => {
-          if (!assignFromQueue.courtId) return;
-          const selectedPlayers = group.ids
-            .map((id) => playerMap.get(id))
-            .filter(Boolean) as Player[];
-          if (selectedPlayers.length === 0) return;
+            {finishTarget && (
+              <View className="p-4 gap-3">
+                {(["A", "B"] as const).map((team) => {
+                  const half = Math.ceil(finishTarget.playerIds.length / 2);
+                  const teamIds =
+                    team === "A"
+                      ? finishTarget.playerIds.slice(0, half)
+                      : finishTarget.playerIds.slice(half);
+                  const teamPlayers = teamIds
+                    .map(resolvePlayer)
+                    .filter((p): p is Player => p !== undefined);
 
-          animatePlayersUpdate();
-          const groupSet = new Set(group.ids);
-          dispatch(setQueue(queueIds.filter((id) => !groupSet.has(id))));
-          dispatch(
-            addPlayersToCourtManually({
-              courtId: assignFromQueue.courtId,
-              players: selectedPlayers,
-            }),
-          );
-          showToast({
-            type: "success",
-            message: `Queue ${group.index + 1} assigned to court`,
-          });
-          setAssignFromQueue({ visible: false, courtId: null });
-        }}
-      />
+                  return (
+                    <TouchableOpacity
+                      key={team}
+                      onPress={() => handleFinish(team)}
+                      className="p-4 rounded-xl border border-dark-100 bg-dark-200"
+                      style={{ gap: 8 }}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Team ${team} wins`}
+                    >
+                      <Text
+                        className="text-xs font-bold uppercase tracking-wide"
+                        style={{ color: BadmintonPalette.court.lime }}
+                      >
+                        Team {team}
+                      </Text>
+                      <View style={{ gap: 6 }}>
+                        {teamPlayers.map((p) => (
+                          <PlayerTag
+                            key={p.id}
+                            name={p.name}
+                            level={p.level}
+                          />
+                        ))}
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })}
+
+                <TouchableOpacity
+                  onPress={() => setFinishTarget(null)}
+                  className="py-3 rounded-xl border border-dark-100 bg-dark-200 items-center"
+                >
+                  <Text
+                    className="font-bold"
+                    style={{ color: BadmintonPalette.text.secondary }}
+                  >
+                    Cancel
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </Pressable>
+        </Pressable>
+      </Modal>
+      {/* Max Drafts Modal */}
+      <Modal
+        transparent
+        animationType="fade"
+        visible={showMaxDraftsModal}
+        onRequestClose={() => setShowMaxDraftsModal(false)}
+      >
+        <Pressable
+          className="flex-1 items-center justify-center bg-black/70 px-5"
+          onPress={() => setShowMaxDraftsModal(false)}
+        >
+          <Pressable
+            className="w-full max-w-sm rounded-2xl bg-secondary border border-dark-100 overflow-hidden"
+            onPress={() => {}}
+          >
+            <View className="p-4 border-b border-dark-100">
+              <Text
+                className="text-lg font-bold"
+                style={{ color: BadmintonPalette.text.primary }}
+              >
+                Max Drafts
+              </Text>
+              <Text
+                className="text-sm mt-1"
+                style={{ color: BadmintonPalette.text.muted }}
+              >
+                Set the maximum number of matches to generate
+              </Text>
+            </View>
+
+            <View className="p-4 gap-4">
+              <View className="flex-row items-center justify-center gap-3">
+                <TouchableOpacity
+                  onPress={() => setMaxDrafts(Math.max(1, maxDrafts - 5))}
+                  className="size-10 rounded-xl bg-dark-200 border border-dark-100 items-center justify-center"
+                >
+                  <Text className="text-light-100 text-lg font-bold">−</Text>
+                </TouchableOpacity>
+                <TextInput
+                  className="w-16 text-center text-xl font-bold rounded-xl bg-dark-200 border border-dark-100 py-2"
+                  style={{ color: BadmintonPalette.accent.primary }}
+                  keyboardType="numeric"
+                  value={String(maxDrafts)}
+                  onChangeText={(val) => {
+                    const n = parseInt(val, 10);
+                    if (!isNaN(n) && n >= 1) setMaxDrafts(n);
+                  }}
+                />
+                <TouchableOpacity
+                  onPress={() => setMaxDrafts(maxDrafts + 5)}
+                  className="size-10 rounded-xl bg-dark-200 border border-dark-100 items-center justify-center"
+                >
+                  <Text className="text-light-100 text-lg font-bold">+</Text>
+                </TouchableOpacity>
+              </View>
+
+              <TouchableOpacity
+                onPress={() => setShowMaxDraftsModal(false)}
+                className="py-3 rounded-xl items-center"
+                style={{ backgroundColor: BadmintonPalette.accent.primary }}
+              >
+                <Text
+                  className="font-bold"
+                  style={{ color: BadmintonPalette.bg.base }}
+                >
+                  Done
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* Auto Draft Modal */}
+      <Modal
+        transparent
+        animationType="fade"
+        visible={showAutoDraftModal}
+        onRequestClose={() => setShowAutoDraftModal(false)}
+      >
+        <Pressable
+          className="flex-1 items-center justify-center bg-black/70 px-5"
+          onPress={() => setShowAutoDraftModal(false)}
+        >
+          <Pressable
+            className="w-full max-w-sm rounded-2xl bg-secondary border border-dark-100 overflow-hidden"
+            onPress={() => {}}
+          >
+            <View className="p-4 border-b border-dark-100">
+              <Text
+                className="text-lg font-bold"
+                style={{ color: BadmintonPalette.text.primary }}
+              >
+                Auto Draft
+              </Text>
+              <Text
+                className="text-sm mt-1"
+                style={{ color: BadmintonPalette.text.muted }}
+              >
+                Generate up to {maxDrafts - drafts.length} drafts automatically.
+              </Text>
+            </View>
+
+            <View className="p-4 gap-4">
+              {/* Shuffle Mode */}
+              <View>
+                <Text
+                  className="text-xs font-semibold uppercase tracking-wider mb-2"
+                  style={{ color: BadmintonPalette.text.secondary }}
+                >
+                  Shuffle Mode
+                </Text>
+                <View style={{ gap: 8 }}>
+                  {(
+                    [
+                      { key: "balanced", label: "Balanced", desc: "Equal game distribution" },
+                      { key: "random", label: "Random", desc: "Fully randomized" },
+                      { key: "skill-match", label: "Skill Match", desc: "Filter by skill level" },
+                    ] as const
+                  ).map((opt) => (
+                    <TouchableOpacity
+                      key={opt.key}
+                      onPress={() => setShuffleMode(opt.key)}
+                      className={`flex-row items-center p-3 rounded-xl border ${
+                        shuffleMode === opt.key
+                          ? "border-accent/50 bg-accent/10"
+                          : "border-dark-100 bg-dark-200"
+                      }`}
+                    >
+                      <View
+                        className={`size-5 rounded-full border-2 items-center justify-center mr-3 ${
+                          shuffleMode === opt.key
+                            ? "border-accent"
+                            : "border-dark-100"
+                        }`}
+                      >
+                        {shuffleMode === opt.key && (
+                          <View className="size-2.5 rounded-full bg-accent" />
+                        )}
+                      </View>
+                      <View className="flex-1">
+                        <Text
+                          className="text-sm font-semibold"
+                          style={{ color: BadmintonPalette.text.primary }}
+                        >
+                          {opt.label}
+                        </Text>
+                        <Text
+                          className="text-xs"
+                          style={{ color: BadmintonPalette.text.muted }}
+                        >
+                          {opt.desc}
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+
+              {/* Level Filter (skill-match only) */}
+              {shuffleMode === "skill-match" && (
+                <View>
+                  <Text
+                    className="text-xs font-semibold uppercase tracking-wider mb-2"
+                    style={{ color: BadmintonPalette.text.secondary }}
+                  >
+                    Include Levels
+                  </Text>
+                  <View className="flex-row flex-wrap" style={{ gap: 8 }}>
+                    {Object.values(PlayerLevel).map((level) => {
+                      const config = playerLevelConfig[level];
+                      const checked = selectedLevels.has(level);
+                      return (
+                        <TouchableOpacity
+                          key={level}
+                          onPress={() => {
+                            setSelectedLevels((prev) => {
+                              const next = new Set(prev);
+                              if (next.has(level)) next.delete(level);
+                              else next.add(level);
+                              return next;
+                            });
+                          }}
+                          className={`flex-row items-center px-3 py-2 rounded-xl border ${
+                            checked
+                              ? "border-accent/50 bg-accent/10"
+                              : "border-dark-100 bg-dark-200 opacity-50"
+                          }`}
+                        >
+                          <View
+                            className="size-5 rounded items-center justify-center mr-1.5"
+                            style={{ backgroundColor: `${config.color}15` }}
+                          >
+                            <Text
+                              className="text-[10px] font-bold"
+                              style={{ color: config.color }}
+                            >
+                              {config.shortLabel}
+                            </Text>
+                          </View>
+                          <Text
+                            className="text-sm"
+                            style={{ color: BadmintonPalette.text.primary }}
+                          >
+                            {config.label}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                  {selectedLevels.size === 0 && (
+                    <Text className="text-xs text-danger mt-1">
+                      Select at least one level
+                    </Text>
+                  )}
+                </View>
+              )}
+
+              {/* Actions */}
+              <View className="flex-row gap-3 pt-2">
+                <TouchableOpacity
+                  onPress={() => setShowAutoDraftModal(false)}
+                  className="flex-1 py-3 rounded-xl border border-dark-100 bg-dark-200 items-center"
+                >
+                  <Text
+                    className="font-bold"
+                    style={{ color: BadmintonPalette.text.secondary }}
+                  >
+                    Cancel
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => handleAutoDraft(shuffleMode, selectedLevels)}
+                  disabled={shuffleMode === "skill-match" && selectedLevels.size === 0}
+                  className="flex-1 py-3 rounded-xl items-center"
+                  style={{
+                    backgroundColor: BadmintonPalette.accent.primary,
+                    opacity: shuffleMode === "skill-match" && selectedLevels.size === 0 ? 0.4 : 1,
+                  }}
+                >
+                  <Text
+                    className="font-bold"
+                    style={{ color: BadmintonPalette.bg.base }}
+                  >
+                    Generate
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   );
 };
