@@ -43,6 +43,7 @@ export {
 // Drafts slice
 export {
 	addDraft,
+	addDraftsBatch,
 	removeDraft,
 	updateDraftPlayers,
 	updateDraftCourt,

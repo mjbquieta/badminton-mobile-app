@@ -6,6 +6,7 @@ import { Modal } from "@/components/Modal";
 import { PlayerLevelBadge } from "@/components/PlayerLevelBadge";
 import {
   addDraft,
+  addDraftsBatch,
   clearDrafts,
   clearDraftsError,
   finishDraft,
@@ -88,7 +89,7 @@ export default function DraftPage() {
     return activePlayers.filter((p) => confirmedIds.has(p.id));
   }, [players, isConfirmationActive, confirmation.playerConfirmations]);
 
-  const playerMap = new Map(players.map((p) => [p.id, p]));
+  const playerMap = useMemo(() => new Map(players.map((p) => [p.id, p])), [players]);
 
   function resolvePlayer(id: string): Player | undefined {
     return playerMap.get(id);
@@ -194,23 +195,18 @@ export default function DraftPage() {
     // Track players already assigned within the current round/set
     const roundSize = courts.length > 0 ? courts.length : Infinity;
     const usedInRound = new Set<string>();
+    const pendingDrafts: { id: string; playerIds: string[]; courtId?: string }[] = [];
 
-    // Dispatch a draft from a combo
+    // Queue a draft from a combo (batched dispatch at the end)
     function commitDraft(combo: string[], draftIndex: number) {
       shuffle(combo); // shuffle team A/B assignment
       const key = [...combo].sort().join(",");
       usedCombos.add(key);
       const draftId = uuidv4();
-      dispatch(addDraft({ id: draftId, playerIds: combo }));
-      if (courts.length > 0) {
-        const courtIndex = (drafts.length + draftIndex) % courts.length;
-        dispatch(
-          updateDraftCourt({
-            id: draftId,
-            courtId: courts[courtIndex].id,
-          }),
-        );
-      }
+      const courtId = courts.length > 0
+        ? courts[(drafts.length + draftIndex) % courts.length].id
+        : undefined;
+      pendingDrafts.push({ id: draftId, playerIds: combo, courtId });
     }
 
     if (shuffleMode === "skill-match") {
@@ -389,15 +385,21 @@ export default function DraftPage() {
       }
     }
 
+    if (pendingDrafts.length > 0) {
+      dispatch(addDraftsBatch(pendingDrafts));
+    }
     setShowAutoDraftConfirm(false);
   }
 
   // Group drafts into rounds based on court count
   const courtCount = Math.max(courts.length, 1);
-  const rounds: Draft[][] = [];
-  for (let i = 0; i < drafts.length; i += courtCount) {
-    rounds.push(drafts.slice(i, i + courtCount));
-  }
+  const rounds = useMemo(() => {
+    const r: Draft[][] = [];
+    for (let i = 0; i < drafts.length; i += courtCount) {
+      r.push(drafts.slice(i, i + courtCount));
+    }
+    return r;
+  }, [drafts, courtCount]);
 
   return (
     <div className="p-4 sm:p-6 md:p-8 pb-24 md:pb-8 max-w-5xl">
@@ -664,49 +666,47 @@ export default function DraftPage() {
 
         return (
           <Modal
-            open={!!editingDraft}
+            open={!changeTarget}
             onClose={() => setEditingDraft(null)}
             title={`Edit - ${editingDraft.name}`}
           >
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-3">
-                {/* Team A */}
-                <div>
-                  <p className="text-xs font-semibold text-light-300 uppercase tracking-wide mb-2">Team A</p>
-                  <div className="space-y-2">
-                    {eTeamA.map(({ id, index, player: p }) => (
-                      <div key={id} className="flex items-center gap-2 p-2 rounded-xl bg-dark-200 border border-dark-100">
-                        <PlayerLevelBadge level={p.level} />
-                        <span className="flex-1 text-sm text-light-100 truncate">{p.name}</span>
-                        <button
-                          onClick={() => setChangeTarget({ draft: editingDraft, playerIndex: index })}
-                          className="px-2 py-1 rounded-lg text-[10px] font-bold text-info hover:bg-info/10 transition-colors shrink-0"
-                          title="Replace player"
-                        >
-                          Replace
-                        </button>
-                      </div>
-                    ))}
-                  </div>
+              {/* Team A */}
+              <div>
+                <p className="text-xs font-semibold text-light-300 uppercase tracking-wide mb-2">Team A</p>
+                <div className="space-y-2">
+                  {eTeamA.map(({ id, index, player: p }) => (
+                    <div key={id} className="flex items-center gap-2 p-2 rounded-xl bg-dark-200 border border-dark-100">
+                      <PlayerLevelBadge level={p.level} />
+                      <span className="flex-1 text-sm text-light-100 truncate">{p.name}</span>
+                      <button
+                        onClick={() => setChangeTarget({ draft: editingDraft, playerIndex: index })}
+                        className="px-2 py-1 rounded-lg text-[10px] font-bold text-info hover:bg-info/10 transition-colors shrink-0"
+                        title="Replace player"
+                      >
+                        Replace
+                      </button>
+                    </div>
+                  ))}
                 </div>
-                {/* Team B */}
-                <div>
-                  <p className="text-xs font-semibold text-light-300 uppercase tracking-wide mb-2">Team B</p>
-                  <div className="space-y-2">
-                    {eTeamB.map(({ id, index, player: p }) => (
-                      <div key={id} className="flex items-center gap-2 p-2 rounded-xl bg-dark-200 border border-dark-100">
-                        <PlayerLevelBadge level={p.level} />
-                        <span className="flex-1 text-sm text-light-100 truncate">{p.name}</span>
-                        <button
-                          onClick={() => setChangeTarget({ draft: editingDraft, playerIndex: index })}
-                          className="px-2 py-1 rounded-lg text-[10px] font-bold text-info hover:bg-info/10 transition-colors shrink-0"
-                          title="Replace player"
-                        >
-                          Replace
-                        </button>
-                      </div>
-                    ))}
-                  </div>
+              </div>
+              {/* Team B */}
+              <div>
+                <p className="text-xs font-semibold text-light-300 uppercase tracking-wide mb-2">Team B</p>
+                <div className="space-y-2">
+                  {eTeamB.map(({ id, index, player: p }) => (
+                    <div key={id} className="flex items-center gap-2 p-2 rounded-xl bg-dark-200 border border-dark-100">
+                      <PlayerLevelBadge level={p.level} />
+                      <span className="flex-1 text-sm text-light-100 truncate">{p.name}</span>
+                      <button
+                        onClick={() => setChangeTarget({ draft: editingDraft, playerIndex: index })}
+                        className="px-2 py-1 rounded-lg text-[10px] font-bold text-info hover:bg-info/10 transition-colors shrink-0"
+                        title="Replace player"
+                      >
+                        Replace
+                      </button>
+                    </div>
+                  ))}
                 </div>
               </div>
 

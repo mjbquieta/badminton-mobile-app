@@ -33,6 +33,23 @@ const draftsSlice = createSlice({
 			state.error = null;
 		},
 
+		addDraftsBatch: (
+			state,
+			action: PayloadAction<{ id: string; name?: string; playerIds: string[]; courtId?: string }[]>
+		) => {
+			for (const draft of action.payload) {
+				const playerCount = draft.playerIds.length;
+				if (playerCount !== 2 && playerCount !== 4) continue;
+				state.items.push({
+					id: draft.id,
+					name: draft.name || `Draft ${state.items.length + 1}`,
+					playerIds: draft.playerIds,
+					courtId: draft.courtId,
+				});
+			}
+			state.error = null;
+		},
+
 		removeDraft: (state, action: PayloadAction<string>) => {
 			state.items = state.items.filter((d) => d.id !== action.payload);
 			state.error = null;
@@ -95,6 +112,7 @@ const draftsSlice = createSlice({
 
 export const {
 	addDraft,
+	addDraftsBatch,
 	removeDraft,
 	updateDraftPlayers,
 	updateDraftCourt,

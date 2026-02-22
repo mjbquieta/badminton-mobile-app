@@ -5,6 +5,7 @@ import { useToast } from "@/components/Toast";
 import { BadmintonPalette } from "@/constants/palette";
 import {
   addDraft,
+  addDraftsBatch,
   clearDrafts,
   clearDraftsError,
   finishDraft,
@@ -17,10 +18,10 @@ import {
   useAppDispatch,
   useAppSelector,
 } from "@badminton/store";
-import { type Player, PlayerLevel, type Draft } from "@badminton/types";
+import { type Player, PlayerLevel, type Draft, type Court } from "@badminton/types";
 import { playerLevelConfig } from "@badminton/ui-shared";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
-import React, { useMemo, useState } from "react";
+import React, { useCallback, useMemo, useRef, useState } from "react";
 import {
   Alert,
   Modal,
@@ -34,6 +35,174 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { v4 as uuidv4 } from "uuid";
 
+type DraftCardProps = {
+	draft: Draft;
+	matchNumber: number;
+	playerMap: Map<string, Player>;
+	courts: Court[];
+	onEdit: (draft: Draft) => void;
+	onFinish: (draft: Draft) => void;
+	onDelete: (draft: Draft, matchNumber: number) => void;
+};
+
+const DraftCard = React.memo(function DraftCard({
+	draft,
+	matchNumber,
+	playerMap,
+	courts,
+	onEdit,
+	onFinish,
+	onDelete,
+}: DraftCardProps) {
+	const half = Math.ceil(draft.playerIds.length / 2);
+	const teamA = draft.playerIds
+		.slice(0, half)
+		.map((id) => playerMap.get(id))
+		.filter((p): p is Player => p !== undefined);
+	const teamB = draft.playerIds
+		.slice(half)
+		.map((id) => playerMap.get(id))
+		.filter((p): p is Player => p !== undefined);
+	const court = courts.find((c) => c.id === draft.courtId);
+
+	return (
+		<View
+			className={`rounded-2xl bg-secondary border overflow-hidden ${
+				draft.finished
+					? "border-dark-100 opacity-50"
+					: "border-dark-100"
+			}`}
+		>
+			{/* Draft Header */}
+			<View className="flex-row items-center justify-between p-4 border-b border-dark-100">
+				<View className="flex-row items-center gap-2">
+					<Text
+						className="text-sm font-bold"
+						style={{ color: BadmintonPalette.accent.primary }}
+					>
+						#{matchNumber}
+					</Text>
+					{court && (
+						<View className="px-2 py-0.5 rounded-md bg-dark-200 border border-dark-100">
+							<Text
+								className="text-xs"
+								style={{ color: BadmintonPalette.text.secondary }}
+							>
+								{court.name}
+							</Text>
+						</View>
+					)}
+				</View>
+				{draft.finished ? (
+					<View className="px-2 py-1 rounded-full bg-accent/15">
+						<Text className="text-xs font-bold" style={{ color: BadmintonPalette.accent.primary }}>
+							FINISHED
+						</Text>
+					</View>
+				) : (
+					<View className="flex-row gap-2">
+						<TouchableOpacity
+							onPress={() => onEdit(draft)}
+							className="px-3 py-1.5 rounded-lg"
+							style={{ backgroundColor: `${BadmintonPalette.accent.info}15`, borderWidth: 1, borderColor: `${BadmintonPalette.accent.info}30` }}
+							accessibilityRole="button"
+							accessibilityLabel={`Edit draft ${matchNumber}`}
+						>
+							<Text className="text-xs font-bold" style={{ color: BadmintonPalette.accent.info }}>
+								Edit
+							</Text>
+						</TouchableOpacity>
+						<TouchableOpacity
+							onPress={() => onFinish(draft)}
+							className="px-3 py-1.5 rounded-lg bg-success/10 border border-success/30"
+							accessibilityRole="button"
+							accessibilityLabel={`Finish match ${matchNumber}`}
+						>
+							<Text className="text-xs font-bold text-success">
+								Finish
+							</Text>
+						</TouchableOpacity>
+						<TouchableOpacity
+							onPress={() => onDelete(draft, matchNumber)}
+							className="px-3 py-1.5 rounded-lg bg-danger/10 border border-danger/30"
+							accessibilityRole="button"
+							accessibilityLabel={`Delete draft ${matchNumber}`}
+						>
+							<Text className="text-xs font-bold text-danger">
+								Delete
+							</Text>
+						</TouchableOpacity>
+					</View>
+				)}
+			</View>
+
+			{/* Teams */}
+			<View className="p-4">
+				<View className="flex-row items-center">
+					{/* Team A */}
+					<View className="flex-1 gap-1.5">
+						<Text
+							className="text-[10px] font-bold uppercase tracking-wide mb-1"
+							style={{
+								color:
+									draft.finished && draft.winner === "A"
+										? BadmintonPalette.accent.primary
+										: BadmintonPalette.text.muted,
+							}}
+						>
+							Team A{" "}
+							{draft.finished && draft.winner === "A"
+								? "★"
+								: ""}
+						</Text>
+						{teamA.map((p) => (
+							<PlayerTag
+								key={p.id}
+								name={p.name}
+								level={p.level}
+								gameCount={p.gameCount}
+							/>
+						))}
+					</View>
+
+					{/* VS */}
+					<View className="px-3">
+						<Text className="text-xs font-bold text-danger uppercase">
+							vs
+						</Text>
+					</View>
+
+					{/* Team B */}
+					<View className="flex-1 gap-1.5">
+						<Text
+							className="text-[10px] font-bold uppercase tracking-wide mb-1"
+							style={{
+								color:
+									draft.finished && draft.winner === "B"
+										? BadmintonPalette.accent.primary
+										: BadmintonPalette.text.muted,
+							}}
+						>
+							Team B{" "}
+							{draft.finished && draft.winner === "B"
+								? "★"
+								: ""}
+						</Text>
+						{teamB.map((p) => (
+							<PlayerTag
+								key={p.id}
+								name={p.name}
+								level={p.level}
+								gameCount={p.gameCount}
+							/>
+						))}
+					</View>
+				</View>
+			</View>
+		</View>
+	);
+});
+
 const activity = () => {
   const dispatch = useAppDispatch();
   const { showToast } = useToast();
@@ -42,6 +211,18 @@ const activity = () => {
   const courts = useAppSelector((s) => s.courts.items);
   const drafts = useAppSelector((s) => s.drafts.items);
   const draftsError = useAppSelector((s) => s.drafts.error);
+  const confirmation = useAppSelector((s) => s.confirmation);
+  const isConfirmationActive = confirmation.meta.enabled;
+
+  const draftablePlayers = useMemo(() => {
+    if (!isConfirmationActive) return players;
+    const confirmedIds = new Set(
+      confirmation.playerConfirmations
+        .filter((pc) => pc.status === "confirmed")
+        .map((pc) => pc.playerId),
+    );
+    return players.filter((p) => confirmedIds.has(p.id));
+  }, [players, isConfirmationActive, confirmation.playerConfirmations]);
 
   const [showSelectModal, setShowSelectModal] = useState(false);
   const [showAutoDraftModal, setShowAutoDraftModal] = useState(false);
@@ -58,11 +239,6 @@ const activity = () => {
     draft: Draft;
     playerIndex: number;
   } | null>(null);
-  const [exchangeTarget, setExchangeTarget] = useState<{
-    draft: Draft;
-    playerIdA: string;
-    playerIdB: string;
-  } | null>(null);
 
   const playerMap = useMemo(
     () => new Map(allPlayers.map((p) => [p.id, p])),
@@ -70,6 +246,28 @@ const activity = () => {
   );
 
   const resolvePlayer = (id: string) => playerMap.get(id);
+
+  const showToastRef = useRef(showToast);
+  showToastRef.current = showToast;
+
+  const handleEditDraft = useCallback((draft: Draft) => {
+    setEditingDraft(draft);
+  }, []);
+
+  const handleFinishTarget = useCallback((draft: Draft) => {
+    setFinishTarget(draft);
+  }, []);
+
+  const handleDeleteDraft = useCallback((draft: Draft, matchNumber: number) => {
+    ConfirmationAlert({
+      title: "Delete Draft",
+      message: `Delete draft #${matchNumber}?`,
+      onConfirm: () => {
+        dispatch(removeDraft(draft.id));
+        showToastRef.current({ type: "info", message: "Draft deleted" });
+      },
+    });
+  }, [dispatch]);
 
   const activeDrafts = useMemo(
     () => drafts.filter((d) => !d.finished),
@@ -161,16 +359,17 @@ const activity = () => {
       return courts[courtIndex].isSingle ? 2 : 4;
     }
 
+    const pendingDrafts: { id: string; playerIds: string[]; courtId?: string }[] = [];
+
     function commitDraft(combo: string[], draftIndex: number) {
       shuffle(combo);
       const key = [...combo].sort().join(",");
       usedCombos.add(key);
       const draftId = uuidv4();
-      dispatch(addDraft({ id: draftId, playerIds: combo }));
-      if (courts.length > 0) {
-        const courtIndex = (drafts.length + draftIndex) % courts.length;
-        dispatch(updateDraftCourt({ id: draftId, courtId: courts[courtIndex].id }));
-      }
+      const courtId = courts.length > 0
+        ? courts[(drafts.length + draftIndex) % courts.length].id
+        : undefined;
+      pendingDrafts.push({ id: draftId, playerIds: combo, courtId });
     }
 
     const roundSize = courts.length > 0 ? courts.length : Infinity;
@@ -178,7 +377,7 @@ const activity = () => {
     let created = 0;
 
     if (mode === "skill-match") {
-      const filteredIds = players
+      const filteredIds = draftablePlayers
         .filter((p) => levels.has(p.level))
         .map((p) => p.id);
 
@@ -248,7 +447,7 @@ const activity = () => {
         }
       }
     } else {
-      const ids = players.map((p) => p.id);
+      const ids = draftablePlayers.map((p) => p.id);
       if (ids.length < 2) {
         showToast({ type: "info", message: "Not enough players" });
         setShowAutoDraftModal(false);
@@ -321,6 +520,10 @@ const activity = () => {
       }
     }
 
+    if (pendingDrafts.length > 0) {
+      dispatch(addDraftsBatch(pendingDrafts));
+    }
+
     showToast({
       type: created > 0 ? "success" : "info",
       message: created > 0 ? `${created} draft${created > 1 ? "s" : ""} created` : "No new drafts could be generated",
@@ -353,22 +556,6 @@ const activity = () => {
     setChangeTarget(null);
   }
 
-  function handleExchangePlayer() {
-    if (!exchangeTarget) return;
-    const { draft, playerIdA, playerIdB } = exchangeTarget;
-    const idxA = draft.playerIds.indexOf(playerIdA);
-    const idxB = draft.playerIds.indexOf(playerIdB);
-    if (idxA === -1 || idxB === -1) return;
-    const newPlayerIds = [...draft.playerIds];
-    newPlayerIds[idxA] = playerIdB;
-    newPlayerIds[idxB] = playerIdA;
-    dispatch(updateDraftPlayers({ id: draft.id, playerIds: newPlayerIds }));
-    if (editingDraft && editingDraft.id === draft.id) {
-      setEditingDraft({ ...editingDraft, playerIds: newPlayerIds });
-    }
-    showToast({ type: "success", message: "Players exchanged" });
-    setExchangeTarget(null);
-  }
 
   return (
     <SafeAreaView className="flex-1 bg-primary">
@@ -465,6 +652,20 @@ const activity = () => {
               </View>
             )}
 
+            {/* RSVP Active Banner */}
+            {isConfirmationActive && (
+              <View className="flex-row items-center p-3 rounded-xl bg-success/10 border border-success/30" style={{ gap: 8 }}>
+                <MaterialCommunityIcons
+                  name="check-circle-outline"
+                  size={18}
+                  color={BadmintonPalette.accent.success}
+                />
+                <Text className="text-xs font-medium flex-1" style={{ color: BadmintonPalette.accent.success }}>
+                  RSVP active — {draftablePlayers.length} confirmed {draftablePlayers.length === 1 ? "player" : "players"} available
+                </Text>
+              </View>
+            )}
+
             {/* Auto Draft */}
             <TouchableOpacity
               onPress={() => {
@@ -472,17 +673,19 @@ const activity = () => {
                   Alert.alert("No Courts Available", "Please add at least one court before creating drafts.");
                   return;
                 }
-                if (players.length < 4) {
-                  Alert.alert("Not Enough Players", "You need at least 4 players to auto-draft.");
+                if (draftablePlayers.length < 4) {
+                  Alert.alert("Not Enough Players", isConfirmationActive
+                    ? "You need at least 4 confirmed players to auto-draft."
+                    : "You need at least 4 players to auto-draft.");
                   return;
                 }
                 setShowAutoDraftModal(true);
               }}
-              disabled={players.length < 4}
+              disabled={draftablePlayers.length < 4}
               className="flex-row items-center p-4 rounded-xl"
               style={{
                 backgroundColor: BadmintonPalette.accent.primary,
-                opacity: players.length < 4 ? 0.4 : 1,
+                opacity: draftablePlayers.length < 4 ? 0.4 : 1,
               }}
               accessibilityRole="button"
               accessibilityLabel="Auto draft players"
@@ -527,11 +730,11 @@ const activity = () => {
                 }
                 setShowSelectModal(true);
               }}
-              disabled={players.length < 4}
+              disabled={draftablePlayers.length < 4}
               className="flex-row items-center p-4 rounded-xl border border-dark-100"
               style={{
                 backgroundColor: BadmintonPalette.bg.elevated,
-                opacity: players.length < 4 ? 0.4 : 1,
+                opacity: draftablePlayers.length < 4 ? 0.4 : 1,
               }}
               accessibilityRole="button"
               accessibilityLabel="Create new draft manually"
@@ -619,170 +822,18 @@ const activity = () => {
                     <View className="flex-1 h-px bg-accent/20" />
                   </View>
                 )}
-                {round.map((draft, indexInRound) => {
-                  const matchNumber =
-                    roundIndex * courtCount + indexInRound + 1;
-                  const half = Math.ceil(draft.playerIds.length / 2);
-                  const teamA = draft.playerIds
-                    .slice(0, half)
-                    .map(resolvePlayer)
-                    .filter((p): p is Player => p !== undefined);
-                  const teamB = draft.playerIds
-                    .slice(half)
-                    .map(resolvePlayer)
-                    .filter((p): p is Player => p !== undefined);
-                  const court = courts.find((c) => c.id === draft.courtId);
-
-                  return (
-                    <View
-                      key={draft.id}
-                      className={`rounded-2xl bg-secondary border overflow-hidden ${
-                        draft.finished
-                          ? "border-dark-100 opacity-50"
-                          : "border-dark-100"
-                      }`}
-                    >
-                      {/* Draft Header */}
-                      <View className="flex-row items-center justify-between p-4 border-b border-dark-100">
-                        <View className="flex-row items-center gap-2">
-                          <Text
-                            className="text-sm font-bold"
-                            style={{ color: BadmintonPalette.accent.primary }}
-                          >
-                            #{matchNumber}
-                          </Text>
-                          {court && (
-                            <View className="px-2 py-0.5 rounded-md bg-dark-200 border border-dark-100">
-                              <Text
-                                className="text-xs"
-                                style={{ color: BadmintonPalette.text.secondary }}
-                              >
-                                {court.name}
-                              </Text>
-                            </View>
-                          )}
-                        </View>
-                        {draft.finished ? (
-                          <View className="px-2 py-1 rounded-full bg-accent/15">
-                            <Text className="text-xs font-bold" style={{ color: BadmintonPalette.accent.primary }}>
-                              FINISHED
-                            </Text>
-                          </View>
-                        ) : (
-                          <View className="flex-row gap-2">
-                            <TouchableOpacity
-                              onPress={() => setEditingDraft(draft)}
-                              className="px-3 py-1.5 rounded-lg"
-                              style={{ backgroundColor: `${BadmintonPalette.accent.info}15`, borderWidth: 1, borderColor: `${BadmintonPalette.accent.info}30` }}
-                              accessibilityRole="button"
-                              accessibilityLabel={`Edit draft ${matchNumber}`}
-                            >
-                              <Text className="text-xs font-bold" style={{ color: BadmintonPalette.accent.info }}>
-                                Edit
-                              </Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity
-                              onPress={() => setFinishTarget(draft)}
-                              className="px-3 py-1.5 rounded-lg bg-success/10 border border-success/30"
-                              accessibilityRole="button"
-                              accessibilityLabel={`Finish match ${matchNumber}`}
-                            >
-                              <Text className="text-xs font-bold text-success">
-                                Finish
-                              </Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity
-                              onPress={() => {
-                                ConfirmationAlert({
-                                  title: "Delete Draft",
-                                  message: `Delete draft #${matchNumber}?`,
-                                  onConfirm: () => {
-                                    dispatch(removeDraft(draft.id));
-                                    showToast({
-                                      type: "info",
-                                      message: "Draft deleted",
-                                    });
-                                  },
-                                });
-                              }}
-                              className="px-3 py-1.5 rounded-lg bg-danger/10 border border-danger/30"
-                              accessibilityRole="button"
-                              accessibilityLabel={`Delete draft ${matchNumber}`}
-                            >
-                              <Text className="text-xs font-bold text-danger">
-                                Delete
-                              </Text>
-                            </TouchableOpacity>
-                          </View>
-                        )}
-                      </View>
-
-                      {/* Teams */}
-                      <View className="p-4">
-                        <View className="flex-row items-center">
-                          {/* Team A */}
-                          <View className="flex-1 gap-1.5">
-                            <Text
-                              className="text-[10px] font-bold uppercase tracking-wide mb-1"
-                              style={{
-                                color:
-                                  draft.finished && draft.winner === "A"
-                                    ? BadmintonPalette.accent.primary
-                                    : BadmintonPalette.text.muted,
-                              }}
-                            >
-                              Team A{" "}
-                              {draft.finished && draft.winner === "A"
-                                ? "★"
-                                : ""}
-                            </Text>
-                            {teamA.map((p) => (
-                              <PlayerTag
-                                key={p.id}
-                                name={p.name}
-                                level={p.level}
-                                gameCount={p.gameCount}
-                              />
-                            ))}
-                          </View>
-
-                          {/* VS */}
-                          <View className="px-3">
-                            <Text className="text-xs font-bold text-danger uppercase">
-                              vs
-                            </Text>
-                          </View>
-
-                          {/* Team B */}
-                          <View className="flex-1 gap-1.5">
-                            <Text
-                              className="text-[10px] font-bold uppercase tracking-wide mb-1"
-                              style={{
-                                color:
-                                  draft.finished && draft.winner === "B"
-                                    ? BadmintonPalette.accent.primary
-                                    : BadmintonPalette.text.muted,
-                              }}
-                            >
-                              Team B{" "}
-                              {draft.finished && draft.winner === "B"
-                                ? "★"
-                                : ""}
-                            </Text>
-                            {teamB.map((p) => (
-                              <PlayerTag
-                                key={p.id}
-                                name={p.name}
-                                level={p.level}
-                                gameCount={p.gameCount}
-                              />
-                            ))}
-                          </View>
-                        </View>
-                      </View>
-                    </View>
-                  );
-                })}
+                {round.map((draft, indexInRound) => (
+                  <DraftCard
+                    key={draft.id}
+                    draft={draft}
+                    matchNumber={roundIndex * courtCount + indexInRound + 1}
+                    playerMap={playerMap}
+                    courts={courts}
+                    onEdit={handleEditDraft}
+                    onFinish={handleFinishTarget}
+                    onDelete={handleDeleteDraft}
+                  />
+                ))}
               </View>
             ))}
           </View>
@@ -805,7 +856,7 @@ const activity = () => {
         visible={showSelectModal}
         onClose={() => setShowSelectModal(false)}
         title="Select 4 Players for Draft"
-        players={players}
+        players={draftablePlayers}
         maxSelect={4}
         onConfirm={handleCreateDraft}
       />
@@ -1114,7 +1165,7 @@ const activity = () => {
       <Modal
         transparent
         animationType="fade"
-        visible={!!editingDraft}
+        visible={!!editingDraft && !changeTarget}
         onRequestClose={() => setEditingDraft(null)}
       >
         <Pressable
@@ -1147,71 +1198,109 @@ const activity = () => {
 
                   <ScrollView style={{ maxHeight: 400 }}>
                     <View className="p-4" style={{ gap: 16 }}>
-                      {/* Teams */}
-                      <View className="flex-row" style={{ gap: 12 }}>
-                        {/* Team A */}
-                        <View className="flex-1" style={{ gap: 8 }}>
+                      {/* Court Selection */}
+                      {courts.length > 0 && (
+                        <View style={{ gap: 8 }}>
                           <Text
                             className="text-[10px] font-bold uppercase tracking-wide"
                             style={{ color: BadmintonPalette.text.muted }}
                           >
-                            Team A
+                            Court
                           </Text>
-                          {eTeamA.map(({ id, index, player: p }) => (
-                            <View
-                              key={id}
-                              className="flex-row items-center rounded-xl bg-dark-200 border border-dark-100 p-2"
-                              style={{ gap: 8 }}
-                            >
-                              <View className="flex-1 flex-shrink">
-                                <PlayerTag name={p.name} level={p.level} />
-                              </View>
-                              <TouchableOpacity
-                                onPress={() => setChangeTarget({ draft: editingDraft, playerIndex: index })}
-                                className="px-2.5 py-1.5 rounded-lg"
-                                style={{ backgroundColor: `${BadmintonPalette.accent.info}15` }}
-                                accessibilityRole="button"
-                                accessibilityLabel={`Replace ${p.name}`}
-                              >
-                                <Text className="text-[10px] font-bold" style={{ color: BadmintonPalette.accent.info }}>
-                                  Replace
-                                </Text>
-                              </TouchableOpacity>
+                          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                            <View className="flex-row" style={{ gap: 6 }}>
+                              {courts.map((c) => {
+                                const isSelected = editingDraft.courtId === c.id;
+                                return (
+                                  <TouchableOpacity
+                                    key={c.id}
+                                    onPress={() => {
+                                      dispatch(updateDraftCourt({ id: editingDraft.id, courtId: c.id }));
+                                      setEditingDraft({ ...editingDraft, courtId: c.id });
+                                    }}
+                                    className="px-3 py-2 rounded-xl border"
+                                    style={{
+                                      backgroundColor: isSelected ? `${BadmintonPalette.accent.primary}15` : BadmintonPalette.bg.elevated,
+                                      borderColor: isSelected ? `${BadmintonPalette.accent.primary}50` : BadmintonPalette.bg.border,
+                                    }}
+                                    accessibilityRole="button"
+                                  >
+                                    <Text
+                                      className="text-xs font-semibold"
+                                      style={{ color: isSelected ? BadmintonPalette.accent.primary : BadmintonPalette.text.secondary }}
+                                    >
+                                      {c.name}
+                                    </Text>
+                                  </TouchableOpacity>
+                                );
+                              })}
                             </View>
-                          ))}
+                          </ScrollView>
                         </View>
+                      )}
 
-                        {/* Team B */}
-                        <View className="flex-1" style={{ gap: 8 }}>
-                          <Text
-                            className="text-[10px] font-bold uppercase tracking-wide"
-                            style={{ color: BadmintonPalette.text.muted }}
+                      {/* Team A */}
+                      <View style={{ gap: 8 }}>
+                        <Text
+                          className="text-[10px] font-bold uppercase tracking-wide"
+                          style={{ color: BadmintonPalette.text.muted }}
+                        >
+                          Team A
+                        </Text>
+                        {eTeamA.map(({ id, index, player: p }) => (
+                          <View
+                            key={id}
+                            className="flex-row items-center rounded-xl bg-dark-200 border border-dark-100 p-2"
+                            style={{ gap: 8 }}
                           >
-                            Team B
-                          </Text>
-                          {eTeamB.map(({ id, index, player: p }) => (
-                            <View
-                              key={id}
-                              className="flex-row items-center rounded-xl bg-dark-200 border border-dark-100 p-2"
-                              style={{ gap: 8 }}
-                            >
-                              <View className="flex-1 flex-shrink">
-                                <PlayerTag name={p.name} level={p.level} />
-                              </View>
-                              <TouchableOpacity
-                                onPress={() => setChangeTarget({ draft: editingDraft, playerIndex: index })}
-                                className="px-2.5 py-1.5 rounded-lg"
-                                style={{ backgroundColor: `${BadmintonPalette.accent.info}15` }}
-                                accessibilityRole="button"
-                                accessibilityLabel={`Replace ${p.name}`}
-                              >
-                                <Text className="text-[10px] font-bold" style={{ color: BadmintonPalette.accent.info }}>
-                                  Replace
-                                </Text>
-                              </TouchableOpacity>
+                            <View className="flex-1 flex-shrink">
+                              <PlayerTag name={p.name} level={p.level} />
                             </View>
-                          ))}
-                        </View>
+                            <TouchableOpacity
+                              onPress={() => setChangeTarget({ draft: editingDraft, playerIndex: index })}
+                              className="px-2.5 py-1.5 rounded-lg"
+                              style={{ backgroundColor: `${BadmintonPalette.accent.info}15` }}
+                              accessibilityRole="button"
+                              accessibilityLabel={`Replace ${p.name}`}
+                            >
+                              <Text className="text-[10px] font-bold" style={{ color: BadmintonPalette.accent.info }}>
+                                Replace
+                              </Text>
+                            </TouchableOpacity>
+                          </View>
+                        ))}
+                      </View>
+
+                      {/* Team B */}
+                      <View style={{ gap: 8 }}>
+                        <Text
+                          className="text-[10px] font-bold uppercase tracking-wide"
+                          style={{ color: BadmintonPalette.text.muted }}
+                        >
+                          Team B
+                        </Text>
+                        {eTeamB.map(({ id, index, player: p }) => (
+                          <View
+                            key={id}
+                            className="flex-row items-center rounded-xl bg-dark-200 border border-dark-100 p-2"
+                            style={{ gap: 8 }}
+                          >
+                            <View className="flex-1 flex-shrink">
+                              <PlayerTag name={p.name} level={p.level} />
+                            </View>
+                            <TouchableOpacity
+                              onPress={() => setChangeTarget({ draft: editingDraft, playerIndex: index })}
+                              className="px-2.5 py-1.5 rounded-lg"
+                              style={{ backgroundColor: `${BadmintonPalette.accent.info}15` }}
+                              accessibilityRole="button"
+                              accessibilityLabel={`Replace ${p.name}`}
+                            >
+                              <Text className="text-[10px] font-bold" style={{ color: BadmintonPalette.accent.info }}>
+                                Replace
+                              </Text>
+                            </TouchableOpacity>
+                          </View>
+                        ))}
                       </View>
 
                       {/* Exchange Section */}
@@ -1254,7 +1343,17 @@ const activity = () => {
                               return (
                                 <TouchableOpacity
                                   key={`${a.id}-${b.id}`}
-                                  onPress={() => setExchangeTarget({ draft: editingDraft, playerIdA: a.id, playerIdB: b.id })}
+                                  onPress={() => {
+                                    const idxA = editingDraft.playerIds.indexOf(a.id);
+                                    const idxB = editingDraft.playerIds.indexOf(b.id);
+                                    if (idxA === -1 || idxB === -1) return;
+                                    const newPlayerIds = [...editingDraft.playerIds];
+                                    newPlayerIds[idxA] = b.id;
+                                    newPlayerIds[idxB] = a.id;
+                                    dispatch(updateDraftPlayers({ id: editingDraft.id, playerIds: newPlayerIds }));
+                                    setEditingDraft({ ...editingDraft, playerIds: newPlayerIds });
+                                    showToast({ type: "success", message: "Players exchanged" });
+                                  }}
                                   className="flex-row items-center justify-between rounded-xl bg-dark-200 border border-dark-100 px-3 py-2.5"
                                   accessibilityRole="button"
                                 >
@@ -1320,90 +1419,6 @@ const activity = () => {
         />
       )}
 
-      {/* Exchange Confirm Modal */}
-      <Modal
-        transparent
-        animationType="fade"
-        visible={!!exchangeTarget}
-        onRequestClose={() => setExchangeTarget(null)}
-      >
-        <Pressable
-          className="flex-1 items-center justify-center bg-black/70 px-5"
-          onPress={() => setExchangeTarget(null)}
-        >
-          <Pressable
-            className="w-full max-w-sm rounded-2xl bg-secondary border border-dark-100 overflow-hidden"
-            onPress={() => {}}
-          >
-            {exchangeTarget && (() => {
-              const pA = resolvePlayer(exchangeTarget.playerIdA);
-              const pB = resolvePlayer(exchangeTarget.playerIdB);
-              return (
-                <>
-                  <View className="p-4 border-b border-dark-100">
-                    <Text
-                      className="text-lg font-bold"
-                      style={{ color: BadmintonPalette.text.primary }}
-                    >
-                      Confirm Exchange
-                    </Text>
-                    <Text
-                      className="text-sm mt-1"
-                      style={{ color: BadmintonPalette.text.muted }}
-                    >
-                      Swap these players between teams?
-                    </Text>
-                  </View>
-                  <View className="p-4" style={{ gap: 16 }}>
-                    <View className="flex-row items-center justify-center" style={{ gap: 12 }}>
-                      {pA && (
-                        <View className="flex-row items-center px-3 py-2 rounded-xl bg-dark-200 border border-dark-100" style={{ gap: 6 }}>
-                          <Text className="text-sm" style={{ color: BadmintonPalette.text.primary }}>{pA.name}</Text>
-                        </View>
-                      )}
-                      <MaterialCommunityIcons
-                        name="swap-horizontal"
-                        size={20}
-                        color={BadmintonPalette.accent.primary}
-                      />
-                      {pB && (
-                        <View className="flex-row items-center px-3 py-2 rounded-xl bg-dark-200 border border-dark-100" style={{ gap: 6 }}>
-                          <Text className="text-sm" style={{ color: BadmintonPalette.text.primary }}>{pB.name}</Text>
-                        </View>
-                      )}
-                    </View>
-                    <View className="flex-row" style={{ gap: 12 }}>
-                      <TouchableOpacity
-                        onPress={() => setExchangeTarget(null)}
-                        className="flex-1 py-3 rounded-xl border border-dark-100 bg-dark-200 items-center"
-                      >
-                        <Text
-                          className="font-bold"
-                          style={{ color: BadmintonPalette.text.secondary }}
-                        >
-                          Cancel
-                        </Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        onPress={handleExchangePlayer}
-                        className="flex-1 py-3 rounded-xl items-center"
-                        style={{ backgroundColor: BadmintonPalette.accent.primary }}
-                      >
-                        <Text
-                          className="font-bold"
-                          style={{ color: BadmintonPalette.bg.base }}
-                        >
-                          Exchange
-                        </Text>
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-                </>
-              );
-            })()}
-          </Pressable>
-        </Pressable>
-      </Modal>
     </SafeAreaView>
   );
 };
