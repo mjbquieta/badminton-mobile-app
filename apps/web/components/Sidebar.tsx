@@ -7,7 +7,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { ConfirmDialog } from './ConfirmDialog';
 import { AiOutlineHome, AiOutlineTeam } from 'react-icons/ai';
 import { MdOutlineSportsTennis } from 'react-icons/md';
-import { FiLogOut, FiMessageSquare, FiSettings } from 'react-icons/fi';
+import { FiLogOut, FiSettings } from 'react-icons/fi';
 import { RiDraftLine } from 'react-icons/ri';
 import type { IconType } from 'react-icons';
 
@@ -16,7 +16,6 @@ const navItems: { href: string; label: string; icon: IconType }[] = [
   { href: '/players', label: 'Players', icon: AiOutlineTeam },
   { href: '/courts', label: 'Courts', icon: MdOutlineSportsTennis },
   { href: '/draft', label: 'Draft', icon: RiDraftLine },
-  { href: '/feedback', label: 'Feedback', icon: FiMessageSquare },
   { href: '/settings', label: 'Settings', icon: FiSettings },
 ];
 

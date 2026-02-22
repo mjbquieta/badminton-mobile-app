@@ -17,6 +17,8 @@ export {
 	updatePlayerLevel,
 	updatePlayerGameCount,
 	resetAllGameCounts,
+	togglePlayerActive,
+	setPlayersActive,
 	setPlayers,
 	playersReducer,
 } from './slices/players';

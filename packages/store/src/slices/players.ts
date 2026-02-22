@@ -209,6 +209,7 @@ const playersSlice = createSlice({
 				gameCount: 0,
 				level: action.payload.level,
 				trophies: 0,
+				active: true,
 			});
 			state.error = null;
 		},
@@ -267,6 +268,25 @@ const playersSlice = createSlice({
 			}
 			state.error = null;
 		},
+		togglePlayerActive: (state, action: PayloadAction<string>) => {
+			const player = state.items.find((p) => p.id === action.payload);
+			if (player) {
+				player.active = !(player.active ?? true);
+			}
+			state.error = null;
+		},
+		setPlayersActive: (
+			state,
+			action: PayloadAction<{ ids: string[]; active: boolean }>,
+		) => {
+			const idSet = new Set(action.payload.ids);
+			for (const p of state.items) {
+				if (idSet.has(p.id)) {
+					p.active = action.payload.active;
+				}
+			}
+			state.error = null;
+		},
 		setPlayers: (state, action: PayloadAction<Player[]>) => {
 			state.items = action.payload;
 			state.error = null;
@@ -285,6 +305,8 @@ export const {
 	updatePlayerLevel,
 	updatePlayerGameCount,
 	resetAllGameCounts,
+	togglePlayerActive,
+	setPlayersActive,
 	setPlayers,
 } = playersSlice.actions;
 export const playersReducer = playersSlice.reducer;

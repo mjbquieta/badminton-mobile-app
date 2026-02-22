@@ -23,6 +23,8 @@ import {
   removePlayer,
   setEventDetails,
   setPlayerConfirmations,
+  setPlayersActive,
+  togglePlayerActive,
   updatePlayerGameCount,
   updatePlayerLevel,
   useAppDispatch,
@@ -47,6 +49,7 @@ import {
   FiEye,
   FiEyeOff,
   FiFile,
+  FiMoreVertical,
   FiPlus,
   FiShare2,
   FiTrash2,
@@ -64,12 +67,36 @@ export default function PlayersPage() {
   const playersError = useAppSelector((state) => state.players.error);
   const confirmation = useAppSelector((state) => state.confirmation);
   const [search, setSearch] = useState("");
-  const [sortBy, setSortBy] = useState<"name" | "level" | "games" | "trophies">("name");
+  const [sortBy, setSortBy] = useState<"name" | "level" | "games" | "trophies">(
+    "name",
+  );
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const [activeTab, setActiveTab] = useState<"all" | "active" | "inactive">(
+    "all",
+  );
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingPlayer, setEditingPlayer] = useState<Player | null>(null);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Player | null>(null);
+
+  // Multi-select state
+  const [selecting, setSelecting] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+  // Ellipsis menu state
+  const [showMenu, setShowMenu] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!showMenu) return;
+    function handleClickOutside(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setShowMenu(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [showMenu]);
 
   // Import state
   const [showImportModal, setShowImportModal] = useState(false);
@@ -114,10 +141,23 @@ export default function PlayersPage() {
     [PlayerLevel.PRO]: 3,
   };
 
+  const activeCounts = useMemo(() => {
+    let active = 0;
+    let inactive = 0;
+    for (const p of players) {
+      if (p.active ?? true) active++;
+      else inactive++;
+    }
+    return { active, inactive };
+  }, [players]);
+
   const filtered = useMemo(() => {
-    const list = players.filter((p) =>
-      p.name.toLowerCase().includes(search.toLowerCase()),
-    );
+    const list = players.filter((p) => {
+      const isActive = p.active ?? true;
+      if (activeTab === "active" && !isActive) return false;
+      if (activeTab === "inactive" && isActive) return false;
+      return p.name.toLowerCase().includes(search.toLowerCase());
+    });
     const dir = sortDir === "asc" ? 1 : -1;
     return [...list].sort((a, b) => {
       switch (sortBy) {
@@ -133,7 +173,7 @@ export default function PlayersPage() {
           return 0;
       }
     });
-  }, [players, search, sortBy, sortDir]);
+  }, [players, search, sortBy, sortDir, activeTab]);
 
   // Build a map of player confirmation statuses
   const confirmationStatusMap = useMemo(() => {
@@ -530,33 +570,67 @@ export default function PlayersPage() {
               </span>
             )}
           </div>
-          {players.length > 0 && (
-            <button
-              onClick={() => setShowClearConfirm(true)}
-              className="px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm text-danger border border-danger/30 hover:bg-danger/10 whitespace-nowrap"
-            >
-              Clear All
-            </button>
-          )}
-          <button
-            onClick={() => {
-              setImportJson("");
-              setImportError(null);
-              setImportFileName(null);
-              setImportMode("file");
-              setShowImportModal(true);
-            }}
-            className="flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm border border-dark-100 text-light-200 hover:bg-dark-200 whitespace-nowrap"
-          >
-            <FiUpload size={14} />
-            <span className="hidden sm:inline">Import</span>
-          </button>
           <button
             onClick={() => setShowAddModal(true)}
             className="px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm bg-accent text-primary font-semibold hover:bg-accent/80 whitespace-nowrap"
           >
             + Add
           </button>
+          {/* Ellipsis Menu */}
+          <div className="relative" ref={menuRef}>
+            <button
+              onClick={() => setShowMenu(!showMenu)}
+              className="w-10 h-10 rounded-xl border border-dark-100 text-light-200 hover:bg-dark-200 flex items-center justify-center"
+            >
+              <FiMoreVertical size={18} />
+            </button>
+            {showMenu && (
+              <div className="absolute right-0 top-full mt-1 w-44 bg-secondary border border-dark-100 rounded-xl shadow-lg z-50 py-1 overflow-hidden">
+                {players.length > 0 && (
+                  <button
+                    onClick={() => {
+                      setSelecting(!selecting);
+                      setSelectedIds(new Set());
+                      setShowMenu(false);
+                    }}
+                    className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-light-200 hover:bg-dark-200 text-left"
+                  >
+                    <FiCheck
+                      size={14}
+                      className={selecting ? "text-accent" : ""}
+                    />
+                    {selecting ? "Cancel Select" : "Select"}
+                  </button>
+                )}
+                <button
+                  onClick={() => {
+                    setImportJson("");
+                    setImportError(null);
+                    setImportFileName(null);
+                    setImportMode("file");
+                    setShowImportModal(true);
+                    setShowMenu(false);
+                  }}
+                  className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-light-200 hover:bg-dark-200 text-left"
+                >
+                  <FiUpload size={14} />
+                  Import
+                </button>
+                {players.length > 0 && (
+                  <button
+                    onClick={() => {
+                      setShowClearConfirm(true);
+                      setShowMenu(false);
+                    }}
+                    className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-danger hover:bg-danger/10 text-left"
+                  >
+                    <FiTrash2 size={14} />
+                    Clear All
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -785,6 +859,31 @@ export default function PlayersPage() {
         </div>
       )}
 
+      {/* Status Tabs */}
+      <div className="flex gap-1 mb-4 bg-dark-200 rounded-xl p-1">
+        {(["all", "active", "inactive"] as const).map((tab) => {
+          const count =
+            tab === "all"
+              ? players.length
+              : tab === "active"
+                ? activeCounts.active
+                : activeCounts.inactive;
+          return (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`flex-1 py-2 px-3 rounded-lg text-xs font-semibold capitalize transition-colors ${
+                activeTab === tab
+                  ? "bg-secondary text-light-100 shadow-sm"
+                  : "text-light-300 hover:text-light-200"
+              }`}
+            >
+              {tab} ({count})
+            </button>
+          );
+        })}
+      </div>
+
       {/* Search & Sort */}
       <div className="flex gap-2 mb-6">
         <input
@@ -813,46 +912,120 @@ export default function PlayersPage() {
         </button>
       </div>
 
+      {/* Select All / Deselect All */}
+      {selecting && filtered.length > 0 && (
+        <div className="flex items-center justify-between mb-3">
+          <span className="text-xs text-light-300">
+            {selectedIds.size} selected
+          </span>
+          <div className="flex gap-3">
+            <button
+              onClick={() => setSelectedIds(new Set(filtered.map((p) => p.id)))}
+              className="text-xs text-accent hover:underline"
+            >
+              Select All
+            </button>
+            <button
+              onClick={() => setSelectedIds(new Set())}
+              className="text-xs text-light-300 hover:underline"
+            >
+              Deselect All
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Players Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
         {filtered.map((player) => {
           const pc = confirmationStatusMap.get(player.id);
           const isConfirmed =
             !confirmation.meta.enabled || pc?.status === "confirmed";
+          const isSelected = selectedIds.has(player.id);
           return (
             <div
               key={player.id}
-              className={`rounded-2xl border p-4 flex flex-col gap-3 transition-opacity ${
-                isConfirmed
-                  ? "bg-secondary border-dark-100"
-                  : "bg-secondary/50 border-dark-100/50 opacity-50"
+              onClick={
+                selecting
+                  ? () =>
+                      setSelectedIds((prev) => {
+                        const next = new Set(prev);
+                        if (next.has(player.id)) next.delete(player.id);
+                        else next.add(player.id);
+                        return next;
+                      })
+                  : undefined
+              }
+              className={`rounded-2xl border p-4 flex flex-col gap-3 transition-all ${
+                selecting ? "cursor-pointer" : ""
+              } ${
+                selecting && isSelected
+                  ? "bg-accent/10 border-accent/30 ring-1 ring-accent/20"
+                  : !(player.active ?? true)
+                    ? "bg-secondary/40 border-dark-100/50 opacity-50"
+                    : isConfirmed
+                      ? "bg-secondary border-dark-100"
+                      : "bg-secondary/50 border-dark-100/50 opacity-50"
               }`}
             >
               <div className="flex justify-between items-start">
                 <div className="flex items-center gap-2">
+                  {selecting && (
+                    <div
+                      className={`w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 ${
+                        isSelected
+                          ? "border-accent bg-accent"
+                          : "border-dark-100"
+                      }`}
+                    >
+                      {isSelected && (
+                        <FiCheck size={12} className="text-primary" />
+                      )}
+                    </div>
+                  )}
                   <PlayerLevelBadge level={player.level} size="md" />
                   <span className="font-semibold">{player.name}</span>
-                  {/* Confirmation status indicator */}
                   {confirmation.meta.enabled && pc && (
                     <ConfirmationStatusBadge status={pc.status} />
                   )}
                 </div>
-                <div className="flex gap-1">
-                  <button
-                    onClick={() => openEdit(player)}
-                    className="p-1.5 rounded-lg text-light-300 hover:text-accent hover:bg-accent/10 transition-colors"
-                    title="Edit player"
-                  >
-                    <FiEdit2 size={14} />
-                  </button>
-                  <button
-                    onClick={() => setDeleteTarget(player)}
-                    className="p-1.5 rounded-lg text-light-300 hover:text-danger hover:bg-danger/10 transition-colors"
-                    title="Delete player"
-                  >
-                    <FiTrash2 size={14} />
-                  </button>
-                </div>
+                {!selecting && (
+                  <div className="flex gap-1">
+                    <button
+                      onClick={() => dispatch(togglePlayerActive(player.id))}
+                      className={`p-1.5 rounded-lg text-light-300 transition-colors ${
+                        (player.active ?? true)
+                          ? "hover:text-warning hover:bg-warning/10"
+                          : "hover:text-success hover:bg-success/10"
+                      }`}
+                      title={
+                        (player.active ?? true)
+                          ? "Disable player"
+                          : "Enable player"
+                      }
+                    >
+                      {(player.active ?? true) ? (
+                        <FiEyeOff size={14} />
+                      ) : (
+                        <FiEye size={14} />
+                      )}
+                    </button>
+                    <button
+                      onClick={() => openEdit(player)}
+                      className="p-1.5 rounded-lg text-light-300 hover:text-accent hover:bg-accent/10 transition-colors"
+                      title="Edit player"
+                    >
+                      <FiEdit2 size={14} />
+                    </button>
+                    <button
+                      onClick={() => setDeleteTarget(player)}
+                      className="p-1.5 rounded-lg text-light-300 hover:text-danger hover:bg-danger/10 transition-colors"
+                      title="Delete player"
+                    >
+                      <FiTrash2 size={14} />
+                    </button>
+                  </div>
+                )}
               </div>
               <div className="flex justify-between items-center text-sm">
                 <div className="flex items-center gap-3">
@@ -874,6 +1047,57 @@ export default function PlayersPage() {
             ? "No players match your search"
             : "No players yet. Add some!"}
         </p>
+      )}
+
+      {/* Selection Action Bar */}
+      {selecting && selectedIds.size > 0 && (
+        <div className="fixed bottom-0 left-0 right-0 md:left-60 bg-secondary border-t border-dark-100 p-4 z-50 flex items-center justify-between gap-3">
+          <span className="text-sm text-light-200 font-semibold">
+            {selectedIds.size} player{selectedIds.size !== 1 ? "s" : ""}{" "}
+            selected
+          </span>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => {
+                dispatch(
+                  setPlayersActive({
+                    ids: [...selectedIds],
+                    active: true,
+                  }),
+                );
+                setSelectedIds(new Set());
+                setSelecting(false);
+              }}
+              className="px-4 py-2 rounded-xl text-sm bg-success/10 text-success border border-success/30 hover:bg-success/20 font-semibold"
+            >
+              Set Active
+            </button>
+            <button
+              onClick={() => {
+                dispatch(
+                  setPlayersActive({
+                    ids: [...selectedIds],
+                    active: false,
+                  }),
+                );
+                setSelectedIds(new Set());
+                setSelecting(false);
+              }}
+              className="px-4 py-2 rounded-xl text-sm bg-warning/10 text-warning border border-warning/30 hover:bg-warning/20 font-semibold"
+            >
+              Set Inactive
+            </button>
+            <button
+              onClick={() => {
+                setSelectedIds(new Set());
+                setSelecting(false);
+              }}
+              className="px-4 py-2 rounded-xl text-sm text-light-300 hover:text-light-100 hover:bg-dark-200"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
       )}
 
       {/* Add Player Modal */}
