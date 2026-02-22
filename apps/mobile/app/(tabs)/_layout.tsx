@@ -3,7 +3,6 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useFirebaseSync } from "@/hooks/useFirebaseSync";
 import { ToastProvider } from "@/components/Toast";
 import AntDesign from "@expo/vector-icons/AntDesign";
-import Feather from "@expo/vector-icons/Feather";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { configureAppStore } from "@badminton/store";
 import { Tabs } from "expo-router";
@@ -25,7 +24,7 @@ const TabIcon = ({
   title,
 }: {
   focused: boolean;
-  type: "home" | "activity" | "players" | "courts" | "settings";
+  type: "home" | "draft" | "players" | "courts" | "settings";
   title: string;
 }) => {
   const iconColor = focused
@@ -37,8 +36,8 @@ const TabIcon = ({
     case "home":
       icon = <AntDesign name="home" size={20} color={iconColor} />;
       break;
-    case "activity":
-      icon = <Feather name="activity" size={20} color={iconColor} />;
+    case "draft":
+      icon = <MaterialCommunityIcons name="file-document-edit-outline" size={20} color={iconColor} />;
       break;
     case "players":
       icon = <AntDesign name="team" size={20} color={iconColor} />;
@@ -107,9 +106,9 @@ const _layout = () => {
             <Tabs.Screen
               name="activity"
               options={{
-                title: "Activity",
+                title: "Draft",
                 tabBarIcon: ({ focused }) => (
-                  <TabIcon focused={focused} type="activity" title="Activity" />
+                  <TabIcon focused={focused} type="draft" title="Draft" />
                 ),
               }}
             />

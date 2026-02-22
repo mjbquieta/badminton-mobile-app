@@ -8,7 +8,7 @@ import type { PlayerLevel } from "@badminton/types";
 import React from "react";
 import { Text, TouchableOpacity, View } from "react-native";
 
-export type PlayerStatus = "in_game" | "in_queue" | "bench";
+export type PlayerStatus = "in_game" | "bench";
 
 const statusConfig = {
   in_game: {
@@ -17,13 +17,6 @@ const statusConfig = {
     label: "In Game",
     bgClass: "bg-danger/10",
     borderClass: "border-danger/30",
-  },
-  in_queue: {
-    icon: "timer-sand" as const,
-    color: BadmintonPalette.status.waiting,
-    label: "In Queue",
-    bgClass: "bg-success/10",
-    borderClass: "border-success/30",
   },
   bench: {
     icon: "account-outline" as const,

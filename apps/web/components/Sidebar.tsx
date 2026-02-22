@@ -37,7 +37,7 @@ export function Sidebar() {
         danger
       />
       {/* Desktop Sidebar */}
-      <aside className="hidden md:flex w-60 bg-secondary border-r border-dark-100 min-h-screen p-4 flex-col shrink-0">
+      <aside className="hidden md:flex w-60 bg-secondary border-r border-dark-100 h-screen sticky top-0 p-4 flex-col shrink-0">
         <div className="mb-8 px-2">
           <h1 className="text-xl font-bold text-accent">
             {profile?.clubName ?? 'My Club'}

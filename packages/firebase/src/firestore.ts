@@ -9,13 +9,14 @@ import {
   type Firestore,
   type Unsubscribe,
 } from 'firebase/firestore';
-import { type Player, type Court, type Draft } from '@badminton/types';
+import { type Player, type Court, type Draft, type ConfirmationMeta } from '@badminton/types';
 import { getFirebaseApp } from './config';
 
 export interface SessionData {
   players: Player[];
   courts: Court[];
   drafts: Draft[];
+  confirmation?: ConfirmationMeta;
   createdAt: unknown;
   updatedAt: unknown;
 }
@@ -56,6 +57,7 @@ export async function getSession(
     players: data.players ?? [],
     courts: (data.courts ?? []).map(courtFromFirestore),
     drafts: data.drafts ?? [],
+    confirmation: data.confirmation ?? undefined,
     createdAt: data.createdAt,
     updatedAt: data.updatedAt,
   };
@@ -85,18 +87,19 @@ export async function updateSessionFull(
   sessionId: string,
   players: Player[],
   courts: Court[],
-  drafts: Draft[] = []
+  drafts: Draft[] = [],
+  confirmation?: ConfirmationMeta
 ): Promise<void> {
-  await setDoc(
-    doc(getDb(), 'sessions', sessionId),
-    {
-      players,
-      courts: courts.map(courtToFirestore),
-      drafts,
-      updatedAt: serverTimestamp(),
-    },
-    { merge: true }
-  );
+  const data: Record<string, unknown> = {
+    players,
+    courts: courts.map(courtToFirestore),
+    drafts,
+    updatedAt: serverTimestamp(),
+  };
+  if (confirmation) {
+    data.confirmation = confirmation;
+  }
+  await setDoc(doc(getDb(), 'sessions', sessionId), data, { merge: true });
 }
 
 export async function updateSessionDrafts(
@@ -125,6 +128,7 @@ export function subscribeToSession(
         players: data.players ?? [],
         courts: (data.courts ?? []).map(courtFromFirestore),
         drafts: data.drafts ?? [],
+        confirmation: data.confirmation ?? undefined,
         createdAt: data.createdAt,
         updatedAt: data.updatedAt,
       });

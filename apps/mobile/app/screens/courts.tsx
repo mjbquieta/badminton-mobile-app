@@ -1,28 +1,17 @@
 import AddCourtModal from "@/components/AddCourtModal";
 import ConfirmationAlert from "@/components/ConfirmationAlert";
 import CourtCard from "@/components/CourtCard";
-import ManualAddPlayersModal from "@/components/ManualAddPlayersModal";
-import SelectQueueGroupModal, { type QueueGroup } from "@/components/SelectQueueGroupModal";
 import { useToast } from "@/components/Toast";
 import { BadmintonPalette } from "@/constants/palette";
 import {
   type RootState,
   addCourt,
-  addPlayersToCourtManually,
-  assignPlayersToCourt,
   clearCourts,
   clearCourtsError,
   removeCourt,
-  removePlayerFromCourt,
   useAppDispatch,
   useAppSelector,
-  setQueue,
-  backToQueue,
-  dissolveCourt,
-  endGameAndAdvanceQueue,
 } from "@badminton/store";
-import { type Player } from "@badminton/types";
-import { shuffle } from "@badminton/core";
 import { useAuth } from "@/contexts/AuthContext";
 import { UNVERIFIED_LIMITS } from "@badminton/ui-shared";
 import AntDesign from "@expo/vector-icons/AntDesign";
@@ -50,24 +39,12 @@ export const CourtsContent = ({
   const { emailVerified } = useAuth();
   const dispatch = useAppDispatch();
   const courts = useAppSelector((s: RootState) => s.courts.items);
-  const players = useAppSelector((s: RootState) => s.players.items);
-  const queueIds = useAppSelector((s: RootState) => s.queue.ids);
+  const drafts = useAppSelector((s: RootState) => s.drafts.items);
   const sliceError = useAppSelector((s: RootState) => s.courts.error);
   const [showAddModal, setShowAddModal] = useState<boolean>(false);
-  const [manualAdd, setManualAdd] = useState<{
-    visible: boolean;
-    courtId: string | null;
-  }>({ visible: false, courtId: null });
-  const [assignFromQueue, setAssignFromQueue] = useState<{
-    visible: boolean;
-    courtId: string | null;
-  }>({ visible: false, courtId: null });
 
   const { showToast } = useToast();
-
-  const animatePlayersUpdate = () => {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.spring);
-  };
+  const hasDrafts = drafts.length > 0;
 
   useEffect(() => {
     if (
@@ -105,55 +82,17 @@ export const CourtsContent = ({
     });
   };
 
-  const activeCourt = manualAdd.courtId
-    ? courts.find((c) => c.id === manualAdd.courtId) ?? null
-    : null;
-
-  const playersOnAnyCourtIds = new Set(
-    courts.flatMap((c) => c.players.map((p) => p.id))
-  );
-
-  const queuedIds = new Set(queueIds);
-  const availablePlayers: Player[] = players.filter(
-    (p) => !playersOnAnyCourtIds.has(p.id) && !queuedIds.has(p.id)
-  );
-
-  const maxToSelect = activeCourt
-    ? Math.max(0, (activeCourt.isSingle ? 2 : 4) - activeCourt.players.length)
-    : 0;
-
-  const playerMap = new Map(players.map((p) => [p.id, p]));
-
-  const fullQueueGroups: QueueGroup[] = (() => {
-    const groups: QueueGroup[] = [];
-    for (let i = 0; i < queueIds.length; i += 4) {
-      const ids = queueIds.slice(i, i + 4);
-      if (ids.length === 4) {
-        groups.push({
-          index: i / 4,
-          ids,
-          players: ids.map((id) => {
-            const p = playerMap.get(id);
-            return {
-              id,
-              name: p?.name ?? "Unknown",
-              level: p?.level,
-              gameCount: p?.gameCount,
-            };
-          }),
-        });
-      }
-    }
-    return groups;
-  })();
-
   return (
     <View className={`flex-1 bg-primary ${contentContainerClassName}`}>
       {/* Add Court Button */}
       <TouchableOpacity
         onPress={() => setShowAddModal(true)}
+        disabled={hasDrafts}
         className="flex-row items-center justify-center py-3.5 rounded-2xl mb-6"
-        style={{ backgroundColor: BadmintonPalette.accent.primary }}
+        style={{
+          backgroundColor: BadmintonPalette.accent.primary,
+          opacity: hasDrafts ? 0.4 : 1,
+        }}
         accessibilityRole="button"
         accessibilityLabel="Add court"
       >
@@ -165,6 +104,24 @@ export const CourtsContent = ({
           Add Court
         </Text>
       </TouchableOpacity>
+
+      {/* Drafts Lock Notice */}
+      {hasDrafts && (
+        <View className="flex-row items-center p-3 rounded-xl bg-accent/10 border border-accent/30 mb-4">
+          <MaterialCommunityIcons
+            name="lock-outline"
+            size={16}
+            color={BadmintonPalette.accent.primary}
+          />
+          <Text
+            className="text-xs font-medium ml-2 flex-1"
+            style={{ color: BadmintonPalette.accent.primary }}
+          >
+            Courts are locked while drafts exist. Clear all drafts first to add
+            or remove courts.
+          </Text>
+        </View>
+      )}
 
       {/* Courts List */}
       {courts.length > 0 && (
@@ -190,46 +147,50 @@ export const CourtsContent = ({
               </View>
             </View>
 
-            <TouchableOpacity
-              className="flex-row items-center px-3 py-2 rounded-xl bg-danger/10 border border-danger/30 active:bg-danger/20"
-              onPress={() => {
-                const courtsWithPlayers = courts.filter(
-                  (c) => c.players.length > 0
-                );
-                if (courtsWithPlayers.length > 0) {
-                  const names = courtsWithPlayers.map((c) => c.name).join(", ");
-                  Alert.alert(
-                    "Cannot clear courts",
-                    `Some courts have active games (${names}). End the games first.`
+            {!hasDrafts && (
+              <TouchableOpacity
+                className="flex-row items-center px-3 py-2 rounded-xl bg-danger/10 border border-danger/30 active:bg-danger/20"
+                onPress={() => {
+                  const courtsWithPlayers = courts.filter(
+                    (c) => c.players.length > 0
                   );
-                  return;
-                }
-                ConfirmationAlert({
-                  title: "Clear All Courts",
-                  message: "Remove all courts?",
-                  onConfirm: () => {
-                    LayoutAnimation.configureNext(
-                      LayoutAnimation.Presets.spring
+                  if (courtsWithPlayers.length > 0) {
+                    const names = courtsWithPlayers
+                      .map((c) => c.name)
+                      .join(", ");
+                    Alert.alert(
+                      "Cannot clear courts",
+                      `Some courts have active games (${names}). End the games first.`
                     );
-                    dispatch(clearCourts());
-                  },
-                });
-              }}
-              accessibilityRole="button"
-              accessibilityLabel="Clear all courts"
-            >
-              <MaterialCommunityIcons
-                name="delete-sweep"
-                size={16}
-                color={BadmintonPalette.accent.danger}
-              />
-              <Text
-                className="text-xs font-bold ml-1"
-                style={{ color: BadmintonPalette.accent.danger }}
+                    return;
+                  }
+                  ConfirmationAlert({
+                    title: "Clear All Courts",
+                    message: "Remove all courts?",
+                    onConfirm: () => {
+                      LayoutAnimation.configureNext(
+                        LayoutAnimation.Presets.spring
+                      );
+                      dispatch(clearCourts());
+                    },
+                  });
+                }}
+                accessibilityRole="button"
+                accessibilityLabel="Clear all courts"
               >
-                Clear
-              </Text>
-            </TouchableOpacity>
+                <MaterialCommunityIcons
+                  name="delete-sweep"
+                  size={16}
+                  color={BadmintonPalette.accent.danger}
+                />
+                <Text
+                  className="text-xs font-bold ml-1"
+                  style={{ color: BadmintonPalette.accent.danger }}
+                >
+                  Clear
+                </Text>
+              </TouchableOpacity>
+            )}
           </View>
 
           <FlatList
@@ -240,79 +201,28 @@ export const CourtsContent = ({
                 name={item.name}
                 players={item.players}
                 isSingle={item.isSingle}
-                onDeleteTag={(playerId) => {
-                  animatePlayersUpdate();
-                  dispatch(
-                    removePlayerFromCourt({ courtId: item.id, playerId })
-                  );
-                }}
-                onDelete={() => {
-                  ConfirmationAlert({
-                    title: "Delete Court",
-                    message: `Remove ${item.name}?`,
-                    onConfirm: () => {
-                      LayoutAnimation.configureNext(
-                        LayoutAnimation.Presets.spring
-                      );
-                      dispatch(removeCourt(item.id));
-                    },
-                  });
-                }}
-                onEndGame={() => {
-                  ConfirmationAlert({
-                    title: "End Game",
-                    message: `Mark the game on ${item.name} as finished and count the players' games?`,
-                    onConfirm: () => {
-                      animatePlayersUpdate();
-                      const result = dispatch(
-                        endGameAndAdvanceQueue(item.id)
-                      ) as any;
-                      if (result?.warnedQueueEmpty) {
-                        Alert.alert(
-                          "Queue almost empty",
-                          "Use Auto Assign to add more players from the bench."
-                        );
+                onDelete={
+                  hasDrafts
+                    ? undefined
+                    : () => {
+                        if (item.players.length > 0) {
+                          Alert.alert(
+                            "Cannot delete",
+                            `${item.name} has players. End the game first.`
+                          );
+                          return;
+                        }
+                        ConfirmationAlert({
+                          title: "Delete Court",
+                          message: `Remove ${item.name}?`,
+                          onConfirm: () => {
+                            LayoutAnimation.configureNext(
+                              LayoutAnimation.Presets.spring
+                            );
+                            dispatch(removeCourt(item.id));
+                          },
+                        });
                       }
-                    },
-                  });
-                }}
-                onDissolve={() => {
-                  ConfirmationAlert({
-                    title: "Dissolve Game",
-                    message: `Send players on ${item.name} back to the bench? Games will NOT be counted.`,
-                    onConfirm: () => {
-                      animatePlayersUpdate();
-                      dispatch(dissolveCourt(item.id));
-                    },
-                  });
-                }}
-                onBackToQueue={() => {
-                  ConfirmationAlert({
-                    title: "Back to Queue",
-                    message: `Send players on ${item.name} back to the queue? Games will NOT be counted.`,
-                    onConfirm: () => {
-                      animatePlayersUpdate();
-                      dispatch(backToQueue(item.id));
-                    },
-                  });
-                }}
-                onAssignPlayers={() => {
-                  animatePlayersUpdate();
-                  dispatch(
-                    assignPlayersToCourt({
-                      courtId: item.id,
-                      players: shuffle([...availablePlayers]),
-                    })
-                  );
-                }}
-                onManuallyAddPlayers={() => {
-                  dispatch(clearCourtsError());
-                  setManualAdd({ visible: true, courtId: item.id });
-                }}
-                onAssignFromQueue={
-                  fullQueueGroups.length > 0
-                    ? () => setAssignFromQueue({ visible: true, courtId: item.id })
-                    : undefined
                 }
               />
             )}
@@ -350,63 +260,6 @@ export const CourtsContent = ({
         visible={showAddModal}
         onClose={() => setShowAddModal(false)}
         onAdd={onAddCourt}
-      />
-
-      <ManualAddPlayersModal
-        visible={manualAdd.visible}
-        onClose={() => setManualAdd({ visible: false, courtId: null })}
-        title={
-          activeCourt ? `Add players to ${activeCourt.name}` : "Add players"
-        }
-        players={availablePlayers}
-        maxSelect={maxToSelect}
-        onConfirm={(selectedIds) => {
-          if (!activeCourt) return;
-          const selectedPlayers = availablePlayers.filter((p) =>
-            selectedIds.includes(p.id)
-          );
-
-          animatePlayersUpdate();
-          dispatch(
-            addPlayersToCourtManually({
-              courtId: activeCourt.id,
-              players: selectedPlayers,
-            })
-          );
-          setManualAdd({ visible: false, courtId: null });
-        }}
-      />
-
-      <SelectQueueGroupModal
-        visible={assignFromQueue.visible}
-        onClose={() => setAssignFromQueue({ visible: false, courtId: null })}
-        courtName={
-          courts.find((c) => c.id === assignFromQueue.courtId)?.name ?? ""
-        }
-        queueGroups={fullQueueGroups}
-        onSelect={(group) => {
-          if (!assignFromQueue.courtId) return;
-          const selectedPlayers = group.ids
-            .map((id) => playerMap.get(id))
-            .filter(Boolean) as Player[];
-          if (selectedPlayers.length === 0) return;
-
-          animatePlayersUpdate();
-          const groupSet = new Set(group.ids);
-          dispatch(setQueue(queueIds.filter((id) => !groupSet.has(id))));
-          dispatch(
-            addPlayersToCourtManually({
-              courtId: assignFromQueue.courtId,
-              players: selectedPlayers,
-            })
-          );
-
-          showToast({
-            type: "success",
-            message: `Queue ${group.index + 1} assigned to court`,
-          });
-          setAssignFromQueue({ visible: false, courtId: null });
-        }}
       />
     </View>
   );

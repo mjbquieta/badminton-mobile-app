@@ -8,6 +8,10 @@
   --background-end-rgb: 10, 10, 10;
 }
 
+* {
+  touch-action: manipulation;
+}
+
 body {
   color: rgb(var(--foreground-rgb));
   background: linear-gradient(
@@ -82,3 +86,17 @@ body {
 .float-10 { animation: float-10 5.8s ease-in-out infinite; }
 .float-11 { animation: float-11 9.2s ease-in-out infinite; }
 .float-12 { animation: float-12 6.8s ease-in-out infinite; }
+
+@property --rainbow-angle {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
+}
+
+@keyframes rainbow-spin {
+  to { --rainbow-angle: 360deg; }
+}
+
+.animate-rainbow-spin {
+  animation: rainbow-spin 3s linear infinite;
+}

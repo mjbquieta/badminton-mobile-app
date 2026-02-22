@@ -20,7 +20,7 @@ import {
 } from "@badminton/store";
 import { PlayerLevel, type Draft, type Player } from "@badminton/types";
 import { playerLevelConfig } from "@badminton/ui-shared";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
   FiAlertCircle,
   FiCheck,
@@ -46,6 +46,7 @@ export default function DraftPage() {
   const [deleteTarget, setDeleteTarget] = useState<Draft | null>(null);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [showAutoDraftConfirm, setShowAutoDraftConfirm] = useState(false);
+  const [draftCount, setDraftCount] = useState(30);
   const [shuffleMode, setShuffleMode] = useState<
     "balanced" | "random" | "skill-match"
   >("balanced");
@@ -58,8 +59,22 @@ export default function DraftPage() {
     ]),
   );
   const [finishTarget, setFinishTarget] = useState<Draft | null>(null);
-  const [maxDrafts, setMaxDrafts] = useState(30);
   const [showNoCourts, setShowNoCourts] = useState(false);
+
+  // Confirmation-aware player filtering
+  const confirmation = useAppSelector((state) => state.confirmation);
+  const isConfirmationActive = confirmation.meta.enabled;
+
+  const draftablePlayers = useMemo(() => {
+    if (!isConfirmationActive) return players;
+    const confirmedIds = new Set(
+      confirmation.playerConfirmations
+        .filter((pc) => pc.status === "confirmed")
+        .map((pc) => pc.playerId),
+    );
+    return players.filter((p) => confirmedIds.has(p.id));
+  }, [players, isConfirmationActive, confirmation.playerConfirmations]);
+
   const playerMap = new Map(players.map((p) => [p.id, p]));
 
   function resolvePlayer(id: string): Player | undefined {
@@ -68,7 +83,7 @@ export default function DraftPage() {
 
   function handleCreateDraft(selectedIds: string[]) {
     if (selectedIds.length !== 4) return;
-    dispatch(addDraft({ id: uuidv4(), playerIds: selectedIds, maxDrafts }));
+    dispatch(addDraft({ id: uuidv4(), playerIds: selectedIds }));
   }
 
   function handleEditPlayers(selectedIds: string[]) {
@@ -98,10 +113,15 @@ export default function DraftPage() {
     setDeleteTarget(null);
   }
 
-  function handleAutoDraft() {
-    const maxNew = maxDrafts - drafts.length;
-    if (maxNew <= 0) return;
+  // Compute C(n, k)
+  function comb(n: number, k: number): number {
+    if (k > n) return 0;
+    let result = 1;
+    for (let i = 0; i < k; i++) result = (result * (n - i)) / (i + 1);
+    return Math.round(result);
+  }
 
+  function handleAutoDraft() {
     const usedCombos = new Set(
       drafts.map((d) => [...d.playerIds].sort().join(",")),
     );
@@ -147,7 +167,7 @@ export default function DraftPage() {
       const key = [...combo].sort().join(",");
       usedCombos.add(key);
       const draftId = uuidv4();
-      dispatch(addDraft({ id: draftId, playerIds: combo, maxDrafts }));
+      dispatch(addDraft({ id: draftId, playerIds: combo }));
       if (courts.length > 0) {
         const courtIndex = (drafts.length + draftIndex) % courts.length;
         dispatch(
@@ -161,7 +181,7 @@ export default function DraftPage() {
 
     if (shuffleMode === "skill-match") {
       // --- Skill Match: drafts from selected levels only, mixed freely ---
-      const filteredIds = players
+      const filteredIds = draftablePlayers
         .filter((p) => selectedLevels.has(p.level))
         .map((p) => p.id);
 
@@ -170,9 +190,10 @@ export default function DraftPage() {
         return;
       }
 
+      const maxCombos = Math.min(draftCount, comb(filteredIds.length, 2) + comb(filteredIds.length, 4));
       const counts = new Map(filteredIds.map((id) => [id, 0]));
 
-      for (let i = 0; i < maxNew; i++) {
+      for (let i = 0; i < maxCombos; i++) {
         if (i % roundSize === 0) usedInRound.clear();
         const comboSize = getComboSize(i);
 
@@ -247,12 +268,13 @@ export default function DraftPage() {
       }
     } else {
       // --- Balanced & Random modes ---
-      const ids = players.map((p) => p.id);
+      const ids = draftablePlayers.map((p) => p.id);
       if (ids.length < 2) return;
 
+      const maxCombos = Math.min(draftCount, comb(ids.length, 2) + comb(ids.length, 4));
       const counts = new Map(ids.map((id) => [id, 0]));
 
-      for (let i = 0; i < maxNew; i++) {
+      for (let i = 0; i < maxCombos; i++) {
         if (i % roundSize === 0) usedInRound.clear();
         const comboSize = getComboSize(i);
 
@@ -353,37 +375,9 @@ export default function DraftPage() {
           </div>
           <div>
             <h1 className="text-2xl sm:text-3xl font-bold">Draft</h1>
-            <div className="flex items-center gap-1.5 mt-0.5">
-              {drafts.length > 0 ? (
-                <span className="text-sm font-bold text-light-100">{maxDrafts}</span>
-              ) : (
-                <div className="flex items-center gap-1">
-                  <button
-                    onClick={() => setMaxDrafts(Math.max(1, maxDrafts - 5))}
-                    className="w-6 h-6 rounded-md bg-dark-200 text-light-100 text-sm hover:bg-dark-100 flex items-center justify-center"
-                  >
-                    -
-                  </button>
-                  <input
-                    type="number"
-                    min={1}
-                    value={maxDrafts}
-                    onChange={(e) => {
-                      const val = parseInt(e.target.value, 10);
-                      if (!isNaN(val) && val >= 1) setMaxDrafts(val);
-                    }}
-                    className="w-10 bg-transparent text-sm font-bold text-light-100 text-center outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                  />
-                  <button
-                    onClick={() => setMaxDrafts(maxDrafts + 5)}
-                    className="w-6 h-6 rounded-md bg-dark-200 text-light-100 text-sm hover:bg-dark-100 flex items-center justify-center"
-                  >
-                    +
-                  </button>
-                </div>
-              )}
-              <span className="text-light-300 text-sm">matches</span>
-            </div>
+            {drafts.length > 0 && (
+              <span className="text-sm text-light-300 mt-0.5">{drafts.length} matches</span>
+            )}
           </div>
         </div>
         <div className="flex flex-wrap gap-2 sm:gap-3 justify-end">
@@ -399,7 +393,7 @@ export default function DraftPage() {
           )}
           <button
             onClick={() => courts.length === 0 ? setShowNoCourts(true) : setShowAutoDraftConfirm(true)}
-            disabled={drafts.length >= maxDrafts || players.length < 4}
+            disabled={draftablePlayers.length < 4}
             className="flex items-center gap-1.5 p-2 sm:px-4 sm:py-2 rounded-xl text-xs sm:text-sm bg-accent/20 text-accent font-semibold hover:bg-accent/30 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             title="Auto Draft"
           >
@@ -408,7 +402,7 @@ export default function DraftPage() {
           </button>
           <button
             onClick={() => courts.length === 0 ? setShowNoCourts(true) : setShowSelectModal(true)}
-            disabled={drafts.length >= maxDrafts || players.length < 4}
+            disabled={draftablePlayers.length < 4}
             className="flex items-center gap-1.5 p-2 sm:px-4 sm:py-2 rounded-xl text-xs sm:text-sm bg-accent text-primary font-semibold hover:bg-accent/80 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             title="New Draft"
           >
@@ -429,6 +423,16 @@ export default function DraftPage() {
           >
             <FiX size={16} />
           </button>
+        </div>
+      )}
+
+      {/* Confirmed Players Info */}
+      {isConfirmationActive && (
+        <div className="bg-success/10 border border-success/30 text-success rounded-xl px-4 py-3 mb-4 flex items-center gap-3">
+          <FiCheck size={16} className="shrink-0" />
+          <span className="text-sm">
+            RSVP active — {draftablePlayers.length} confirmed {draftablePlayers.length === 1 ? "player" : "players"} available for drafting
+          </span>
         </div>
       )}
 
@@ -617,7 +621,7 @@ export default function DraftPage() {
         open={showSelectModal}
         onClose={() => setShowSelectModal(false)}
         title="Select 4 Players for Draft"
-        players={players}
+        players={draftablePlayers}
         maxSelect={4}
         onConfirm={handleCreateDraft}
       />
@@ -668,9 +672,37 @@ export default function DraftPage() {
       >
         <div className="space-y-4">
           <p className="text-sm text-light-300">
-            This will automatically generate up to {maxDrafts - drafts.length} drafts.
             Unique matchups are prioritized, duplicates allowed when exhausted.
           </p>
+          <div>
+            <label className="block text-xs font-semibold text-light-300 uppercase tracking-wide mb-1.5">
+              Number of Drafts
+            </label>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setDraftCount(Math.max(1, draftCount - 5))}
+                className="w-8 h-8 rounded-lg bg-dark-200 border border-dark-100 text-light-100 text-sm hover:bg-dark-100 flex items-center justify-center"
+              >
+                -
+              </button>
+              <input
+                type="number"
+                min={1}
+                value={draftCount}
+                onChange={(e) => {
+                  const val = parseInt(e.target.value, 10);
+                  if (!isNaN(val) && val >= 1) setDraftCount(val);
+                }}
+                className="w-16 bg-dark-200 border border-dark-100 rounded-lg px-2 py-1.5 text-sm text-light-100 text-center outline-none focus:border-accent/50 transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+              />
+              <button
+                onClick={() => setDraftCount(draftCount + 5)}
+                className="w-8 h-8 rounded-lg bg-dark-200 border border-dark-100 text-light-100 text-sm hover:bg-dark-100 flex items-center justify-center"
+              >
+                +
+              </button>
+            </div>
+          </div>
           <div>
             <label className="block text-xs font-semibold text-light-300 uppercase tracking-wide mb-1.5">
               Shuffle Mode

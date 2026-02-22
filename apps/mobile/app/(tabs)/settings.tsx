@@ -7,8 +7,9 @@ import AntDesign from "@expo/vector-icons/AntDesign";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import Constants from "expo-constants";
 import React, { useState } from "react";
-import { Alert, Image, Text, TouchableOpacity, View } from "react-native";
+import { Alert, Image, Linking, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { AccountContent } from "../screens/account";
 import { CourtsContent } from "../screens/courts";
 import { FeedbackContent } from "../screens/feedback";
 import { PlayersContent } from "../screens/players";
@@ -34,7 +35,7 @@ const AboutContent = () => {
       </Text>
 
       {/* Ownership Message */}
-      <View className="bg-secondary border border-dark-100 rounded-2xl p-6 w-full">
+      <View className="bg-secondary border border-dark-100 rounded-2xl p-6 w-full mb-4">
         <Text className="text-light-300 text-center text-sm leading-6">
           This application is intended for use only under the ownership of{" "}
           <Text className="text-court-lime font-semibold">Smash Potato</Text>.
@@ -42,6 +43,26 @@ const AboutContent = () => {
           All rights reserved.
         </Text>
       </View>
+
+      {/* About the Developer */}
+      <TouchableOpacity
+        onPress={() => Linking.openURL("https://michaelquieta.com")}
+        className="bg-secondary border border-dark-100 rounded-2xl p-4 w-full flex-row items-center justify-center gap-2"
+      >
+        <AntDesign
+          name="user"
+          size={16}
+          color={BadmintonPalette.court.lime}
+        />
+        <Text className="text-court-lime text-sm font-bold">
+          About the Developer
+        </Text>
+        <AntDesign
+          name="right"
+          size={12}
+          color={BadmintonPalette.court.lime}
+        />
+      </TouchableOpacity>
     </View>
   );
 };
@@ -51,7 +72,7 @@ const settings = () => {
     useAuth();
   const { showToast } = useToast();
   const [activeTab, setActiveTab] = useState<
-    "menu" | "manage_players" | "courts" | "feedback" | "about"
+    "menu" | "manage_players" | "courts" | "account" | "feedback" | "about"
   >("menu");
 
   const handleVerifyEmail = () => {
@@ -122,6 +143,14 @@ const settings = () => {
       ),
     },
     {
+      key: "account" as const,
+      label: "Account",
+      description: "Password & club name",
+      icon: (
+        <AntDesign name="user" size={22} color={BadmintonPalette.court.lime} />
+      ),
+    },
+    {
       key: "feedback" as const,
       label: "Feedback",
       description: "Report bugs or suggest features",
@@ -145,6 +174,8 @@ const settings = () => {
         return "Players";
       case "courts":
         return "Courts";
+      case "account":
+        return "Account";
       case "feedback":
         return "Feedback";
       case "about":
@@ -214,6 +245,7 @@ const settings = () => {
                       item.key as
                         | "manage_players"
                         | "courts"
+                        | "account"
                         | "feedback"
                         | "about",
                     );
@@ -278,6 +310,8 @@ const settings = () => {
             <PlayersContent contentContainerClassName="px-6" />
           ) : activeTab === "courts" ? (
             <CourtsContent contentContainerClassName="px-6" />
+          ) : activeTab === "account" ? (
+            <AccountContent />
           ) : activeTab === "feedback" ? (
             <FeedbackContent />
           ) : (

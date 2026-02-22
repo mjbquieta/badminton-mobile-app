@@ -2,10 +2,7 @@
   "compilerOptions": {
     "target": "ES2020",
     "module": "commonjs",
-    "lib": [
-      "ES2020"
-    ],
-    "jsx": "react-native",
+    "lib": ["ES2020"],
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
@@ -17,11 +14,5 @@
     "declarationMap": true,
     "sourceMap": true
   },
-  "exclude": [
-    "node_modules",
-    "dist",
-    ".next",
-    ".expo"
-  ],
-  "extends": "expo/tsconfig.base"
+  "exclude": ["node_modules", "dist"]
 }
