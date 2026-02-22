@@ -19,7 +19,6 @@ import {
 	FiActivity,
 	FiCalendar,
 	FiClock,
-	FiDollarSign,
 	FiLock,
 	FiMapPin,
 	FiSearch,
@@ -266,54 +265,6 @@ export default function ConfirmationPage() {
 					)}
 				</div>
 			</div>
-
-			{/* Cost Breakdown */}
-			{(() => {
-				const addlTotal = (eventDetails.additionalCosts ?? []).reduce(
-					(sum: number, c: { cost: number }) => sum + c.cost,
-					0,
-				);
-				const total = (eventDetails.courtCost ?? 0) + addlTotal;
-				if (total <= 0) return null;
-				const perPlayer = confirmed > 0 ? Math.ceil(total / confirmed) : 0;
-				return (
-					<div className="bg-secondary rounded-2xl border border-dark-100 p-5 space-y-3">
-						<h2 className="text-sm font-semibold text-light-200 uppercase tracking-wide flex items-center gap-2">
-							<FiDollarSign size={14} className="text-accent" />
-							Cost Breakdown
-						</h2>
-						<div className="space-y-2 text-sm">
-							{(eventDetails.courtCost ?? 0) > 0 && (
-								<div className="flex justify-between">
-									<span className="text-light-300">Court</span>
-									<span className="font-medium">₱{eventDetails.courtCost.toLocaleString()}</span>
-								</div>
-							)}
-							{(eventDetails.additionalCosts ?? []).map((c: { item: string; description?: string; cost: number }, i: number) => (
-								<div key={i}>
-									<div className="flex justify-between">
-										<span className="text-light-300">{c.item}</span>
-										<span className="font-medium">₱{c.cost.toLocaleString()}</span>
-									</div>
-									{c.description && (
-										<p className="text-xs text-light-300/60 mt-0.5">{c.description}</p>
-									)}
-								</div>
-							))}
-							<div className="border-t border-dark-100 pt-2 flex justify-between font-semibold">
-								<span>Total</span>
-								<span className="text-accent">₱{total.toLocaleString()}</span>
-							</div>
-						</div>
-						{confirmed > 0 && (
-							<div className="bg-accent/10 border border-accent/20 rounded-xl p-3 flex justify-between items-center">
-								<span className="text-sm text-light-200">Per player ({confirmed} going)</span>
-								<span className="text-lg font-bold text-accent">₱{perPlayer.toLocaleString()}</span>
-							</div>
-						)}
-					</div>
-				);
-			})()}
 
 			{/* Status Summary */}
 			<div className="grid grid-cols-3 gap-3">
