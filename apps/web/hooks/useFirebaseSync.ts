@@ -23,10 +23,13 @@ export function useFirebaseSync(store: SyncableStore, sessionId: string) {
 
     async function init() {
       try {
+        const defaultMeta = { enabled: false, serialId: '', pin: '', locked: false };
+
         // Reset store to prevent stale data from a previous session
         store.dispatch({ type: 'players/setPlayers', payload: [] });
         store.dispatch({ type: 'courts/setCourts', payload: [] });
         store.dispatch({ type: 'drafts/setDrafts', payload: [] });
+        store.dispatch({ type: 'confirmation/setConfirmationMeta', payload: defaultMeta });
 
         const existing = await getSession(sessionId);
 
@@ -36,6 +39,7 @@ export function useFirebaseSync(store: SyncableStore, sessionId: string) {
           store.dispatch({ type: 'players/setPlayers', payload: existing.players });
           store.dispatch({ type: 'courts/setCourts', payload: existing.courts });
           store.dispatch({ type: 'drafts/setDrafts', payload: existing.drafts });
+          store.dispatch({ type: 'confirmation/setConfirmationMeta', payload: existing.confirmation ?? defaultMeta });
         }
 
         if (!cancelled) {

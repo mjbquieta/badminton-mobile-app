@@ -15,6 +15,18 @@ export {
 export type { SyncableStore, FirebaseSyncOptions } from './sync';
 export { createFirebaseSync } from './sync';
 
+export {
+  createConfirmationDoc,
+  getConfirmationDoc,
+  updateConfirmationEventDetails,
+  updateConfirmationPlayers,
+  updatePlayerConfirmation,
+  lockConfirmationDoc,
+  unlockConfirmationDoc,
+  deleteConfirmationDoc,
+  subscribeToConfirmation,
+} from './confirmation-firestore';
+
 export type { User, UserProfile, RegisterResult } from './auth';
 export {
   registerUser,

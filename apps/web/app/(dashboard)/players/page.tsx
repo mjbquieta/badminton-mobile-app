@@ -10,23 +10,51 @@ import {
   addPlayer,
   clearPlayers,
   clearPlayersError,
+  disableConfirmation,
+  enableConfirmation,
   removePlayer,
+  setEventDetails,
+  setPlayerConfirmations,
   updatePlayerGameCount,
   updatePlayerLevel,
   useAppDispatch,
   useAppSelector,
 } from "@badminton/store";
-import { PlayerLevel, type Player } from "@badminton/types";
+import { PlayerLevel, type Player, type EventDetails, type PlayerConfirmation, type CostItem } from "@badminton/types";
 import { UNVERIFIED_LIMITS } from "@badminton/ui-shared";
-import { useState } from "react";
-import { FiEdit2, FiFile, FiTrash2, FiUpload, FiX } from "react-icons/fi";
+import { generateSerialId, generatePin } from "@/utils/confirmation-helpers";
+import {
+  createConfirmationDoc,
+  deleteConfirmationDoc,
+  subscribeToConfirmation,
+  updateConfirmationEventDetails,
+  updateConfirmationPlayers,
+} from "@badminton/firebase";
+import { useEffect, useRef, useState, useMemo } from "react";
+import {
+  FiCheck,
+  FiClipboard,
+  FiClock,
+  FiDollarSign,
+  FiEdit2,
+  FiEye,
+  FiEyeOff,
+  FiFile,
+  FiPlus,
+  FiTrash2,
+  FiUpload,
+  FiUsers,
+  FiX,
+  FiXCircle,
+} from "react-icons/fi";
 import { v4 as uuidv4 } from "uuid";
 
 export default function PlayersPage() {
-  const { emailVerified } = useAuth();
+  const { user, emailVerified } = useAuth();
   const dispatch = useAppDispatch();
   const players = useAppSelector((state) => state.players.items);
   const playersError = useAppSelector((state) => state.players.error);
+  const confirmation = useAppSelector((state) => state.confirmation);
   const [search, setSearch] = useState("");
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingPlayer, setEditingPlayer] = useState<Player | null>(null);
@@ -49,9 +77,92 @@ export default function PlayersPage() {
   const [editLevel, setEditLevel] = useState<PlayerLevel>(PlayerLevel.BEGINNER);
   const [editGameCount, setEditGameCount] = useState(0);
 
+  // Confirmation feature state
+  const [showEventDetailsModal, setShowEventDetailsModal] = useState(false);
+  const [showDisableConfirm, setShowDisableConfirm] = useState(false);
+  const [showPinVisible, setShowPinVisible] = useState(false);
+  const [linkCopied, setLinkCopied] = useState(false);
+  const [showEditEventModal, setShowEditEventModal] = useState(false);
+
+  // Event details form fields
+  const [eventLocation, setEventLocation] = useState("");
+  const [eventCourts, setEventCourts] = useState(1);
+  const [eventDate, setEventDate] = useState("");
+  const [eventStartTime, setEventStartTime] = useState("");
+  const [eventEndTime, setEventEndTime] = useState("");
+  const [eventCourtCost, setEventCourtCost] = useState(0);
+  const [eventAdditionalCosts, setEventAdditionalCosts] = useState<CostItem[]>([]);
+  const [eventNotes, setEventNotes] = useState("");
+
   const filtered = players.filter((p) =>
     p.name.toLowerCase().includes(search.toLowerCase()),
   );
+
+  // Build a map of player confirmation statuses
+  const confirmationStatusMap = useMemo(() => {
+    const map = new Map<string, PlayerConfirmation>();
+    for (const pc of confirmation.playerConfirmations) {
+      map.set(pc.playerId, pc);
+    }
+    return map;
+  }, [confirmation.playerConfirmations]);
+
+  // Subscribe to real-time confirmation updates when enabled
+  const subscriptionRef = useRef<(() => void) | null>(null);
+  useEffect(() => {
+    if (!confirmation.meta.enabled || !confirmation.meta.serialId) {
+      subscriptionRef.current?.();
+      subscriptionRef.current = null;
+      return;
+    }
+
+    const unsubscribe = subscribeToConfirmation(
+      confirmation.meta.serialId,
+      (doc) => {
+        dispatch(setPlayerConfirmations(doc.playerConfirmations));
+      },
+      (err) => console.error("Confirmation subscription error:", err),
+    );
+    subscriptionRef.current = unsubscribe;
+    return unsubscribe;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [confirmation.meta.enabled, confirmation.meta.serialId, dispatch]);
+
+  // Sync player list changes to the public confirmation doc
+  const prevPlayersRef = useRef<string>("");
+  useEffect(() => {
+    if (!confirmation.meta.enabled || !confirmation.meta.serialId) return;
+
+    const playersKey = JSON.stringify(players.map((p) => p.id).sort());
+    if (playersKey === prevPlayersRef.current) return;
+    prevPlayersRef.current = playersKey;
+
+    const existing = new Map(
+      confirmation.playerConfirmations.map((pc) => [pc.playerId, pc]),
+    );
+    const updated: PlayerConfirmation[] = players.map((p) => {
+      const existingPc = existing.get(p.id);
+      return (
+        existingPc ?? {
+          playerId: p.id,
+          playerName: p.name,
+          playerLevel: p.level,
+          status: "pending" as const,
+        }
+      );
+    });
+
+    if (
+      JSON.stringify(updated) !==
+      JSON.stringify(confirmation.playerConfirmations)
+    ) {
+      dispatch(setPlayerConfirmations(updated));
+      updateConfirmationPlayers(confirmation.meta.serialId, updated).catch(
+        console.error,
+      );
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [players, confirmation.meta.enabled, confirmation.meta.serialId, dispatch]);
 
   function handleAdd() {
     dispatch(
@@ -71,7 +182,10 @@ export default function PlayersPage() {
     if (!editingPlayer) return;
     dispatch(updatePlayerLevel({ id: editingPlayer.id, level: editLevel }));
     dispatch(
-      updatePlayerGameCount({ id: editingPlayer.id, gameCount: editGameCount }),
+      updatePlayerGameCount({
+        id: editingPlayer.id,
+        gameCount: editGameCount,
+      }),
     );
     setEditingPlayer(null);
   }
@@ -87,11 +201,13 @@ export default function PlayersPage() {
   function parseCsv(text: string): { name: string; level: string }[] {
     const lines = text.split(/\r?\n/).filter((l) => l.trim());
     if (lines.length === 0) return [];
-    // Check if first line is a header
     const first = lines[0].toLowerCase().trim();
-    const startIndex = first.includes("name") && first.includes("level") ? 1 : 0;
+    const startIndex =
+      first.includes("name") && first.includes("level") ? 1 : 0;
     return lines.slice(startIndex).map((line) => {
-      const parts = line.split(",").map((s) => s.trim().replace(/^["']|["']$/g, ""));
+      const parts = line
+        .split(",")
+        .map((s) => s.trim().replace(/^["']|["']$/g, ""));
       return { name: parts[0] ?? "", level: parts[1] ?? "" };
     });
   }
@@ -104,7 +220,6 @@ export default function PlayersPage() {
     let entries: { name: string; level: string }[];
 
     if (trimmed.startsWith("[")) {
-      // JSON
       try {
         const data = JSON.parse(trimmed);
         if (!Array.isArray(data)) {
@@ -120,7 +235,6 @@ export default function PlayersPage() {
         return;
       }
     } else {
-      // CSV
       entries = parseCsv(trimmed);
     }
 
@@ -144,7 +258,9 @@ export default function PlayersPage() {
       imported++;
     }
     if (imported === 0 && skipped > 0) {
-      setImportError(`All ${skipped} entries were invalid. Check name (3+ chars) and level (BEGINNER, INTERMEDIATE, ADVANCED, PRO).`);
+      setImportError(
+        `All ${skipped} entries were invalid. Check name (3+ chars) and level (BEGINNER, INTERMEDIATE, ADVANCED, PRO).`,
+      );
       return;
     }
     setImportJson("");
@@ -179,6 +295,137 @@ export default function PlayersPage() {
     setEditingPlayer(player);
   }
 
+  // --- Confirmation handlers ---
+  function handleToggleConfirmation() {
+    if (confirmation.meta.enabled) {
+      setShowDisableConfirm(true);
+    } else {
+      // Reset form fields
+      setEventLocation("");
+      setEventCourts(1);
+      setEventDate("");
+      setEventStartTime("");
+      setEventEndTime("");
+      setEventCourtCost(0);
+      setEventAdditionalCosts([]);
+      setEventNotes("");
+      setShowEventDetailsModal(true);
+    }
+  }
+
+  async function handleSubmitEventDetails() {
+    const serialId = generateSerialId();
+    const pin = generatePin();
+    const eventDetails: EventDetails = {
+      location: eventLocation,
+      courts: eventCourts,
+      date: eventDate,
+      startTime: eventStartTime,
+      endTime: eventEndTime,
+      courtCost: eventCourtCost,
+      additionalCosts: eventAdditionalCosts.filter((c) => c.item.trim()),
+      ...(eventNotes ? { notes: eventNotes } : {}),
+    };
+
+    const playerConfirmations: PlayerConfirmation[] = players.map((p) => ({
+      playerId: p.id,
+      playerName: p.name,
+      playerLevel: p.level,
+      status: "pending" as const,
+    }));
+
+    dispatch(enableConfirmation({ serialId, pin }));
+    dispatch(setEventDetails(eventDetails));
+    dispatch(setPlayerConfirmations(playerConfirmations));
+
+    await createConfirmationDoc(
+      serialId,
+      user!.uid,
+      pin,
+      eventDetails,
+      playerConfirmations,
+    );
+
+    setShowEventDetailsModal(false);
+  }
+
+  async function handleDisableConfirmation() {
+    if (confirmation.meta.serialId) {
+      await deleteConfirmationDoc(confirmation.meta.serialId);
+    }
+    dispatch(disableConfirmation());
+    setShowDisableConfirm(false);
+  }
+
+  function handleCopyLink() {
+    const link = `${window.location.origin}/confirm/${confirmation.meta.serialId}`;
+    navigator.clipboard.writeText(link);
+    setLinkCopied(true);
+    setTimeout(() => setLinkCopied(false), 2000);
+  }
+
+  function openEditEventDetails() {
+    if (confirmation.eventDetails) {
+      setEventLocation(confirmation.eventDetails.location);
+      setEventCourts(confirmation.eventDetails.courts);
+      setEventDate(confirmation.eventDetails.date);
+      setEventStartTime(confirmation.eventDetails.startTime);
+      setEventEndTime(confirmation.eventDetails.endTime);
+      setEventCourtCost(confirmation.eventDetails.courtCost);
+      setEventAdditionalCosts(confirmation.eventDetails.additionalCosts);
+      setEventNotes(confirmation.eventDetails.notes ?? "");
+    }
+    setShowEditEventModal(true);
+  }
+
+  async function handleUpdateEventDetails() {
+    const eventDetails: EventDetails = {
+      location: eventLocation,
+      courts: eventCourts,
+      date: eventDate,
+      startTime: eventStartTime,
+      endTime: eventEndTime,
+      courtCost: eventCourtCost,
+      additionalCosts: eventAdditionalCosts.filter((c) => c.item.trim()),
+      ...(eventNotes ? { notes: eventNotes } : {}),
+    };
+
+    dispatch(setEventDetails(eventDetails));
+    if (confirmation.meta.serialId) {
+      await updateConfirmationEventDetails(
+        confirmation.meta.serialId,
+        eventDetails,
+      );
+    }
+    setShowEditEventModal(false);
+  }
+
+  const isEventFormValid =
+    eventLocation.trim() && eventDate && eventStartTime && eventEndTime;
+
+  // Confirmation stats
+  const confirmedCount = confirmation.playerConfirmations.filter(
+    (p) => p.status === "confirmed",
+  ).length;
+  const declinedCount = confirmation.playerConfirmations.filter(
+    (p) => p.status === "declined",
+  ).length;
+  const pendingCount = confirmation.playerConfirmations.filter(
+    (p) => p.status === "pending",
+  ).length;
+
+  // Cost calculations
+  const totalCost = useMemo(() => {
+    if (!confirmation.eventDetails) return 0;
+    const addlTotal = confirmation.eventDetails.additionalCosts.reduce(
+      (sum, c) => sum + c.cost,
+      0,
+    );
+    return confirmation.eventDetails.courtCost + addlTotal;
+  }, [confirmation.eventDetails]);
+
+  const costPerPlayer = confirmedCount > 0 ? totalCost / confirmedCount : 0;
+
   return (
     <div className="p-4 sm:p-6 md:p-8 max-w-5xl">
       {/* Header */}
@@ -187,7 +434,28 @@ export default function PlayersPage() {
           <h1 className="text-2xl sm:text-3xl font-bold">Players</h1>
           <p className="text-light-300 text-sm mt-1">{players.length} total</p>
         </div>
-        <div className="flex gap-2 sm:gap-3 shrink-0">
+        <div className="flex flex-wrap gap-2 sm:gap-3 shrink-0 justify-end">
+          {/* Confirmation Toggle */}
+          <div className="relative group flex items-center gap-2">
+            <button
+              onClick={handleToggleConfirmation}
+              role="switch"
+              aria-checked={confirmation.meta.enabled}
+              aria-label="Toggle player confirmation"
+              className={`relative inline-flex h-7 w-12 shrink-0 cursor-pointer items-center rounded-full transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-accent/50 focus:ring-offset-2 focus:ring-offset-primary ${
+                confirmation.meta.enabled ? "bg-success" : "bg-dark-100"
+              }`}
+            >
+              <span
+                className={`inline-block h-5 w-5 rounded-full bg-white shadow-md transition-transform duration-200 ease-in-out ${
+                  confirmation.meta.enabled ? "translate-x-6" : "translate-x-1"
+                }`}
+              />
+            </button>
+            <span className="hidden sm:inline text-xs text-light-300">
+              Player RSVP
+            </span>
+          </div>
           {players.length > 0 && (
             <button
               onClick={() => setShowClearConfirm(true)}
@@ -197,7 +465,13 @@ export default function PlayersPage() {
             </button>
           )}
           <button
-            onClick={() => { setImportJson(""); setImportError(null); setImportFileName(null); setImportMode("file"); setShowImportModal(true); }}
+            onClick={() => {
+              setImportJson("");
+              setImportError(null);
+              setImportFileName(null);
+              setImportMode("file");
+              setShowImportModal(true);
+            }}
             className="flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm border border-dark-100 text-light-200 hover:bg-dark-200"
           >
             <FiUpload size={14} />
@@ -211,6 +485,162 @@ export default function PlayersPage() {
           </button>
         </div>
       </div>
+
+      {/* RSVP Info Panel */}
+      {confirmation.meta.enabled && (
+        <div className="bg-secondary rounded-2xl border border-dark-100 p-4 sm:p-5 mb-6 space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-light-200 uppercase tracking-wide">
+              Player RSVP
+            </h2>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={openEditEventDetails}
+                className="p-1.5 rounded-lg text-light-300 hover:text-accent hover:bg-accent/10 transition-colors"
+                title="Edit event details"
+              >
+                <FiEdit2 size={16} />
+              </button>
+              <button
+                onClick={() => setShowDisableConfirm(true)}
+                className="p-1.5 rounded-lg text-light-300 hover:text-danger hover:bg-danger/10 transition-colors"
+                title="Disable RSVP"
+              >
+                <FiXCircle size={16} />
+              </button>
+            </div>
+          </div>
+
+          {/* Public Link & PIN */}
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <div className="flex-1 bg-dark-200 rounded-lg px-3 py-2 text-xs font-mono text-light-200 truncate">
+                {typeof window !== "undefined"
+                  ? `${window.location.origin}/confirm/${confirmation.meta.serialId}`
+                  : `/confirm/${confirmation.meta.serialId}`}
+              </div>
+              <button
+                onClick={handleCopyLink}
+                className="p-2 rounded-lg border border-dark-100 text-light-300 hover:text-accent hover:border-accent/30 transition-colors"
+                title="Copy link"
+              >
+                {linkCopied ? (
+                  <FiCheck size={14} className="text-success" />
+                ) : (
+                  <FiClipboard size={14} />
+                )}
+              </button>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-light-300">PIN:</span>
+              <span className="font-mono text-sm font-semibold tracking-wider">
+                {showPinVisible ? confirmation.meta.pin : "********"}
+              </span>
+              <button
+                onClick={() => setShowPinVisible(!showPinVisible)}
+                className="p-1 rounded text-light-300 hover:text-light-100 transition-colors"
+              >
+                {showPinVisible ? (
+                  <FiEyeOff size={12} />
+                ) : (
+                  <FiEye size={12} />
+                )}
+              </button>
+            </div>
+          </div>
+
+          {/* Attendance Preview */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-xs font-semibold text-light-200 uppercase tracking-wide">
+                <FiUsers size={12} />
+                Attendance
+              </div>
+              <span className="text-xs text-light-300">
+                {confirmation.playerConfirmations.length} players
+              </span>
+            </div>
+
+            {/* Stacked Progress Bar */}
+            {confirmation.playerConfirmations.length > 0 && (
+              <div className="space-y-2">
+                <div className="flex h-3 rounded-full overflow-hidden bg-dark-200">
+                  {confirmedCount > 0 && (
+                    <div
+                      className="bg-success transition-all duration-500 ease-out"
+                      style={{ width: `${(confirmedCount / confirmation.playerConfirmations.length) * 100}%` }}
+                    />
+                  )}
+                  {declinedCount > 0 && (
+                    <div
+                      className="bg-danger transition-all duration-500 ease-out"
+                      style={{ width: `${(declinedCount / confirmation.playerConfirmations.length) * 100}%` }}
+                    />
+                  )}
+                </div>
+                <div className="flex items-center gap-4 text-xs">
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-success" />
+                    <span className="text-light-300">Going</span>
+                    <span className="font-bold text-success">{confirmedCount}</span>
+                    <span className="text-light-300/50">
+                      ({confirmation.playerConfirmations.length > 0
+                        ? Math.round((confirmedCount / confirmation.playerConfirmations.length) * 100)
+                        : 0}%)
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-danger" />
+                    <span className="text-light-300">Not Going</span>
+                    <span className="font-bold text-danger">{declinedCount}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-dark-100" />
+                    <span className="text-light-300">Pending</span>
+                    <span className="font-bold text-light-300">{pendingCount}</span>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Cost Breakdown */}
+          {totalCost > 0 && (
+            <div className="space-y-3">
+              <div className="flex items-center gap-2 text-xs font-semibold text-light-200 uppercase tracking-wide">
+                <FiDollarSign size={12} />
+                Cost Breakdown
+              </div>
+              <div className="bg-dark-200 rounded-xl p-3 space-y-2 text-sm">
+                {confirmation.eventDetails && confirmation.eventDetails.courtCost > 0 && (
+                  <div className="flex justify-between">
+                    <span className="text-light-300">Court</span>
+                    <span className="font-medium">₱{confirmation.eventDetails.courtCost.toLocaleString()}</span>
+                  </div>
+                )}
+                {confirmation.eventDetails?.additionalCosts.map((c, i) => (
+                  <div key={i} className="flex justify-between">
+                    <span className="text-light-300">{c.item}</span>
+                    <span className="font-medium">₱{c.cost.toLocaleString()}</span>
+                  </div>
+                ))}
+                <div className="border-t border-dark-100 pt-2 flex justify-between font-semibold">
+                  <span>Total</span>
+                  <span className="text-accent">₱{totalCost.toLocaleString()}</span>
+                </div>
+              </div>
+              {confirmedCount > 0 && (
+                <div className="bg-accent/10 border border-accent/20 rounded-xl p-3 flex justify-between items-center">
+                  <span className="text-sm text-light-200">Per player ({confirmedCount} going)</span>
+                  <span className="text-lg font-bold text-accent">
+                    ₱{Math.ceil(costPerPlayer).toLocaleString()}
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Error */}
       {playersError && (
@@ -237,15 +667,25 @@ export default function PlayersPage() {
       {/* Players Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
         {filtered.map((player) => {
+          const pc = confirmationStatusMap.get(player.id);
+          const isConfirmed = !confirmation.meta.enabled || pc?.status === "confirmed";
           return (
             <div
               key={player.id}
-              className="bg-secondary rounded-2xl border border-dark-100 p-4 flex flex-col gap-3"
+              className={`rounded-2xl border p-4 flex flex-col gap-3 transition-opacity ${
+                isConfirmed
+                  ? "bg-secondary border-dark-100"
+                  : "bg-secondary/50 border-dark-100/50 opacity-50"
+              }`}
             >
               <div className="flex justify-between items-start">
                 <div className="flex items-center gap-2">
                   <PlayerLevelBadge level={player.level} size="md" />
                   <span className="font-semibold">{player.name}</span>
+                  {/* Confirmation status indicator */}
+                  {confirmation.meta.enabled && pc && (
+                    <ConfirmationStatusBadge status={pc.status} />
+                  )}
                 </div>
                 <div className="flex gap-1">
                   <button
@@ -347,7 +787,9 @@ export default function PlayersPage() {
             </label>
             <div className="flex items-center gap-4">
               <button
-                onClick={() => setEditGameCount(Math.max(0, editGameCount - 1))}
+                onClick={() =>
+                  setEditGameCount(Math.max(0, editGameCount - 1))
+                }
                 className="w-10 h-10 rounded-xl bg-dark-200 text-light-100 text-xl hover:bg-dark-100"
               >
                 -
@@ -402,6 +844,77 @@ export default function PlayersPage() {
         danger
       />
 
+      {/* Disable Confirmation Confirm */}
+      <ConfirmDialog
+        open={showDisableConfirm}
+        onClose={() => setShowDisableConfirm(false)}
+        onConfirm={handleDisableConfirmation}
+        title="Disable Confirmation"
+        message="This will delete the public confirmation page and remove all confirmation data. Are you sure?"
+        confirmLabel="Disable"
+        danger
+      />
+
+      {/* Event Details Modal (Enable) */}
+      <Modal
+        open={showEventDetailsModal}
+        onClose={() => setShowEventDetailsModal(false)}
+        title="Event Details"
+      >
+        <EventDetailsForm
+          location={eventLocation}
+          courts={eventCourts}
+          date={eventDate}
+          startTime={eventStartTime}
+          endTime={eventEndTime}
+          courtCost={eventCourtCost}
+          additionalCosts={eventAdditionalCosts}
+          notes={eventNotes}
+          onLocationChange={setEventLocation}
+          onCourtsChange={setEventCourts}
+          onDateChange={setEventDate}
+          onStartTimeChange={setEventStartTime}
+          onEndTimeChange={setEventEndTime}
+          onCourtCostChange={setEventCourtCost}
+          onAdditionalCostsChange={setEventAdditionalCosts}
+          onNotesChange={setEventNotes}
+          isValid={!!isEventFormValid}
+          onCancel={() => setShowEventDetailsModal(false)}
+          onSubmit={handleSubmitEventDetails}
+          submitLabel="Enable & Generate Link"
+        />
+      </Modal>
+
+      {/* Event Details Modal (Edit) */}
+      <Modal
+        open={showEditEventModal}
+        onClose={() => setShowEditEventModal(false)}
+        title="Edit Event Details"
+      >
+        <EventDetailsForm
+          location={eventLocation}
+          courts={eventCourts}
+          date={eventDate}
+          startTime={eventStartTime}
+          endTime={eventEndTime}
+          courtCost={eventCourtCost}
+          additionalCosts={eventAdditionalCosts}
+          notes={eventNotes}
+          onLocationChange={setEventLocation}
+          onCourtsChange={setEventCourts}
+          onDateChange={setEventDate}
+          onStartTimeChange={setEventStartTime}
+          onEndTimeChange={setEventEndTime}
+          onCourtCostChange={setEventCourtCost}
+          onAdditionalCostsChange={setEventAdditionalCosts}
+          onNotesChange={setEventNotes}
+          isValid={!!isEventFormValid}
+          onCancel={() => setShowEditEventModal(false)}
+          onSubmit={handleUpdateEventDetails}
+          submitLabel="Save Changes"
+        />
+      </Modal>
+
       {/* Import Players Modal */}
       <Modal
         open={showImportModal}
@@ -427,9 +940,11 @@ export default function PlayersPage() {
 
           {importMode === "file" ? (
             <>
-              {/* Drag & drop zone */}
               <div
-                onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setIsDragging(true);
+                }}
                 onDragLeave={() => setIsDragging(false)}
                 onDrop={handleDrop}
                 className={`relative border-2 border-dashed rounded-xl p-8 text-center transition-colors ${isDragging ? "border-accent bg-accent/5" : "border-dark-100 hover:border-light-300/30"}`}
@@ -447,34 +962,54 @@ export default function PlayersPage() {
                   <div className="flex flex-col items-center gap-2">
                     <FiFile className="text-accent" size={28} />
                     <div className="flex items-center gap-2">
-                      <span className="text-sm font-semibold text-light-100">{importFileName}</span>
+                      <span className="text-sm font-semibold text-light-100">
+                        {importFileName}
+                      </span>
                       <button
-                        onClick={(e) => { e.stopPropagation(); setImportFileName(null); setImportJson(""); }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setImportFileName(null);
+                          setImportJson("");
+                        }}
                         className="p-0.5 rounded text-light-300 hover:text-danger"
                       >
                         <FiX size={14} />
                       </button>
                     </div>
-                    <span className="text-[10px] text-accent">Ready to import</span>
+                    <span className="text-[10px] text-accent">
+                      Ready to import
+                    </span>
                   </div>
                 ) : (
                   <div className="flex flex-col items-center gap-2">
-                    <FiUpload className={isDragging ? "text-accent" : "text-light-300"} size={28} />
+                    <FiUpload
+                      className={
+                        isDragging ? "text-accent" : "text-light-300"
+                      }
+                      size={28}
+                    />
                     <p className="text-sm text-light-200">
-                      Drop a file here or <span className="text-accent font-semibold">browse</span>
+                      Drop a file here or{" "}
+                      <span className="text-accent font-semibold">browse</span>
                     </p>
-                    <p className="text-[10px] text-light-300/60">Supports .json and .csv</p>
+                    <p className="text-[10px] text-light-300/60">
+                      Supports .json and .csv
+                    </p>
                   </div>
                 )}
               </div>
             </>
           ) : (
             <>
-              {/* Paste textarea */}
               <textarea
                 value={importJson}
-                onChange={(e) => { setImportJson(e.target.value); setImportFileName(null); }}
-                placeholder={'[\n  { "name": "Juan", "level": "BEGINNER" }\n]\n\nor\n\nname,level\nJuan,BEGINNER'}
+                onChange={(e) => {
+                  setImportJson(e.target.value);
+                  setImportFileName(null);
+                }}
+                placeholder={
+                  '[\n  { "name": "Juan", "level": "BEGINNER" }\n]\n\nor\n\nname,level\nJuan,BEGINNER'
+                }
                 rows={7}
                 autoFocus
                 className="w-full bg-dark-200 border border-dark-100 rounded-xl px-4 py-3 text-sm text-light-100 placeholder:text-light-300/30 outline-none focus:border-accent/50 font-mono resize-none"
@@ -482,24 +1017,31 @@ export default function PlayersPage() {
             </>
           )}
 
-          {/* Format hint */}
           <div className="flex gap-4 text-[10px] text-light-300/50">
-            <span><span className="text-light-300">JSON:</span> {"[{name, level}]"}</span>
-            <span><span className="text-light-300">CSV:</span> name,level</span>
-            <span><span className="text-light-300">Levels:</span> BEGINNER, INTERMEDIATE, ADVANCED, PRO</span>
+            <span>
+              <span className="text-light-300">JSON:</span> {"[{name, level}]"}
+            </span>
+            <span>
+              <span className="text-light-300">CSV:</span> name,level
+            </span>
+            <span>
+              <span className="text-light-300">Levels:</span> BEGINNER,
+              INTERMEDIATE, ADVANCED, PRO
+            </span>
           </div>
 
-          {/* Error */}
           {importError && (
             <div className="bg-danger/10 border border-danger/30 rounded-lg px-3 py-2 flex items-start gap-2">
               <span className="text-danger text-xs flex-1">{importError}</span>
-              <button onClick={() => setImportError(null)} className="text-danger/50 hover:text-danger shrink-0">
+              <button
+                onClick={() => setImportError(null)}
+                className="text-danger/50 hover:text-danger shrink-0"
+              >
                 <FiX size={12} />
               </button>
             </div>
           )}
 
-          {/* Actions */}
           <div className="flex gap-3 justify-end pt-1">
             <button
               onClick={() => setShowImportModal(false)}
@@ -517,6 +1059,254 @@ export default function PlayersPage() {
           </div>
         </div>
       </Modal>
+    </div>
+  );
+}
+
+function ConfirmationStatusBadge({
+  status,
+}: {
+  status: "pending" | "confirmed" | "declined";
+}) {
+  if (status === "confirmed") {
+    return (
+      <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-success/20" title="Confirmed">
+        <FiCheck size={10} className="text-success" />
+      </span>
+    );
+  }
+  if (status === "declined") {
+    return (
+      <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-danger/20" title="Declined">
+        <FiX size={10} className="text-danger" />
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-light-300/20" title="Pending">
+      <FiClock size={10} className="text-light-300" />
+    </span>
+  );
+}
+
+function EventDetailsForm({
+  location,
+  courts,
+  date,
+  startTime,
+  endTime,
+  courtCost,
+  additionalCosts,
+  notes,
+  onLocationChange,
+  onCourtsChange,
+  onDateChange,
+  onStartTimeChange,
+  onEndTimeChange,
+  onCourtCostChange,
+  onAdditionalCostsChange,
+  onNotesChange,
+  isValid,
+  onCancel,
+  onSubmit,
+  submitLabel,
+}: {
+  location: string;
+  courts: number;
+  date: string;
+  startTime: string;
+  endTime: string;
+  courtCost: number;
+  additionalCosts: CostItem[];
+  notes: string;
+  onLocationChange: (v: string) => void;
+  onCourtsChange: (v: number) => void;
+  onDateChange: (v: string) => void;
+  onStartTimeChange: (v: string) => void;
+  onEndTimeChange: (v: string) => void;
+  onCourtCostChange: (v: number) => void;
+  onAdditionalCostsChange: (v: CostItem[]) => void;
+  onNotesChange: (v: string) => void;
+  isValid: boolean;
+  onCancel: () => void;
+  onSubmit: () => void;
+  submitLabel: string;
+}) {
+  const inputClass =
+    "w-full bg-dark-200 border border-dark-100 rounded-xl px-4 py-2.5 text-sm text-light-100 placeholder:text-light-300 outline-none focus:border-accent/50";
+
+  function addCostItem() {
+    onAdditionalCostsChange([...additionalCosts, { item: "", cost: 0 }]);
+  }
+
+  function updateCostItem(index: number, field: "item" | "cost", value: string | number) {
+    const updated = [...additionalCosts];
+    updated[index] = { ...updated[index], [field]: value };
+    onAdditionalCostsChange(updated);
+  }
+
+  function removeCostItem(index: number) {
+    onAdditionalCostsChange(additionalCosts.filter((_, i) => i !== index));
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="bg-accent/10 border border-accent/20 rounded-xl px-4 py-3 text-xs text-light-200 leading-relaxed">
+        This will generate a public link you can share with players so they can confirm or decline attendance before you start drafting. Fill in the event details below — they will be shown on the RSVP page.
+      </div>
+      <div>
+        <label className="text-sm text-light-200 mb-1.5 block">
+          Location <span className="text-danger">*</span>
+        </label>
+        <input
+          type="text"
+          placeholder="e.g. City Sports Center"
+          value={location}
+          onChange={(e) => onLocationChange(e.target.value)}
+          className={inputClass}
+          autoFocus
+        />
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="text-sm text-light-200 mb-1.5 block">
+            Courts Reserved
+          </label>
+          <input
+            type="number"
+            min={1}
+            value={courts}
+            onChange={(e) => {
+              const val = parseInt(e.target.value, 10);
+              if (!isNaN(val) && val >= 1) onCourtsChange(val);
+            }}
+            className={inputClass}
+          />
+        </div>
+        <div>
+          <label className="text-sm text-light-200 mb-1.5 block">
+            Court Cost
+          </label>
+          <input
+            type="number"
+            min={0}
+            value={courtCost || ""}
+            placeholder="0"
+            onChange={(e) => {
+              const val = parseFloat(e.target.value);
+              onCourtCostChange(isNaN(val) ? 0 : val);
+            }}
+            className={inputClass}
+          />
+        </div>
+      </div>
+      <div>
+        <label className="text-sm text-light-200 mb-1.5 block">
+          Date <span className="text-danger">*</span>
+        </label>
+        <input
+          type="date"
+          value={date}
+          onChange={(e) => onDateChange(e.target.value)}
+          className={inputClass}
+        />
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="text-sm text-light-200 mb-1.5 block">
+            Start Time <span className="text-danger">*</span>
+          </label>
+          <input
+            type="time"
+            value={startTime}
+            onChange={(e) => onStartTimeChange(e.target.value)}
+            className={inputClass}
+          />
+        </div>
+        <div>
+          <label className="text-sm text-light-200 mb-1.5 block">
+            End Time <span className="text-danger">*</span>
+          </label>
+          <input
+            type="time"
+            value={endTime}
+            onChange={(e) => onEndTimeChange(e.target.value)}
+            className={inputClass}
+          />
+        </div>
+      </div>
+
+      {/* Additional Costs */}
+      <div>
+        <label className="text-sm text-light-200 mb-1.5 block">
+          Additional Costs
+        </label>
+        <div className="space-y-2">
+          {additionalCosts.map((costItem, i) => (
+            <div key={i} className="flex items-center gap-2">
+              <input
+                type="text"
+                placeholder="e.g. Shuttlecocks"
+                value={costItem.item}
+                onChange={(e) => updateCostItem(i, "item", e.target.value)}
+                className="flex-1 bg-dark-200 border border-dark-100 rounded-xl px-3 py-2 text-sm text-light-100 placeholder:text-light-300 outline-none focus:border-accent/50"
+              />
+              <input
+                type="number"
+                min={0}
+                placeholder="Cost"
+                value={costItem.cost || ""}
+                onChange={(e) => {
+                  const val = parseFloat(e.target.value);
+                  updateCostItem(i, "cost", isNaN(val) ? 0 : val);
+                }}
+                className="w-24 bg-dark-200 border border-dark-100 rounded-xl px-3 py-2 text-sm text-light-100 placeholder:text-light-300 outline-none focus:border-accent/50"
+              />
+              <button
+                onClick={() => removeCostItem(i)}
+                className="p-2 rounded-lg text-light-300 hover:text-danger hover:bg-danger/10 transition-colors shrink-0"
+              >
+                <FiX size={14} />
+              </button>
+            </div>
+          ))}
+          <button
+            onClick={addCostItem}
+            className="flex items-center gap-1.5 text-xs text-accent hover:text-accent/80 transition-colors py-1"
+          >
+            <FiPlus size={12} />
+            Add Item
+          </button>
+        </div>
+      </div>
+
+      <div>
+        <label className="text-sm text-light-200 mb-1.5 block">
+          Notes (optional)
+        </label>
+        <textarea
+          placeholder="Any extra info for players..."
+          value={notes}
+          onChange={(e) => onNotesChange(e.target.value)}
+          rows={2}
+          className={`${inputClass} resize-none`}
+        />
+      </div>
+      <div className="flex gap-3 justify-end pt-2">
+        <button
+          onClick={onCancel}
+          className="px-4 py-2 rounded-xl text-sm text-light-200 hover:bg-dark-200"
+        >
+          Cancel
+        </button>
+        <button
+          onClick={onSubmit}
+          disabled={!isValid}
+          className="px-4 py-2 rounded-xl text-sm bg-accent text-primary font-semibold hover:bg-accent/80 disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          {submitLabel}
+        </button>
+      </div>
     </div>
   );
 }

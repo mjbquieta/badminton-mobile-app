@@ -50,3 +50,18 @@ export {
 	setDrafts,
 	draftsReducer,
 } from './slices/drafts';
+
+// Confirmation slice
+export {
+	enableConfirmation,
+	disableConfirmation,
+	setEventDetails,
+	setPlayerConfirmations,
+	updatePlayerConfirmationStatus,
+	lockConfirmation,
+	unlockConfirmation,
+	setConfirmationMeta,
+	setConfirmationError,
+	clearConfirmationError,
+	confirmationReducer,
+} from './slices/confirmation';

@@ -20,7 +20,7 @@ import {
 } from "@badminton/store";
 import { PlayerLevel, type Draft, type Player } from "@badminton/types";
 import { playerLevelConfig } from "@badminton/ui-shared";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
   FiAlertCircle,
   FiCheck,
@@ -60,6 +60,21 @@ export default function DraftPage() {
   const [finishTarget, setFinishTarget] = useState<Draft | null>(null);
   const [maxDrafts, setMaxDrafts] = useState(30);
   const [showNoCourts, setShowNoCourts] = useState(false);
+
+  // Confirmation-aware player filtering
+  const confirmation = useAppSelector((state) => state.confirmation);
+  const isConfirmationActive = confirmation.meta.enabled;
+
+  const draftablePlayers = useMemo(() => {
+    if (!isConfirmationActive) return players;
+    const confirmedIds = new Set(
+      confirmation.playerConfirmations
+        .filter((pc) => pc.status === "confirmed")
+        .map((pc) => pc.playerId),
+    );
+    return players.filter((p) => confirmedIds.has(p.id));
+  }, [players, isConfirmationActive, confirmation.playerConfirmations]);
+
   const playerMap = new Map(players.map((p) => [p.id, p]));
 
   function resolvePlayer(id: string): Player | undefined {
@@ -161,7 +176,7 @@ export default function DraftPage() {
 
     if (shuffleMode === "skill-match") {
       // --- Skill Match: drafts from selected levels only, mixed freely ---
-      const filteredIds = players
+      const filteredIds = draftablePlayers
         .filter((p) => selectedLevels.has(p.level))
         .map((p) => p.id);
 
@@ -247,7 +262,7 @@ export default function DraftPage() {
       }
     } else {
       // --- Balanced & Random modes ---
-      const ids = players.map((p) => p.id);
+      const ids = draftablePlayers.map((p) => p.id);
       if (ids.length < 2) return;
 
       const counts = new Map(ids.map((id) => [id, 0]));
@@ -399,7 +414,7 @@ export default function DraftPage() {
           )}
           <button
             onClick={() => courts.length === 0 ? setShowNoCourts(true) : setShowAutoDraftConfirm(true)}
-            disabled={drafts.length >= maxDrafts || players.length < 4}
+            disabled={drafts.length >= maxDrafts || draftablePlayers.length < 4}
             className="flex items-center gap-1.5 p-2 sm:px-4 sm:py-2 rounded-xl text-xs sm:text-sm bg-accent/20 text-accent font-semibold hover:bg-accent/30 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             title="Auto Draft"
           >
@@ -408,7 +423,7 @@ export default function DraftPage() {
           </button>
           <button
             onClick={() => courts.length === 0 ? setShowNoCourts(true) : setShowSelectModal(true)}
-            disabled={drafts.length >= maxDrafts || players.length < 4}
+            disabled={drafts.length >= maxDrafts || draftablePlayers.length < 4}
             className="flex items-center gap-1.5 p-2 sm:px-4 sm:py-2 rounded-xl text-xs sm:text-sm bg-accent text-primary font-semibold hover:bg-accent/80 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             title="New Draft"
           >
@@ -429,6 +444,16 @@ export default function DraftPage() {
           >
             <FiX size={16} />
           </button>
+        </div>
+      )}
+
+      {/* Confirmed Players Info */}
+      {isConfirmationActive && (
+        <div className="bg-success/10 border border-success/30 text-success rounded-xl px-4 py-3 mb-4 flex items-center gap-3">
+          <FiCheck size={16} className="shrink-0" />
+          <span className="text-sm">
+            RSVP active — {draftablePlayers.length} confirmed {draftablePlayers.length === 1 ? "player" : "players"} available for drafting
+          </span>
         </div>
       )}
 
@@ -617,7 +642,7 @@ export default function DraftPage() {
         open={showSelectModal}
         onClose={() => setShowSelectModal(false)}
         title="Select 4 Players for Draft"
-        players={players}
+        players={draftablePlayers}
         maxSelect={4}
         onConfirm={handleCreateDraft}
       />

@@ -1,4 +1,4 @@
-import { type Player, type Court, type Draft } from '@badminton/types';
+import { type Player, type Court, type Draft, type ConfirmationMeta } from '@badminton/types';
 import {
   updateSessionFull,
   subscribeToSession,
@@ -14,6 +14,7 @@ export interface SyncableStore {
     players: { items: Player[] };
     courts: { items: Court[] };
     drafts: { items: Draft[] };
+    confirmation: { meta: ConfirmationMeta };
   };
   dispatch: (action: { type: string; payload?: unknown }) => void;
   subscribe: (listener: () => void) => () => void;
@@ -55,6 +56,7 @@ export function createFirebaseSync(
         players: state.players.items,
         courts: state.courts.items,
         drafts: state.drafts.items,
+        confirmation: state.confirmation.meta,
       });
 
       // Skip if state hasn't actually changed
@@ -65,7 +67,8 @@ export function createFirebaseSync(
         sessionId,
         state.players.items,
         state.courts.items,
-        state.drafts.items
+        state.drafts.items,
+        state.confirmation.meta
       ).catch((err) => {
         console.error('[firebase-sync] Failed to write to Firestore:', err);
       });
@@ -76,10 +79,12 @@ export function createFirebaseSync(
   const unsubscribeFirestore = subscribeToSession(
     sessionId,
     (data: SessionData) => {
+      const defaultMeta: ConfirmationMeta = { enabled: false, serialId: '', pin: '', locked: false };
       const incomingSnapshot = JSON.stringify({
         players: data.players,
         courts: data.courts,
         drafts: data.drafts,
+        confirmation: data.confirmation ?? defaultMeta,
       });
 
       // Skip if data matches what we last synced (our own write echoing back)
@@ -91,6 +96,7 @@ export function createFirebaseSync(
         store.dispatch({ type: 'players/setPlayers', payload: data.players });
         store.dispatch({ type: 'courts/setCourts', payload: data.courts });
         store.dispatch({ type: 'drafts/setDrafts', payload: data.drafts });
+        store.dispatch({ type: 'confirmation/setConfirmationMeta', payload: data.confirmation ?? defaultMeta });
       } finally {
         isUpdatingFromFirestore = false;
       }

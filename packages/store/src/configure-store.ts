@@ -1,4 +1,5 @@
 import { configureStore } from '@reduxjs/toolkit';
+import { confirmationReducer } from './slices/confirmation';
 import { courtsReducer } from './slices/courts';
 import { draftsReducer } from './slices/drafts';
 import { playersReducer } from './slices/players';
@@ -9,6 +10,7 @@ export const configureAppStore = () => {
 			courts: courtsReducer,
 			drafts: draftsReducer,
 			players: playersReducer,
+			confirmation: confirmationReducer,
 		},
 	});
 };
