@@ -1,9 +1,9 @@
 import AddPInput from "@/components/AddInput";
-import AddPlayerModal from "@/components/AddPlayerModal";
 import ConfirmationAlert from "@/components/ConfirmationAlert";
-import EditPlayerModal from "@/components/EditPlayerModal";
-import ImportPlayersModal from "@/components/ImportPlayersModal";
 import PlayerCard from "@/components/PlayerCard";
+import AddPlayerScreen from "@/components/players/AddPlayerScreen";
+import EditPlayerScreen from "@/components/players/EditPlayerScreen";
+import ImportPlayersScreen from "@/components/players/ImportPlayersScreen";
 import { useToast } from "@/components/Toast";
 import { BadmintonPalette } from "@/constants/palette";
 import {
@@ -29,9 +29,9 @@ import {
   Alert,
   FlatList,
   LayoutAnimation,
-  Modal,
   Platform,
   Pressable,
+  StyleSheet,
   Text,
   TouchableOpacity,
   UIManager,
@@ -176,6 +176,61 @@ export const PlayersContent = ({
       type: "success",
     });
   };
+
+  // ── Sub-screen early returns ──
+
+  if (editingPlayer) {
+    return (
+      <EditPlayerScreen
+        playerName={editingPlayer.name}
+        currentLevel={editingPlayer.level}
+        currentGameCount={editingPlayer.gameCount}
+        onSave={(level, gameCount) => {
+          handleUpdatePlayer(editingPlayer.id, level, gameCount);
+        }}
+        onBack={() => setEditingPlayer(null)}
+      />
+    );
+  }
+
+  if (showAddModal) {
+    return (
+      <AddPlayerScreen
+        onAdd={handleAddPlayer}
+        onBack={() => setShowAddModal(false)}
+      />
+    );
+  }
+
+  if (showImportModal) {
+    return (
+      <ImportPlayersScreen
+        onImport={(entries) => {
+          let imported = 0;
+          LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+          for (const entry of entries) {
+            dispatch(
+              addPlayer({
+                id: uuidv4(),
+                name: entry.name,
+                level: entry.level,
+                maxPlayers: emailVerified
+                  ? undefined
+                  : UNVERIFIED_LIMITS.MAX_PLAYERS,
+              })
+            );
+            imported++;
+          }
+          showToast({
+            message: `Imported ${imported} players`,
+            type: "success",
+          });
+          return { imported, skipped: 0 };
+        }}
+        onBack={() => setShowImportModal(false)}
+      />
+    );
+  }
 
   return (
     <View className={`flex-1 bg-primary ${contentContainerClassName}`}>
@@ -504,19 +559,20 @@ export const PlayersContent = ({
         </View>
       )}
 
-      {/* Ellipsis Menu */}
-      <Modal
-        visible={showMenu}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowMenu(false)}
-      >
-        <Pressable
-          style={{ flex: 1, alignItems: "flex-end", paddingTop: 192, paddingRight: 16 }}
-          onPress={() => setShowMenu(false)}
-        >
-          <View className="w-48 bg-secondary border border-dark-100 rounded-2xl overflow-hidden"
+      {/* Ellipsis Menu (inline overlay) */}
+      {showMenu && (
+        <>
+          <Pressable
+            style={StyleSheet.absoluteFill}
+            onPress={() => setShowMenu(false)}
+          />
+          <View
+            className="w-48 bg-secondary border border-dark-100 rounded-2xl overflow-hidden"
             style={{
+              position: "absolute",
+              top: 52,
+              right: 0,
+              zIndex: 10,
               shadowColor: "#000",
               shadowOffset: { width: 0, height: 4 },
               shadowOpacity: 0.3,
@@ -614,56 +670,8 @@ export const PlayersContent = ({
               </TouchableOpacity>
             )}
           </View>
-        </Pressable>
-      </Modal>
-
-      <AddPlayerModal
-        visible={showAddModal}
-        onClose={() => setShowAddModal(false)}
-        onAdd={handleAddPlayer}
-      />
-
-      <EditPlayerModal
-        visible={editingPlayer !== null}
-        onClose={() => setEditingPlayer(null)}
-        onSave={(level, gameCount) => {
-          if (editingPlayer) {
-            handleUpdatePlayer(editingPlayer.id, level, gameCount);
-          }
-        }}
-        playerName={editingPlayer?.name ?? ""}
-        currentLevel={editingPlayer?.level ?? PlayerLevel.BEGINNER}
-        currentGameCount={editingPlayer?.gameCount ?? 0}
-      />
-
-      <ImportPlayersModal
-        visible={showImportModal}
-        onClose={() => setShowImportModal(false)}
-        onImport={(entries) => {
-          let imported = 0;
-          let skipped = 0;
-          LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-          for (const entry of entries) {
-            dispatch(
-              addPlayer({
-                id: uuidv4(),
-                name: entry.name,
-                level: entry.level,
-                maxPlayers: emailVerified
-                  ? undefined
-                  : UNVERIFIED_LIMITS.MAX_PLAYERS,
-              })
-            );
-            imported++;
-          }
-          const msg =
-            skipped > 0
-              ? `Imported ${imported} players, ${skipped} skipped`
-              : `Imported ${imported} players`;
-          showToast({ message: msg, type: "success" });
-          return { imported, skipped };
-        }}
-      />
+        </>
+      )}
     </View>
   );
 };

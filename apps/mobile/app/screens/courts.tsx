@@ -1,4 +1,4 @@
-import AddCourtModal from "@/components/AddCourtModal";
+import AddCourtScreen from "@/components/courts/AddCourtScreen";
 import ConfirmationAlert from "@/components/ConfirmationAlert";
 import CourtCard from "@/components/CourtCard";
 import { useToast } from "@/components/Toast";
@@ -81,6 +81,17 @@ export const CourtsContent = ({
       type: "success",
     });
   };
+
+  // ── Sub-screen early return ──
+
+  if (showAddModal) {
+    return (
+      <AddCourtScreen
+        onAdd={onAddCourt}
+        onBack={() => setShowAddModal(false)}
+      />
+    );
+  }
 
   return (
     <View className={`flex-1 bg-primary ${contentContainerClassName}`}>
@@ -256,11 +267,6 @@ export const CourtsContent = ({
         </View>
       )}
 
-      <AddCourtModal
-        visible={showAddModal}
-        onClose={() => setShowAddModal(false)}
-        onAdd={onAddCourt}
-      />
     </View>
   );
 };
