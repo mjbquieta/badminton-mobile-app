@@ -26,6 +26,7 @@ import {
   FiCheck,
   FiEdit2,
   FiPlus,
+  FiRepeat,
   FiRotateCcw,
   FiTrash2,
   FiX,
@@ -61,6 +62,17 @@ export default function DraftPage() {
   const [finishTarget, setFinishTarget] = useState<Draft | null>(null);
   const [showNoCourts, setShowNoCourts] = useState(false);
 
+  // Player edit sub-modes (Replace / Exchange)
+  const [changeTarget, setChangeTarget] = useState<{
+    draft: Draft;
+    playerIndex: number;
+  } | null>(null);
+  const [exchangeTarget, setExchangeTarget] = useState<{
+    draft: Draft;
+    playerIdA: string;
+    playerIdB: string;
+  } | null>(null);
+
   // Confirmation-aware player filtering
   const confirmation = useAppSelector((state) => state.confirmation);
   const isConfirmationActive = confirmation.meta.enabled;
@@ -87,14 +99,6 @@ export default function DraftPage() {
     dispatch(addDraft({ id: uuidv4(), playerIds: selectedIds }));
   }
 
-  function handleEditPlayers(selectedIds: string[]) {
-    if (!editingDraft || selectedIds.length !== editingDraft.playerIds.length) return;
-    dispatch(
-      updateDraftPlayers({ id: editingDraft.id, playerIds: selectedIds }),
-    );
-    setEditingDraft(null);
-  }
-
   function handleFinish(winner: "A" | "B") {
     if (!finishTarget || finishTarget.finished) return;
     const half = Math.ceil(finishTarget.playerIds.length / 2);
@@ -112,6 +116,35 @@ export default function DraftPage() {
     if (!deleteTarget) return;
     dispatch(removeDraft(deleteTarget.id));
     setDeleteTarget(null);
+  }
+
+  function handleChangePlayer(selectedIds: string[]) {
+    if (!changeTarget || selectedIds.length !== 1) return;
+    const newPlayerIds = [...changeTarget.draft.playerIds];
+    newPlayerIds[changeTarget.playerIndex] = selectedIds[0];
+    dispatch(updateDraftPlayers({ id: changeTarget.draft.id, playerIds: newPlayerIds }));
+    // Update editingDraft to reflect the change in the modal
+    if (editingDraft && editingDraft.id === changeTarget.draft.id) {
+      setEditingDraft({ ...editingDraft, playerIds: newPlayerIds });
+    }
+    setChangeTarget(null);
+  }
+
+  function handleExchangePlayer() {
+    if (!exchangeTarget) return;
+    const { draft, playerIdA, playerIdB } = exchangeTarget;
+    const idxA = draft.playerIds.indexOf(playerIdA);
+    const idxB = draft.playerIds.indexOf(playerIdB);
+    if (idxA === -1 || idxB === -1) return;
+    const newPlayerIds = [...draft.playerIds];
+    newPlayerIds[idxA] = playerIdB;
+    newPlayerIds[idxB] = playerIdA;
+    dispatch(updateDraftPlayers({ id: draft.id, playerIds: newPlayerIds }));
+    // Update editingDraft to reflect the swap in the modal
+    if (editingDraft && editingDraft.id === draft.id) {
+      setEditingDraft({ ...editingDraft, playerIds: newPlayerIds });
+    }
+    setExchangeTarget(null);
   }
 
   // Compute C(n, k)
@@ -533,17 +566,13 @@ export default function DraftPage() {
                       {teamA.map((p) => (
                         <div key={p.id} className="flex items-center gap-1.5">
                           <PlayerLevelBadge level={p.level} />
-                          <span
-                            className={`text-sm truncate ${draft.finished && draft.winner === "A" ? "text-accent font-semibold" : "text-light-100"}`}
-                          >
+                          <span className={`text-sm truncate ${draft.finished && draft.winner === "A" ? "text-accent font-semibold" : "text-light-100"}`}>
                             {p.name}
                           </span>
                         </div>
                       ))}
                       {teamA.length === 0 && (
-                        <span className="text-xs text-danger/70 italic">
-                          Missing
-                        </span>
+                        <span className="text-xs text-danger/70 italic">Missing</span>
                       )}
                     </div>
                     <span className="text-[10px] sm:text-xs font-bold text-red-500 uppercase shrink-0">
@@ -553,17 +582,13 @@ export default function DraftPage() {
                       {teamB.map((p) => (
                         <div key={p.id} className="flex items-center gap-1.5">
                           <PlayerLevelBadge level={p.level} />
-                          <span
-                            className={`text-sm truncate ${draft.finished && draft.winner === "B" ? "text-accent font-semibold" : "text-light-100"}`}
-                          >
+                          <span className={`text-sm truncate ${draft.finished && draft.winner === "B" ? "text-accent font-semibold" : "text-light-100"}`}>
                             {p.name}
                           </span>
                         </div>
                       ))}
                       {teamB.length === 0 && (
-                        <span className="text-xs text-danger/70 italic">
-                          Missing
-                        </span>
+                        <span className="text-xs text-danger/70 italic">Missing</span>
                       )}
                     </div>
                   </div>
@@ -627,18 +652,119 @@ export default function DraftPage() {
         onConfirm={handleCreateDraft}
       />
 
-      {/* Edit Draft Players Modal */}
-      {editingDraft && (
-        <ManualSelectModal
-          open={!!editingDraft}
-          onClose={() => setEditingDraft(null)}
-          title={`Edit Players - ${editingDraft.name}`}
-          players={players}
-          maxSelect={editingDraft.playerIds.length}
-          initialSelected={editingDraft.playerIds}
-          onConfirm={handleEditPlayers}
-        />
-      )}
+      {/* Edit Draft Modal */}
+      {editingDraft && (() => {
+        const half = Math.ceil(editingDraft.playerIds.length / 2);
+        const eTeamA = editingDraft.playerIds.slice(0, half)
+          .map((id, i) => ({ id, index: i, player: resolvePlayer(id) }))
+          .filter((o): o is { id: string; index: number; player: Player } => !!o.player);
+        const eTeamB = editingDraft.playerIds.slice(half)
+          .map((id, i) => ({ id, index: half + i, player: resolvePlayer(id) }))
+          .filter((o): o is { id: string; index: number; player: Player } => !!o.player);
+
+        return (
+          <Modal
+            open={!!editingDraft}
+            onClose={() => setEditingDraft(null)}
+            title={`Edit - ${editingDraft.name}`}
+          >
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                {/* Team A */}
+                <div>
+                  <p className="text-xs font-semibold text-light-300 uppercase tracking-wide mb-2">Team A</p>
+                  <div className="space-y-2">
+                    {eTeamA.map(({ id, index, player: p }) => (
+                      <div key={id} className="flex items-center gap-2 p-2 rounded-xl bg-dark-200 border border-dark-100">
+                        <PlayerLevelBadge level={p.level} />
+                        <span className="flex-1 text-sm text-light-100 truncate">{p.name}</span>
+                        <button
+                          onClick={() => setChangeTarget({ draft: editingDraft, playerIndex: index })}
+                          className="px-2 py-1 rounded-lg text-[10px] font-bold text-info hover:bg-info/10 transition-colors shrink-0"
+                          title="Replace player"
+                        >
+                          Replace
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                {/* Team B */}
+                <div>
+                  <p className="text-xs font-semibold text-light-300 uppercase tracking-wide mb-2">Team B</p>
+                  <div className="space-y-2">
+                    {eTeamB.map(({ id, index, player: p }) => (
+                      <div key={id} className="flex items-center gap-2 p-2 rounded-xl bg-dark-200 border border-dark-100">
+                        <PlayerLevelBadge level={p.level} />
+                        <span className="flex-1 text-sm text-light-100 truncate">{p.name}</span>
+                        <button
+                          onClick={() => setChangeTarget({ draft: editingDraft, playerIndex: index })}
+                          className="px-2 py-1 rounded-lg text-[10px] font-bold text-info hover:bg-info/10 transition-colors shrink-0"
+                          title="Replace player"
+                        >
+                          Replace
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Exchange Section */}
+              <div className="border-t border-dark-100 pt-4">
+                <p className="text-xs font-semibold text-light-300 uppercase tracking-wide mb-2">Exchange Players</p>
+                {editingDraft.playerIds.length === 2 ? (
+                  <button
+                    onClick={() => {
+                      const newIds = [...editingDraft.playerIds].reverse();
+                      dispatch(updateDraftPlayers({ id: editingDraft.id, playerIds: newIds }));
+                      setEditingDraft({ ...editingDraft, playerIds: newIds });
+                    }}
+                    className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-dark-200 border border-dark-100 hover:border-accent/30 transition-colors text-sm text-light-100"
+                  >
+                    <span>{eTeamA[0]?.player.name}</span>
+                    <FiRepeat size={14} className="text-accent shrink-0" />
+                    <span>{eTeamB[0]?.player.name}</span>
+                  </button>
+                ) : (
+                  <div className="space-y-1.5">
+                    {eTeamA.map((a, i) => {
+                      const b = eTeamB[i];
+                      if (!b) return null;
+                      return (
+                        <button
+                          key={`${a.id}-${b.id}`}
+                          onClick={() => setExchangeTarget({ draft: editingDraft, playerIdA: a.id, playerIdB: b.id })}
+                          className="w-full flex items-center justify-between gap-2 px-3 py-2 rounded-xl bg-dark-200 border border-dark-100 hover:border-accent/30 transition-colors text-sm"
+                        >
+                          <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                            <PlayerLevelBadge level={a.player.level} />
+                            <span className="text-light-100 truncate">{a.player.name}</span>
+                          </div>
+                          <FiRepeat size={14} className="text-light-300 shrink-0" />
+                          <div className="flex items-center gap-1.5 flex-1 min-w-0 justify-end">
+                            <span className="text-light-100 truncate">{b.player.name}</span>
+                            <PlayerLevelBadge level={b.player.level} />
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              <div className="flex justify-end pt-1">
+                <button
+                  onClick={() => setEditingDraft(null)}
+                  className="px-4 py-2 rounded-xl text-sm text-light-300 hover:text-light-100 hover:bg-dark-200 transition-colors"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </Modal>
+        );
+      })()}
 
       {/* Delete Confirm */}
       <ConfirmDialog
@@ -845,6 +971,66 @@ export default function DraftPage() {
             );
           })()}
       </Modal>
+
+      {/* Change Player Modal */}
+      {changeTarget && (
+        <ManualSelectModal
+          open={!!changeTarget}
+          onClose={() => setChangeTarget(null)}
+          title="Select Replacement Player"
+          players={players.filter((p) => !changeTarget.draft.playerIds.includes(p.id))}
+          maxSelect={1}
+          onConfirm={handleChangePlayer}
+        />
+      )}
+
+      {/* Exchange Confirm */}
+      {exchangeTarget && (() => {
+        const pA = resolvePlayer(exchangeTarget.playerIdA);
+        const pB = resolvePlayer(exchangeTarget.playerIdB);
+        return (
+          <Modal
+            open={!!exchangeTarget}
+            onClose={() => setExchangeTarget(null)}
+            title="Confirm Exchange"
+          >
+            <div className="space-y-4">
+              <p className="text-sm text-light-300">
+                Swap these players between teams?
+              </p>
+              <div className="flex items-center justify-center gap-3 py-2">
+                {pA && (
+                  <div className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-dark-200 border border-dark-100">
+                    <PlayerLevelBadge level={pA.level} />
+                    <span className="text-sm text-light-100">{pA.name}</span>
+                  </div>
+                )}
+                <FiRepeat size={16} className="text-accent shrink-0" />
+                {pB && (
+                  <div className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-dark-200 border border-dark-100">
+                    <PlayerLevelBadge level={pB.level} />
+                    <span className="text-sm text-light-100">{pB.name}</span>
+                  </div>
+                )}
+              </div>
+              <div className="flex justify-end gap-2">
+                <button
+                  onClick={() => setExchangeTarget(null)}
+                  className="px-4 py-2 rounded-xl text-sm text-light-300 hover:text-light-100 hover:bg-dark-200 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleExchangePlayer}
+                  className="px-4 py-2 rounded-xl text-sm bg-accent text-primary font-semibold hover:bg-accent/80 transition-colors"
+                >
+                  Exchange
+                </button>
+              </div>
+            </div>
+          </Modal>
+        );
+      })()}
 
       {/* No Courts Prompt */}
       <Modal

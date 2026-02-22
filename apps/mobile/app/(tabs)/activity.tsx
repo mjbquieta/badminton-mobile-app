@@ -13,6 +13,7 @@ import {
   removeDraft,
   resetAllGameCounts,
   updateDraftCourt,
+  updateDraftPlayers,
   useAppDispatch,
   useAppSelector,
 } from "@badminton/store";
@@ -50,6 +51,18 @@ const activity = () => {
     new Set([PlayerLevel.BEGINNER, PlayerLevel.INTERMEDIATE, PlayerLevel.ADVANCED, PlayerLevel.PRO]),
   );
   const [finishTarget, setFinishTarget] = useState<Draft | null>(null);
+
+  // Edit draft state (Replace / Exchange)
+  const [editingDraft, setEditingDraft] = useState<Draft | null>(null);
+  const [changeTarget, setChangeTarget] = useState<{
+    draft: Draft;
+    playerIndex: number;
+  } | null>(null);
+  const [exchangeTarget, setExchangeTarget] = useState<{
+    draft: Draft;
+    playerIdA: string;
+    playerIdB: string;
+  } | null>(null);
 
   const playerMap = useMemo(
     () => new Map(allPlayers.map((p) => [p.id, p])),
@@ -326,6 +339,35 @@ const activity = () => {
         showToast({ type: "info", message: "All drafts reset" });
       },
     });
+  }
+
+  function handleChangePlayer(selectedIds: string[]) {
+    if (!changeTarget || selectedIds.length !== 1) return;
+    const newPlayerIds = [...changeTarget.draft.playerIds];
+    newPlayerIds[changeTarget.playerIndex] = selectedIds[0];
+    dispatch(updateDraftPlayers({ id: changeTarget.draft.id, playerIds: newPlayerIds }));
+    if (editingDraft && editingDraft.id === changeTarget.draft.id) {
+      setEditingDraft({ ...editingDraft, playerIds: newPlayerIds });
+    }
+    showToast({ type: "success", message: "Player replaced" });
+    setChangeTarget(null);
+  }
+
+  function handleExchangePlayer() {
+    if (!exchangeTarget) return;
+    const { draft, playerIdA, playerIdB } = exchangeTarget;
+    const idxA = draft.playerIds.indexOf(playerIdA);
+    const idxB = draft.playerIds.indexOf(playerIdB);
+    if (idxA === -1 || idxB === -1) return;
+    const newPlayerIds = [...draft.playerIds];
+    newPlayerIds[idxA] = playerIdB;
+    newPlayerIds[idxB] = playerIdA;
+    dispatch(updateDraftPlayers({ id: draft.id, playerIds: newPlayerIds }));
+    if (editingDraft && editingDraft.id === draft.id) {
+      setEditingDraft({ ...editingDraft, playerIds: newPlayerIds });
+    }
+    showToast({ type: "success", message: "Players exchanged" });
+    setExchangeTarget(null);
   }
 
   return (
@@ -628,6 +670,17 @@ const activity = () => {
                           </View>
                         ) : (
                           <View className="flex-row gap-2">
+                            <TouchableOpacity
+                              onPress={() => setEditingDraft(draft)}
+                              className="px-3 py-1.5 rounded-lg"
+                              style={{ backgroundColor: `${BadmintonPalette.accent.info}15`, borderWidth: 1, borderColor: `${BadmintonPalette.accent.info}30` }}
+                              accessibilityRole="button"
+                              accessibilityLabel={`Edit draft ${matchNumber}`}
+                            >
+                              <Text className="text-xs font-bold" style={{ color: BadmintonPalette.accent.info }}>
+                                Edit
+                              </Text>
+                            </TouchableOpacity>
                             <TouchableOpacity
                               onPress={() => setFinishTarget(draft)}
                               className="px-3 py-1.5 rounded-lg bg-success/10 border border-success/30"
@@ -1053,6 +1106,301 @@ const activity = () => {
                 </TouchableOpacity>
               </View>
             </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* Edit Draft Modal */}
+      <Modal
+        transparent
+        animationType="fade"
+        visible={!!editingDraft}
+        onRequestClose={() => setEditingDraft(null)}
+      >
+        <Pressable
+          className="flex-1 items-center justify-center bg-black/70 px-5"
+          onPress={() => setEditingDraft(null)}
+        >
+          <Pressable
+            className="w-full max-w-sm rounded-2xl bg-secondary border border-dark-100 overflow-hidden"
+            onPress={() => {}}
+          >
+            {editingDraft && (() => {
+              const half = Math.ceil(editingDraft.playerIds.length / 2);
+              const eTeamA = editingDraft.playerIds.slice(0, half)
+                .map((id, i) => ({ id, index: i, player: resolvePlayer(id) }))
+                .filter((o): o is { id: string; index: number; player: Player } => !!o.player);
+              const eTeamB = editingDraft.playerIds.slice(half)
+                .map((id, i) => ({ id, index: half + i, player: resolvePlayer(id) }))
+                .filter((o): o is { id: string; index: number; player: Player } => !!o.player);
+
+              return (
+                <>
+                  <View className="p-4 border-b border-dark-100">
+                    <Text
+                      className="text-lg font-bold"
+                      style={{ color: BadmintonPalette.text.primary }}
+                    >
+                      Edit - {editingDraft.name}
+                    </Text>
+                  </View>
+
+                  <ScrollView style={{ maxHeight: 400 }}>
+                    <View className="p-4" style={{ gap: 16 }}>
+                      {/* Teams */}
+                      <View className="flex-row" style={{ gap: 12 }}>
+                        {/* Team A */}
+                        <View className="flex-1" style={{ gap: 8 }}>
+                          <Text
+                            className="text-[10px] font-bold uppercase tracking-wide"
+                            style={{ color: BadmintonPalette.text.muted }}
+                          >
+                            Team A
+                          </Text>
+                          {eTeamA.map(({ id, index, player: p }) => (
+                            <View
+                              key={id}
+                              className="flex-row items-center rounded-xl bg-dark-200 border border-dark-100 p-2"
+                              style={{ gap: 8 }}
+                            >
+                              <View className="flex-1 flex-shrink">
+                                <PlayerTag name={p.name} level={p.level} />
+                              </View>
+                              <TouchableOpacity
+                                onPress={() => setChangeTarget({ draft: editingDraft, playerIndex: index })}
+                                className="px-2.5 py-1.5 rounded-lg"
+                                style={{ backgroundColor: `${BadmintonPalette.accent.info}15` }}
+                                accessibilityRole="button"
+                                accessibilityLabel={`Replace ${p.name}`}
+                              >
+                                <Text className="text-[10px] font-bold" style={{ color: BadmintonPalette.accent.info }}>
+                                  Replace
+                                </Text>
+                              </TouchableOpacity>
+                            </View>
+                          ))}
+                        </View>
+
+                        {/* Team B */}
+                        <View className="flex-1" style={{ gap: 8 }}>
+                          <Text
+                            className="text-[10px] font-bold uppercase tracking-wide"
+                            style={{ color: BadmintonPalette.text.muted }}
+                          >
+                            Team B
+                          </Text>
+                          {eTeamB.map(({ id, index, player: p }) => (
+                            <View
+                              key={id}
+                              className="flex-row items-center rounded-xl bg-dark-200 border border-dark-100 p-2"
+                              style={{ gap: 8 }}
+                            >
+                              <View className="flex-1 flex-shrink">
+                                <PlayerTag name={p.name} level={p.level} />
+                              </View>
+                              <TouchableOpacity
+                                onPress={() => setChangeTarget({ draft: editingDraft, playerIndex: index })}
+                                className="px-2.5 py-1.5 rounded-lg"
+                                style={{ backgroundColor: `${BadmintonPalette.accent.info}15` }}
+                                accessibilityRole="button"
+                                accessibilityLabel={`Replace ${p.name}`}
+                              >
+                                <Text className="text-[10px] font-bold" style={{ color: BadmintonPalette.accent.info }}>
+                                  Replace
+                                </Text>
+                              </TouchableOpacity>
+                            </View>
+                          ))}
+                        </View>
+                      </View>
+
+                      {/* Exchange Section */}
+                      <View className="border-t border-dark-100 pt-4" style={{ gap: 8 }}>
+                        <Text
+                          className="text-[10px] font-bold uppercase tracking-wide"
+                          style={{ color: BadmintonPalette.text.muted }}
+                        >
+                          Exchange Players
+                        </Text>
+                        {editingDraft.playerIds.length === 2 ? (
+                          <TouchableOpacity
+                            onPress={() => {
+                              const newIds = [...editingDraft.playerIds].reverse();
+                              dispatch(updateDraftPlayers({ id: editingDraft.id, playerIds: newIds }));
+                              setEditingDraft({ ...editingDraft, playerIds: newIds });
+                              showToast({ type: "success", message: "Players exchanged" });
+                            }}
+                            className="flex-row items-center justify-center rounded-xl bg-dark-200 border border-dark-100 p-3"
+                            style={{ gap: 8 }}
+                            accessibilityRole="button"
+                          >
+                            <Text className="text-sm" style={{ color: BadmintonPalette.text.primary }}>
+                              {eTeamA[0]?.player.name}
+                            </Text>
+                            <MaterialCommunityIcons
+                              name="swap-horizontal"
+                              size={16}
+                              color={BadmintonPalette.accent.primary}
+                            />
+                            <Text className="text-sm" style={{ color: BadmintonPalette.text.primary }}>
+                              {eTeamB[0]?.player.name}
+                            </Text>
+                          </TouchableOpacity>
+                        ) : (
+                          <View style={{ gap: 6 }}>
+                            {eTeamA.map((a, i) => {
+                              const b = eTeamB[i];
+                              if (!b) return null;
+                              return (
+                                <TouchableOpacity
+                                  key={`${a.id}-${b.id}`}
+                                  onPress={() => setExchangeTarget({ draft: editingDraft, playerIdA: a.id, playerIdB: b.id })}
+                                  className="flex-row items-center justify-between rounded-xl bg-dark-200 border border-dark-100 px-3 py-2.5"
+                                  accessibilityRole="button"
+                                >
+                                  <Text
+                                    className="text-sm flex-1"
+                                    style={{ color: BadmintonPalette.text.primary }}
+                                    numberOfLines={1}
+                                  >
+                                    {a.player.name}
+                                  </Text>
+                                  <MaterialCommunityIcons
+                                    name="swap-horizontal"
+                                    size={16}
+                                    color={BadmintonPalette.text.muted}
+                                    style={{ marginHorizontal: 8 }}
+                                  />
+                                  <Text
+                                    className="text-sm flex-1 text-right"
+                                    style={{ color: BadmintonPalette.text.primary }}
+                                    numberOfLines={1}
+                                  >
+                                    {b.player.name}
+                                  </Text>
+                                </TouchableOpacity>
+                              );
+                            })}
+                          </View>
+                        )}
+                      </View>
+                    </View>
+                  </ScrollView>
+
+                  {/* Close */}
+                  <View className="p-3 border-t border-dark-100">
+                    <TouchableOpacity
+                      onPress={() => setEditingDraft(null)}
+                      className="py-3 rounded-xl border border-dark-100 bg-dark-200 items-center"
+                    >
+                      <Text
+                        className="font-bold"
+                        style={{ color: BadmintonPalette.text.secondary }}
+                      >
+                        Close
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                </>
+              );
+            })()}
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* Change Player Modal (Replace) */}
+      {changeTarget && (
+        <ManualAddPlayersModal
+          visible={!!changeTarget}
+          onClose={() => setChangeTarget(null)}
+          title="Select Replacement Player"
+          players={allPlayers.filter((p) => !changeTarget.draft.playerIds.includes(p.id) && (p.active ?? true))}
+          maxSelect={1}
+          onConfirm={handleChangePlayer}
+        />
+      )}
+
+      {/* Exchange Confirm Modal */}
+      <Modal
+        transparent
+        animationType="fade"
+        visible={!!exchangeTarget}
+        onRequestClose={() => setExchangeTarget(null)}
+      >
+        <Pressable
+          className="flex-1 items-center justify-center bg-black/70 px-5"
+          onPress={() => setExchangeTarget(null)}
+        >
+          <Pressable
+            className="w-full max-w-sm rounded-2xl bg-secondary border border-dark-100 overflow-hidden"
+            onPress={() => {}}
+          >
+            {exchangeTarget && (() => {
+              const pA = resolvePlayer(exchangeTarget.playerIdA);
+              const pB = resolvePlayer(exchangeTarget.playerIdB);
+              return (
+                <>
+                  <View className="p-4 border-b border-dark-100">
+                    <Text
+                      className="text-lg font-bold"
+                      style={{ color: BadmintonPalette.text.primary }}
+                    >
+                      Confirm Exchange
+                    </Text>
+                    <Text
+                      className="text-sm mt-1"
+                      style={{ color: BadmintonPalette.text.muted }}
+                    >
+                      Swap these players between teams?
+                    </Text>
+                  </View>
+                  <View className="p-4" style={{ gap: 16 }}>
+                    <View className="flex-row items-center justify-center" style={{ gap: 12 }}>
+                      {pA && (
+                        <View className="flex-row items-center px-3 py-2 rounded-xl bg-dark-200 border border-dark-100" style={{ gap: 6 }}>
+                          <Text className="text-sm" style={{ color: BadmintonPalette.text.primary }}>{pA.name}</Text>
+                        </View>
+                      )}
+                      <MaterialCommunityIcons
+                        name="swap-horizontal"
+                        size={20}
+                        color={BadmintonPalette.accent.primary}
+                      />
+                      {pB && (
+                        <View className="flex-row items-center px-3 py-2 rounded-xl bg-dark-200 border border-dark-100" style={{ gap: 6 }}>
+                          <Text className="text-sm" style={{ color: BadmintonPalette.text.primary }}>{pB.name}</Text>
+                        </View>
+                      )}
+                    </View>
+                    <View className="flex-row" style={{ gap: 12 }}>
+                      <TouchableOpacity
+                        onPress={() => setExchangeTarget(null)}
+                        className="flex-1 py-3 rounded-xl border border-dark-100 bg-dark-200 items-center"
+                      >
+                        <Text
+                          className="font-bold"
+                          style={{ color: BadmintonPalette.text.secondary }}
+                        >
+                          Cancel
+                        </Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        onPress={handleExchangePlayer}
+                        className="flex-1 py-3 rounded-xl items-center"
+                        style={{ backgroundColor: BadmintonPalette.accent.primary }}
+                      >
+                        <Text
+                          className="font-bold"
+                          style={{ color: BadmintonPalette.bg.base }}
+                        >
+                          Exchange
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                </>
+              );
+            })()}
           </Pressable>
         </Pressable>
       </Modal>

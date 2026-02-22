@@ -10,13 +10,15 @@ const PlayerTag = ({
   level,
   gameCount,
   onDeleteTag,
+  onPress,
 }: {
   name: string;
   level?: PlayerLevel;
   gameCount?: number;
   onDeleteTag?: () => void;
+  onPress?: () => void;
 }) => {
-  return (
+  const content = (
     <View className="flex-row items-center bg-dark-200 rounded-xl px-3 py-2 border border-dark-100">
       <View className="size-7 rounded-lg bg-court-deep/20 items-center justify-center mr-2">
         <AntDesign name="user" size={12} color={BadmintonPalette.court.lime} />
@@ -64,6 +66,16 @@ const PlayerTag = ({
       ) : null}
     </View>
   );
+
+  if (onPress) {
+    return (
+      <TouchableOpacity onPress={onPress} activeOpacity={0.7} accessibilityRole="button">
+        {content}
+      </TouchableOpacity>
+    );
+  }
+
+  return content;
 };
 
 export default PlayerTag;
