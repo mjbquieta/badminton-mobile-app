@@ -36,7 +36,8 @@ import { v4 as uuidv4 } from "uuid";
 const activity = () => {
   const dispatch = useAppDispatch();
   const { showToast } = useToast();
-  const players = useAppSelector((s) => s.players.items);
+  const allPlayers = useAppSelector((s) => s.players.items);
+  const players = useMemo(() => allPlayers.filter((p) => p.active ?? true), [allPlayers]);
   const courts = useAppSelector((s) => s.courts.items);
   const drafts = useAppSelector((s) => s.drafts.items);
   const draftsError = useAppSelector((s) => s.drafts.error);
@@ -51,8 +52,8 @@ const activity = () => {
   const [finishTarget, setFinishTarget] = useState<Draft | null>(null);
 
   const playerMap = useMemo(
-    () => new Map(players.map((p) => [p.id, p])),
-    [players],
+    () => new Map(allPlayers.map((p) => [p.id, p])),
+    [allPlayers],
   );
 
   const resolvePlayer = (id: string) => playerMap.get(id);

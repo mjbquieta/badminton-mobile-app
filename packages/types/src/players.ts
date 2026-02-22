@@ -11,4 +11,5 @@ export type Player = {
 	gameCount: number;
 	level: PlayerLevel;
 	trophies: number;
+	active?: boolean;
 };

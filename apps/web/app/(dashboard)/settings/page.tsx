@@ -8,6 +8,7 @@ import {
 	FiEdit2,
 	FiLock,
 	FiMail,
+	FiMessageSquare,
 	FiSettings,
 	FiX,
 } from "react-icons/fi";
@@ -29,6 +30,14 @@ export default function SettingsPage() {
 	const [passwordSaving, setPasswordSaving] = useState(false);
 	const [passwordError, setPasswordError] = useState<string | null>(null);
 	const [passwordSuccess, setPasswordSuccess] = useState(false);
+
+	// Feedback state
+	const [feedbackName, setFeedbackName] = useState("");
+	const [feedbackType, setFeedbackType] = useState("Bug Report");
+	const [feedbackMessage, setFeedbackMessage] = useState("");
+	const [feedbackSubmitting, setFeedbackSubmitting] = useState(false);
+	const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
+	const [feedbackError, setFeedbackError] = useState<string | null>(null);
 
 	function startEditClubName() {
 		setClubName(profile?.clubName ?? "");
@@ -96,6 +105,34 @@ export default function SettingsPage() {
 			setPasswordError(getAuthErrorMessage(err));
 		} finally {
 			setPasswordSaving(false);
+		}
+	}
+
+	async function handleSendFeedback(e: React.FormEvent) {
+		e.preventDefault();
+		setFeedbackError(null);
+		setFeedbackSubmitting(true);
+
+		try {
+			const res = await fetch("https://formspree.io/f/mkooqkvn", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					name: feedbackName,
+					email: user?.email ?? "",
+					type: feedbackType,
+					message: feedbackMessage,
+				}),
+			});
+
+			if (!res.ok) throw new Error("Failed to send. Please try again.");
+			setFeedbackSubmitted(true);
+		} catch (err: unknown) {
+			setFeedbackError(
+				err instanceof Error ? err.message : "Something went wrong."
+			);
+		} finally {
+			setFeedbackSubmitting(false);
 		}
 	}
 
@@ -275,6 +312,108 @@ export default function SettingsPage() {
 							</button>
 						</div>
 					</div>
+				</div>
+				{/* Feedback */}
+				<div className="bg-secondary rounded-2xl border border-dark-100 p-4 sm:p-5">
+					<div className="flex items-center gap-2 mb-4">
+						<FiMessageSquare size={16} className="text-light-300" />
+						<h2 className="text-sm font-semibold text-light-200 uppercase tracking-wide">
+							Feedback
+						</h2>
+					</div>
+					<p className="text-light-300 text-xs mb-4">
+						Report a bug, suggest a feature, or share your thoughts.
+					</p>
+
+					{feedbackSubmitted ? (
+						<div className="bg-green-500/10 border border-green-500/30 rounded-xl p-4 text-center">
+							<p className="text-green-400 font-semibold mb-1">
+								Thanks for your feedback!
+							</p>
+							<p className="text-light-300 text-sm">
+								We&apos;ll review your message and get back to you if needed.
+							</p>
+							<button
+								onClick={() => {
+									setFeedbackSubmitted(false);
+									setFeedbackName("");
+									setFeedbackType("Bug Report");
+									setFeedbackMessage("");
+								}}
+								className="mt-3 text-accent text-sm hover:underline"
+							>
+								Send another
+							</button>
+						</div>
+					) : (
+						<>
+							{feedbackError && (
+								<div className="bg-danger/10 border border-danger/30 text-danger rounded-xl px-3 py-2 mb-3 flex items-center gap-2 text-sm">
+									<span className="flex-1">{feedbackError}</span>
+									<button
+										onClick={() => setFeedbackError(null)}
+										className="text-danger/60 hover:text-danger"
+									>
+										<FiX size={14} />
+									</button>
+								</div>
+							)}
+
+							<form onSubmit={handleSendFeedback} className="space-y-3">
+								<div>
+									<label className="text-xs text-light-300 mb-1 block">
+										Name
+									</label>
+									<input
+										type="text"
+										value={feedbackName}
+										onChange={(e) => setFeedbackName(e.target.value)}
+										className="w-full px-3 py-2 rounded-xl bg-dark-200 border border-dark-100 text-light-100 text-sm placeholder:text-light-300 focus:outline-none focus:border-accent/50"
+										placeholder="Your name (optional)"
+									/>
+								</div>
+
+								<div>
+									<label className="text-xs text-light-300 mb-1 block">
+										Type
+									</label>
+									<select
+										value={feedbackType}
+										onChange={(e) => setFeedbackType(e.target.value)}
+										className="w-full px-3 py-2 rounded-xl bg-dark-200 border border-dark-100 text-light-100 text-sm focus:outline-none focus:border-accent/50 appearance-none"
+									>
+										<option value="Bug Report">Bug Report</option>
+										<option value="Suggestion">Suggestion</option>
+										<option value="Other">Other</option>
+									</select>
+								</div>
+
+								<div>
+									<label className="text-xs text-light-300 mb-1 block">
+										Message
+									</label>
+									<textarea
+										value={feedbackMessage}
+										onChange={(e) => setFeedbackMessage(e.target.value)}
+										required
+										rows={4}
+										className="w-full px-3 py-2 rounded-xl bg-dark-200 border border-dark-100 text-light-100 text-sm placeholder:text-light-300 focus:outline-none focus:border-accent/50 resize-none"
+										placeholder="Describe the issue or share your idea..."
+									/>
+								</div>
+
+								<div className="flex justify-end pt-1">
+									<button
+										type="submit"
+										disabled={feedbackSubmitting}
+										className="px-4 py-2 rounded-xl text-sm bg-accent text-primary font-semibold hover:bg-accent/80 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+									>
+										{feedbackSubmitting ? "Sending..." : "Send Feedback"}
+									</button>
+								</div>
+							</form>
+						</>
+					)}
 				</div>
 			</div>
 		</div>

@@ -31,6 +31,10 @@ const PlayerCard = ({
   name,
   onDelete,
   onEdit,
+  onToggleActive,
+  onSelect,
+  selected,
+  inactive,
   status,
   gameCount,
   level,
@@ -39,6 +43,10 @@ const PlayerCard = ({
   name: string;
   onDelete?: () => void;
   onEdit?: () => void;
+  onToggleActive?: () => void;
+  onSelect?: () => void;
+  selected?: boolean;
+  inactive?: boolean;
   status: PlayerStatus;
   gameCount: number;
   level: PlayerLevel;
@@ -50,18 +58,47 @@ const PlayerCard = ({
       ? `${config.label} · ${courtName}`
       : config.label;
 
-  return (
-    <View className="bg-secondary rounded-2xl overflow-hidden border border-dark-100">
+  const isSelectMode = !!onSelect;
+
+  const cardContent = (
+    <View
+      className={`bg-secondary rounded-2xl overflow-hidden border ${
+        isSelectMode && selected
+          ? "border-accent/50 bg-accent/5"
+          : "border-dark-100"
+      }`}
+    >
       {/* Player Info Section */}
       <View className="flex-row items-center p-4">
+        {/* Checkbox (select mode) */}
+        {isSelectMode && (
+          <View
+            className={`size-6 rounded-lg items-center justify-center mr-3 ${
+              selected
+                ? "bg-court-lime"
+                : "bg-dark-100 border border-dark-100"
+            }`}
+          >
+            {selected && (
+              <MaterialCommunityIcons
+                name="check"
+                size={16}
+                color={BadmintonPalette.bg.base}
+              />
+            )}
+          </View>
+        )}
+
         {/* Avatar */}
-        <View className="size-12 rounded-xl bg-court-deep/20 items-center justify-center mr-4">
-          <AntDesign
-            name="user"
-            size={20}
-            color={BadmintonPalette.court.lime}
-          />
-        </View>
+        {!isSelectMode && (
+          <View className="size-12 rounded-xl bg-court-deep/20 items-center justify-center mr-4">
+            <AntDesign
+              name="user"
+              size={20}
+              color={BadmintonPalette.court.lime}
+            />
+          </View>
+        )}
 
         {/* Info */}
         <View className="flex-1">
@@ -93,72 +130,118 @@ const PlayerCard = ({
         </View>
 
         {/* Status Badge */}
-        <View
-          className={`flex-row items-center px-2.5 py-1 rounded-full border ${config.bgClass} ${config.borderClass} ml-2`}
-        >
-          <MaterialCommunityIcons
-            name={config.icon}
-            size={12}
-            color={config.color}
-          />
-          <Text
-            className="text-xs font-semibold ml-1.5"
-            style={{ color: config.color }}
-            numberOfLines={1}
-          >
-            {displayLabel}
-          </Text>
-        </View>
-      </View>
-
-      {/* Actions Section */}
-      <View className="flex-row items-center px-4 pb-4" style={{ gap: 8 }}>
-        {/* Edit Player Button */}
-        {onEdit && (
-          <TouchableOpacity
-            className="flex-1 flex-row items-center justify-center py-2.5 rounded-xl bg-info/10 border border-info/30 active:bg-info/20"
-            onPress={onEdit}
-            accessibilityRole="button"
-            accessibilityLabel={`Edit ${name}`}
+        {!isSelectMode && (
+          <View
+            className={`flex-row items-center px-2.5 py-1 rounded-full border ${config.bgClass} ${config.borderClass} ml-2`}
           >
             <MaterialCommunityIcons
-              name="pencil"
-              size={14}
-              color={BadmintonPalette.accent.info}
-            />
-            <Text
-              className="text-sm font-bold ml-1.5"
-              style={{ color: BadmintonPalette.accent.info }}
-            >
-              Edit Player
-            </Text>
-          </TouchableOpacity>
-        )}
-
-        {/* Delete Button */}
-        {onDelete && (
-          <TouchableOpacity
-            className="flex-1 flex-row items-center justify-center py-2.5 rounded-xl bg-danger/10 border border-danger/30 active:bg-danger/20"
-            onPress={onDelete}
-            accessibilityRole="button"
-            accessibilityLabel={`Delete ${name}`}
-          >
-            <FontAwesome5
-              name="trash-alt"
+              name={config.icon}
               size={12}
-              color={BadmintonPalette.accent.danger}
+              color={config.color}
             />
             <Text
-              className="text-sm font-bold ml-1.5"
-              style={{ color: BadmintonPalette.accent.danger }}
+              className="text-xs font-semibold ml-1.5"
+              style={{ color: config.color }}
+              numberOfLines={1}
             >
-              Delete
+              {displayLabel}
             </Text>
-          </TouchableOpacity>
+          </View>
         )}
       </View>
+
+      {/* Actions Section (hidden in select mode) */}
+      {!isSelectMode && (
+        <View className="flex-row items-center px-4 pb-4" style={{ gap: 8 }}>
+          {/* Toggle Active Button */}
+          {onToggleActive && (
+            <TouchableOpacity
+              className={`flex-row items-center justify-center py-2.5 px-3 rounded-xl border active:opacity-70 ${
+                inactive
+                  ? "bg-success/10 border-success/30"
+                  : "bg-warning/10 border-warning/30"
+              }`}
+              onPress={onToggleActive}
+              accessibilityRole="button"
+              accessibilityLabel={
+                inactive ? `Enable ${name}` : `Disable ${name}`
+              }
+            >
+              <MaterialCommunityIcons
+                name={inactive ? "eye" : "eye-off"}
+                size={14}
+                color={
+                  inactive
+                    ? BadmintonPalette.accent.success
+                    : BadmintonPalette.accent.warning
+                }
+              />
+            </TouchableOpacity>
+          )}
+
+          {/* Edit Player Button */}
+          {onEdit && (
+            <TouchableOpacity
+              className="flex-1 flex-row items-center justify-center py-2.5 rounded-xl bg-info/10 border border-info/30 active:bg-info/20"
+              onPress={onEdit}
+              accessibilityRole="button"
+              accessibilityLabel={`Edit ${name}`}
+            >
+              <MaterialCommunityIcons
+                name="pencil"
+                size={14}
+                color={BadmintonPalette.accent.info}
+              />
+              <Text
+                className="text-sm font-bold ml-1.5"
+                style={{ color: BadmintonPalette.accent.info }}
+              >
+                Edit Player
+              </Text>
+            </TouchableOpacity>
+          )}
+
+          {/* Delete Button */}
+          {onDelete && (
+            <TouchableOpacity
+              className="flex-1 flex-row items-center justify-center py-2.5 rounded-xl bg-danger/10 border border-danger/30 active:bg-danger/20"
+              onPress={onDelete}
+              accessibilityRole="button"
+              accessibilityLabel={`Delete ${name}`}
+            >
+              <FontAwesome5
+                name="trash-alt"
+                size={12}
+                color={BadmintonPalette.accent.danger}
+              />
+              <Text
+                className="text-sm font-bold ml-1.5"
+                style={{ color: BadmintonPalette.accent.danger }}
+              >
+                Delete
+              </Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
     </View>
   );
+
+  if (isSelectMode) {
+    return (
+      <TouchableOpacity
+        onPress={onSelect}
+        activeOpacity={0.7}
+        accessibilityRole="checkbox"
+        accessibilityState={{ checked: selected }}
+        accessibilityLabel={`Select ${name}`}
+      >
+        {cardContent}
+      </TouchableOpacity>
+    );
+  }
+
+  return cardContent;
 };
 
 export default PlayerCard;

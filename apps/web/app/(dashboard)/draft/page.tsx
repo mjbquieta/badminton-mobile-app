@@ -66,13 +66,14 @@ export default function DraftPage() {
   const isConfirmationActive = confirmation.meta.enabled;
 
   const draftablePlayers = useMemo(() => {
-    if (!isConfirmationActive) return players;
+    const activePlayers = players.filter((p) => p.active ?? true);
+    if (!isConfirmationActive) return activePlayers;
     const confirmedIds = new Set(
       confirmation.playerConfirmations
         .filter((pc) => pc.status === "confirmed")
         .map((pc) => pc.playerId),
     );
-    return players.filter((p) => confirmedIds.has(p.id));
+    return activePlayers.filter((p) => confirmedIds.has(p.id));
   }, [players, isConfirmationActive, confirmation.playerConfirmations]);
 
   const playerMap = new Map(players.map((p) => [p.id, p]));
