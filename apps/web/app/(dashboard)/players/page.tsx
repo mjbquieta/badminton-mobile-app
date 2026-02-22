@@ -64,6 +64,8 @@ export default function PlayersPage() {
   const playersError = useAppSelector((state) => state.players.error);
   const confirmation = useAppSelector((state) => state.confirmation);
   const [search, setSearch] = useState("");
+  const [sortBy, setSortBy] = useState<"name" | "level" | "games" | "trophies">("name");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingPlayer, setEditingPlayer] = useState<Player | null>(null);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
@@ -105,9 +107,33 @@ export default function PlayersPage() {
   );
   const [eventNotes, setEventNotes] = useState("");
 
-  const filtered = players.filter((p) =>
-    p.name.toLowerCase().includes(search.toLowerCase()),
-  );
+  const levelOrder: Record<PlayerLevel, number> = {
+    [PlayerLevel.BEGINNER]: 0,
+    [PlayerLevel.INTERMEDIATE]: 1,
+    [PlayerLevel.ADVANCED]: 2,
+    [PlayerLevel.PRO]: 3,
+  };
+
+  const filtered = useMemo(() => {
+    const list = players.filter((p) =>
+      p.name.toLowerCase().includes(search.toLowerCase()),
+    );
+    const dir = sortDir === "asc" ? 1 : -1;
+    return [...list].sort((a, b) => {
+      switch (sortBy) {
+        case "name":
+          return dir * a.name.localeCompare(b.name);
+        case "level":
+          return dir * (levelOrder[a.level] - levelOrder[b.level]);
+        case "games":
+          return dir * (a.gameCount - b.gameCount);
+        case "trophies":
+          return dir * ((a.trophies ?? 0) - (b.trophies ?? 0));
+        default:
+          return 0;
+      }
+    });
+  }, [players, search, sortBy, sortDir]);
 
   // Build a map of player confirmation statuses
   const confirmationStatusMap = useMemo(() => {
@@ -759,14 +785,33 @@ export default function PlayersPage() {
         </div>
       )}
 
-      {/* Search */}
-      <input
-        type="text"
-        placeholder="Search players..."
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        className="w-full bg-dark-200 border border-dark-100 rounded-xl px-4 py-2.5 text-sm text-light-100 placeholder:text-light-300 mb-6 outline-none focus:border-accent/50"
-      />
+      {/* Search & Sort */}
+      <div className="flex gap-2 mb-6">
+        <input
+          type="text"
+          placeholder="Search players..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="flex-1 bg-dark-200 border border-dark-100 rounded-xl px-4 py-2.5 text-sm text-light-100 placeholder:text-light-300 outline-none focus:border-accent/50"
+        />
+        <select
+          value={sortBy}
+          onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
+          className="bg-dark-200 border border-dark-100 rounded-xl px-3 py-2.5 text-sm text-light-100 outline-none focus:border-accent/50 cursor-pointer"
+        >
+          <option value="name">Name</option>
+          <option value="level">Level</option>
+          <option value="games">Games</option>
+          <option value="trophies">Trophies</option>
+        </select>
+        <button
+          onClick={() => setSortDir(sortDir === "asc" ? "desc" : "asc")}
+          className="w-10 h-10 rounded-xl bg-dark-200 border border-dark-100 text-light-100 hover:bg-dark-100 flex items-center justify-center text-sm shrink-0"
+          title={sortDir === "asc" ? "Ascending" : "Descending"}
+        >
+          {sortDir === "asc" ? "↑" : "↓"}
+        </button>
+      </div>
 
       {/* Players Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">

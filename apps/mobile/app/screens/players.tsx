@@ -50,6 +50,8 @@ export const PlayersContent = ({
   contentContainerClassName?: string;
 }) => {
   const [searchQuery, setSearchQuery] = useState<string>("");
+  const [sortBy, setSortBy] = useState<"name" | "level" | "games" | "trophies">("name");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [showAddModal, setShowAddModal] = useState<boolean>(false);
   const [showImportModal, setShowImportModal] = useState<boolean>(false);
   const [editingPlayer, setEditingPlayer] = useState<Player | null>(null);
@@ -87,11 +89,32 @@ export const PlayersContent = ({
     return map;
   }, [players, courts]);
 
+  const levelOrder: Record<PlayerLevel, number> = {
+    [PlayerLevel.BEGINNER]: 0,
+    [PlayerLevel.INTERMEDIATE]: 1,
+    [PlayerLevel.ADVANCED]: 2,
+    [PlayerLevel.PRO]: 3,
+  };
+
   const filteredPlayers = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
-    if (!q) return players;
-    return players.filter((p) => p.name.trim().toLowerCase().includes(q));
-  }, [players, searchQuery]);
+    const list = q ? players.filter((p) => p.name.trim().toLowerCase().includes(q)) : players;
+    const dir = sortDir === "asc" ? 1 : -1;
+    return [...list].sort((a, b) => {
+      switch (sortBy) {
+        case "name":
+          return dir * a.name.localeCompare(b.name);
+        case "level":
+          return dir * (levelOrder[a.level] - levelOrder[b.level]);
+        case "games":
+          return dir * (a.gameCount - b.gameCount);
+        case "trophies":
+          return dir * ((a.trophies ?? 0) - (b.trophies ?? 0));
+        default:
+          return 0;
+      }
+    });
+  }, [players, searchQuery, sortBy, sortDir]);
 
   useEffect(() => {
     if (!sliceError) return;
@@ -238,6 +261,46 @@ export const PlayersContent = ({
               value={searchQuery}
               onChangeText={(text) => setSearchQuery(text)}
             />
+          </View>
+
+          <View className="flex-row items-center gap-2 mb-4">
+            {(["name", "level", "games", "trophies"] as const).map((option) => (
+              <TouchableOpacity
+                key={option}
+                onPress={() => {
+                  if (sortBy === option) {
+                    setSortDir(sortDir === "asc" ? "desc" : "asc");
+                  } else {
+                    setSortBy(option);
+                    setSortDir("asc");
+                  }
+                }}
+                className={`flex-row items-center px-3 py-1.5 rounded-lg border ${
+                  sortBy === option
+                    ? "border-accent/50 bg-accent/10"
+                    : "border-dark-100 bg-dark-200"
+                }`}
+              >
+                <Text
+                  className="text-xs font-semibold capitalize"
+                  style={{
+                    color: sortBy === option
+                      ? BadmintonPalette.accent.primary
+                      : BadmintonPalette.text.secondary,
+                  }}
+                >
+                  {option}
+                </Text>
+                {sortBy === option && (
+                  <Text
+                    className="text-xs ml-1"
+                    style={{ color: BadmintonPalette.accent.primary }}
+                  >
+                    {sortDir === "asc" ? "↑" : "↓"}
+                  </Text>
+                )}
+              </TouchableOpacity>
+            ))}
           </View>
 
           <FlatList

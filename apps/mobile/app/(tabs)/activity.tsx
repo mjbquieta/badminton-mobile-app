@@ -33,8 +33,6 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { v4 as uuidv4 } from "uuid";
 
-const DEFAULT_MAX_DRAFTS = 30;
-
 const activity = () => {
   const dispatch = useAppDispatch();
   const { showToast } = useToast();
@@ -43,10 +41,9 @@ const activity = () => {
   const drafts = useAppSelector((s) => s.drafts.items);
   const draftsError = useAppSelector((s) => s.drafts.error);
 
-  const [maxDrafts, setMaxDrafts] = useState(DEFAULT_MAX_DRAFTS);
-  const [showMaxDraftsModal, setShowMaxDraftsModal] = useState(false);
   const [showSelectModal, setShowSelectModal] = useState(false);
   const [showAutoDraftModal, setShowAutoDraftModal] = useState(false);
+  const [draftCount, setDraftCount] = useState(30);
   const [shuffleMode, setShuffleMode] = useState<"balanced" | "random" | "skill-match">("balanced");
   const [selectedLevels, setSelectedLevels] = useState<Set<PlayerLevel>>(
     new Set([PlayerLevel.BEGINNER, PlayerLevel.INTERMEDIATE, PlayerLevel.ADVANCED, PlayerLevel.PRO]),
@@ -83,7 +80,7 @@ const activity = () => {
   function handleCreateDraft(selectedIds: string[]) {
     if (selectedIds.length !== 4) return;
     const draftId = uuidv4();
-    dispatch(addDraft({ id: draftId, playerIds: selectedIds, maxDrafts }));
+    dispatch(addDraft({ id: draftId, playerIds: selectedIds }));
     if (courts.length > 0) {
       const courtIndex = drafts.length % courts.length;
       dispatch(updateDraftCourt({ id: draftId, courtId: courts[courtIndex].id }));
@@ -106,13 +103,15 @@ const activity = () => {
     setFinishTarget(null);
   }
 
-  function handleAutoDraft(mode: "balanced" | "random" | "skill-match", levels: Set<PlayerLevel>) {
-    const maxNew = maxDrafts - drafts.length;
-    if (maxNew <= 0) {
-      showToast({ type: "info", message: "Draft limit reached" });
-      return;
-    }
+  // Compute C(n, k)
+  function comb(n: number, k: number): number {
+    if (k > n) return 0;
+    let result = 1;
+    for (let i = 0; i < k; i++) result = (result * (n - i)) / (i + 1);
+    return Math.round(result);
+  }
 
+  function handleAutoDraft(mode: "balanced" | "random" | "skill-match", levels: Set<PlayerLevel>) {
     const usedCombos = new Set(
       drafts.map((d) => [...d.playerIds].sort().join(",")),
     );
@@ -153,7 +152,7 @@ const activity = () => {
       const key = [...combo].sort().join(",");
       usedCombos.add(key);
       const draftId = uuidv4();
-      dispatch(addDraft({ id: draftId, playerIds: combo, maxDrafts }));
+      dispatch(addDraft({ id: draftId, playerIds: combo }));
       if (courts.length > 0) {
         const courtIndex = (drafts.length + draftIndex) % courts.length;
         dispatch(updateDraftCourt({ id: draftId, courtId: courts[courtIndex].id }));
@@ -175,9 +174,10 @@ const activity = () => {
         return;
       }
 
+      const maxCombos = Math.min(draftCount, comb(filteredIds.length, 2) + comb(filteredIds.length, 4));
       const counts = new Map(filteredIds.map((id) => [id, 0]));
 
-      for (let i = 0; i < maxNew; i++) {
+      for (let i = 0; i < maxCombos; i++) {
         if (i % roundSize === 0) usedInRound.clear();
         const comboSize = getComboSize(i);
 
@@ -241,9 +241,10 @@ const activity = () => {
         return;
       }
 
+      const maxCombos = Math.min(draftCount, comb(ids.length, 2) + comb(ids.length, 4));
       const counts = new Map(ids.map((id) => [id, 0]));
 
-      for (let i = 0; i < maxNew; i++) {
+      for (let i = 0; i < maxCombos; i++) {
         if (i % roundSize === 0) usedInRound.clear();
         const comboSize = getComboSize(i);
 
@@ -339,35 +340,7 @@ const activity = () => {
             />
           </View>
           <View className="flex-1">
-            <View className="flex-row items-center gap-2">
-              <Text className="text-light-100 text-2xl font-bold">Draft</Text>
-              <TouchableOpacity
-                onPress={() => setShowMaxDraftsModal(true)}
-                disabled={drafts.length > 0}
-                className="flex-row items-center gap-1.5 px-2.5 py-1 rounded-lg bg-dark-200 border border-dark-100"
-                style={{ opacity: drafts.length > 0 ? 0.5 : 1 }}
-              >
-                <Text
-                  className="text-sm font-bold"
-                  style={{ color: BadmintonPalette.accent.primary }}
-                >
-                  {maxDrafts}
-                </Text>
-                <Text
-                  className="text-xs"
-                  style={{ color: BadmintonPalette.text.muted }}
-                >
-                  matches
-                </Text>
-                {drafts.length === 0 && (
-                  <MaterialCommunityIcons
-                    name="pencil"
-                    size={12}
-                    color={BadmintonPalette.text.muted}
-                  />
-                )}
-              </TouchableOpacity>
-            </View>
+            <Text className="text-light-100 text-2xl font-bold">Draft</Text>
             <Text className="text-light-300 text-sm">
               Manage matches and drafts
             </Text>
@@ -462,12 +435,11 @@ const activity = () => {
                 }
                 setShowAutoDraftModal(true);
               }}
-              disabled={drafts.length >= maxDrafts || players.length < 4}
+              disabled={players.length < 4}
               className="flex-row items-center p-4 rounded-xl"
               style={{
                 backgroundColor: BadmintonPalette.accent.primary,
-                opacity:
-                  drafts.length >= maxDrafts || players.length < 4 ? 0.4 : 1,
+                opacity: players.length < 4 ? 0.4 : 1,
               }}
               accessibilityRole="button"
               accessibilityLabel="Auto draft players"
@@ -512,12 +484,11 @@ const activity = () => {
                 }
                 setShowSelectModal(true);
               }}
-              disabled={drafts.length >= maxDrafts || players.length < 4}
+              disabled={players.length < 4}
               className="flex-row items-center p-4 rounded-xl border border-dark-100"
               style={{
                 backgroundColor: BadmintonPalette.bg.elevated,
-                opacity:
-                  drafts.length >= maxDrafts || players.length < 4 ? 0.4 : 1,
+                opacity: players.length < 4 ? 0.4 : 1,
               }}
               accessibilityRole="button"
               accessibilityLabel="Create new draft manually"
@@ -871,79 +842,6 @@ const activity = () => {
           </Pressable>
         </Pressable>
       </Modal>
-      {/* Max Drafts Modal */}
-      <Modal
-        transparent
-        animationType="fade"
-        visible={showMaxDraftsModal}
-        onRequestClose={() => setShowMaxDraftsModal(false)}
-      >
-        <Pressable
-          className="flex-1 items-center justify-center bg-black/70 px-5"
-          onPress={() => setShowMaxDraftsModal(false)}
-        >
-          <Pressable
-            className="w-full max-w-sm rounded-2xl bg-secondary border border-dark-100 overflow-hidden"
-            onPress={() => {}}
-          >
-            <View className="p-4 border-b border-dark-100">
-              <Text
-                className="text-lg font-bold"
-                style={{ color: BadmintonPalette.text.primary }}
-              >
-                Max Drafts
-              </Text>
-              <Text
-                className="text-sm mt-1"
-                style={{ color: BadmintonPalette.text.muted }}
-              >
-                Set the maximum number of matches to generate
-              </Text>
-            </View>
-
-            <View className="p-4 gap-4">
-              <View className="flex-row items-center justify-center gap-3">
-                <TouchableOpacity
-                  onPress={() => setMaxDrafts(Math.max(1, maxDrafts - 5))}
-                  className="size-10 rounded-xl bg-dark-200 border border-dark-100 items-center justify-center"
-                >
-                  <Text className="text-light-100 text-lg font-bold">−</Text>
-                </TouchableOpacity>
-                <TextInput
-                  className="w-16 text-center text-xl font-bold rounded-xl bg-dark-200 border border-dark-100 py-2"
-                  style={{ color: BadmintonPalette.accent.primary }}
-                  keyboardType="numeric"
-                  value={String(maxDrafts)}
-                  onChangeText={(val) => {
-                    const n = parseInt(val, 10);
-                    if (!isNaN(n) && n >= 1) setMaxDrafts(n);
-                  }}
-                />
-                <TouchableOpacity
-                  onPress={() => setMaxDrafts(maxDrafts + 5)}
-                  className="size-10 rounded-xl bg-dark-200 border border-dark-100 items-center justify-center"
-                >
-                  <Text className="text-light-100 text-lg font-bold">+</Text>
-                </TouchableOpacity>
-              </View>
-
-              <TouchableOpacity
-                onPress={() => setShowMaxDraftsModal(false)}
-                className="py-3 rounded-xl items-center"
-                style={{ backgroundColor: BadmintonPalette.accent.primary }}
-              >
-                <Text
-                  className="font-bold"
-                  style={{ color: BadmintonPalette.bg.base }}
-                >
-                  Done
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </Pressable>
-        </Pressable>
-      </Modal>
-
       {/* Auto Draft Modal */}
       <Modal
         transparent
@@ -970,11 +868,45 @@ const activity = () => {
                 className="text-sm mt-1"
                 style={{ color: BadmintonPalette.text.muted }}
               >
-                Generate up to {maxDrafts - drafts.length} drafts automatically.
+                Unique matchups are prioritized, duplicates allowed when exhausted.
               </Text>
             </View>
 
             <View className="p-4 gap-4">
+              {/* Number of Drafts */}
+              <View>
+                <Text
+                  className="text-xs font-semibold uppercase tracking-wider mb-2"
+                  style={{ color: BadmintonPalette.text.secondary }}
+                >
+                  Number of Drafts
+                </Text>
+                <View className="flex-row items-center justify-center gap-3">
+                  <TouchableOpacity
+                    onPress={() => setDraftCount(Math.max(1, draftCount - 5))}
+                    className="size-10 rounded-xl bg-dark-200 border border-dark-100 items-center justify-center"
+                  >
+                    <Text className="text-light-100 text-lg font-bold">−</Text>
+                  </TouchableOpacity>
+                  <TextInput
+                    className="w-16 text-center text-xl font-bold rounded-xl bg-dark-200 border border-dark-100 py-2"
+                    style={{ color: BadmintonPalette.accent.primary }}
+                    keyboardType="numeric"
+                    value={String(draftCount)}
+                    onChangeText={(val) => {
+                      const n = parseInt(val, 10);
+                      if (!isNaN(n) && n >= 1) setDraftCount(n);
+                    }}
+                  />
+                  <TouchableOpacity
+                    onPress={() => setDraftCount(draftCount + 5)}
+                    className="size-10 rounded-xl bg-dark-200 border border-dark-100 items-center justify-center"
+                  >
+                    <Text className="text-light-100 text-lg font-bold">+</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+
               {/* Shuffle Mode */}
               <View>
                 <Text

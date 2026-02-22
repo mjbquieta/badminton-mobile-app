@@ -8,6 +8,10 @@
   --background-end-rgb: 10, 10, 10;
 }
 
+* {
+  touch-action: manipulation;
+}
+
 body {
   color: rgb(var(--foreground-rgb));
   background: linear-gradient(

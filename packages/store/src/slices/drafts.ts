@@ -11,21 +11,14 @@ const initialState: DraftsState = {
 	error: null,
 };
 
-const DEFAULT_MAX_DRAFTS = 30;
-
 const draftsSlice = createSlice({
 	name: 'drafts',
 	initialState,
 	reducers: {
 		addDraft: (
 			state,
-			action: PayloadAction<{ id: string; name?: string; playerIds: string[]; maxDrafts?: number }>
+			action: PayloadAction<{ id: string; name?: string; playerIds: string[] }>
 		) => {
-			const limit = action.payload.maxDrafts ?? DEFAULT_MAX_DRAFTS;
-			if (state.items.length >= limit) {
-				state.error = `Draft limit reached (${limit}).`;
-				return;
-			}
 			const playerCount = action.payload.playerIds.length;
 			if (playerCount !== 2 && playerCount !== 4) {
 				state.error = `A draft must have 2 or 4 players.`;
