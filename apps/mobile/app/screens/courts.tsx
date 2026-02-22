@@ -39,12 +39,10 @@ export const CourtsContent = ({
   const { emailVerified } = useAuth();
   const dispatch = useAppDispatch();
   const courts = useAppSelector((s: RootState) => s.courts.items);
-  const drafts = useAppSelector((s: RootState) => s.drafts.items);
   const sliceError = useAppSelector((s: RootState) => s.courts.error);
   const [showAddModal, setShowAddModal] = useState<boolean>(false);
 
   const { showToast } = useToast();
-  const hasDrafts = drafts.length > 0;
 
   useEffect(() => {
     if (
@@ -98,12 +96,8 @@ export const CourtsContent = ({
       {/* Add Court Button */}
       <TouchableOpacity
         onPress={() => setShowAddModal(true)}
-        disabled={hasDrafts}
         className="flex-row items-center justify-center py-3.5 rounded-2xl mb-6"
-        style={{
-          backgroundColor: BadmintonPalette.accent.primary,
-          opacity: hasDrafts ? 0.4 : 1,
-        }}
+        style={{ backgroundColor: BadmintonPalette.accent.primary }}
         accessibilityRole="button"
         accessibilityLabel="Add court"
       >
@@ -115,24 +109,6 @@ export const CourtsContent = ({
           Add Court
         </Text>
       </TouchableOpacity>
-
-      {/* Drafts Lock Notice */}
-      {hasDrafts && (
-        <View className="flex-row items-center p-3 rounded-xl bg-accent/10 border border-accent/30 mb-4">
-          <MaterialCommunityIcons
-            name="lock-outline"
-            size={16}
-            color={BadmintonPalette.accent.primary}
-          />
-          <Text
-            className="text-xs font-medium ml-2 flex-1"
-            style={{ color: BadmintonPalette.accent.primary }}
-          >
-            Courts are locked while drafts exist. Clear all drafts first to add
-            or remove courts.
-          </Text>
-        </View>
-      )}
 
       {/* Courts List */}
       {courts.length > 0 && (
@@ -158,50 +134,48 @@ export const CourtsContent = ({
               </View>
             </View>
 
-            {!hasDrafts && (
-              <TouchableOpacity
-                className="flex-row items-center px-3 py-2 rounded-xl bg-danger/10 border border-danger/30 active:bg-danger/20"
-                onPress={() => {
-                  const courtsWithPlayers = courts.filter(
-                    (c) => c.players.length > 0
+            <TouchableOpacity
+              className="flex-row items-center px-3 py-2 rounded-xl bg-danger/10 border border-danger/30 active:bg-danger/20"
+              onPress={() => {
+                const courtsWithPlayers = courts.filter(
+                  (c) => c.players.length > 0
+                );
+                if (courtsWithPlayers.length > 0) {
+                  const names = courtsWithPlayers
+                    .map((c) => c.name)
+                    .join(", ");
+                  Alert.alert(
+                    "Cannot clear courts",
+                    `Some courts have active games (${names}). End the games first.`
                   );
-                  if (courtsWithPlayers.length > 0) {
-                    const names = courtsWithPlayers
-                      .map((c) => c.name)
-                      .join(", ");
-                    Alert.alert(
-                      "Cannot clear courts",
-                      `Some courts have active games (${names}). End the games first.`
+                  return;
+                }
+                ConfirmationAlert({
+                  title: "Clear All Courts",
+                  message: "Remove all courts?",
+                  onConfirm: () => {
+                    LayoutAnimation.configureNext(
+                      LayoutAnimation.Presets.spring
                     );
-                    return;
-                  }
-                  ConfirmationAlert({
-                    title: "Clear All Courts",
-                    message: "Remove all courts?",
-                    onConfirm: () => {
-                      LayoutAnimation.configureNext(
-                        LayoutAnimation.Presets.spring
-                      );
-                      dispatch(clearCourts());
-                    },
-                  });
-                }}
-                accessibilityRole="button"
-                accessibilityLabel="Clear all courts"
+                    dispatch(clearCourts());
+                  },
+                });
+              }}
+              accessibilityRole="button"
+              accessibilityLabel="Clear all courts"
+            >
+              <MaterialCommunityIcons
+                name="delete-sweep"
+                size={16}
+                color={BadmintonPalette.accent.danger}
+              />
+              <Text
+                className="text-xs font-bold ml-1"
+                style={{ color: BadmintonPalette.accent.danger }}
               >
-                <MaterialCommunityIcons
-                  name="delete-sweep"
-                  size={16}
-                  color={BadmintonPalette.accent.danger}
-                />
-                <Text
-                  className="text-xs font-bold ml-1"
-                  style={{ color: BadmintonPalette.accent.danger }}
-                >
-                  Clear
-                </Text>
-              </TouchableOpacity>
-            )}
+                Clear
+              </Text>
+            </TouchableOpacity>
           </View>
 
           <FlatList
@@ -212,29 +186,25 @@ export const CourtsContent = ({
                 name={item.name}
                 players={item.players}
                 isSingle={item.isSingle}
-                onDelete={
-                  hasDrafts
-                    ? undefined
-                    : () => {
-                        if (item.players.length > 0) {
-                          Alert.alert(
-                            "Cannot delete",
-                            `${item.name} has players. End the game first.`
-                          );
-                          return;
-                        }
-                        ConfirmationAlert({
-                          title: "Delete Court",
-                          message: `Remove ${item.name}?`,
-                          onConfirm: () => {
-                            LayoutAnimation.configureNext(
-                              LayoutAnimation.Presets.spring
-                            );
-                            dispatch(removeCourt(item.id));
-                          },
-                        });
-                      }
-                }
+                onDelete={() => {
+                  if (item.players.length > 0) {
+                    Alert.alert(
+                      "Cannot delete",
+                      `${item.name} has players. End the game first.`
+                    );
+                    return;
+                  }
+                  ConfirmationAlert({
+                    title: "Delete Court",
+                    message: `Remove ${item.name}?`,
+                    onConfirm: () => {
+                      LayoutAnimation.configureNext(
+                        LayoutAnimation.Presets.spring
+                      );
+                      dispatch(removeCourt(item.id));
+                    },
+                  });
+                }}
               />
             )}
             keyExtractor={(item) => item.id}
