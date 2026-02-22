@@ -22,6 +22,7 @@ import {
 	FiDollarSign,
 	FiLock,
 	FiMapPin,
+	FiSearch,
 } from "react-icons/fi";
 
 type Phase = "pin-entry" | "loading" | "viewing" | "not-found" | "error";
@@ -35,6 +36,7 @@ export default function ConfirmationPage() {
 	const [pinError, setPinError] = useState<string | null>(null);
 	const [data, setData] = useState<ConfirmationDocument | null>(null);
 	const [updatingPlayer, setUpdatingPlayer] = useState<string | null>(null);
+	const [playerSearch, setPlayerSearch] = useState("");
 	const firebaseInitialized = useRef(false);
 
 	useEffect(() => {
@@ -287,10 +289,15 @@ export default function ConfirmationPage() {
 									<span className="font-medium">₱{eventDetails.courtCost.toLocaleString()}</span>
 								</div>
 							)}
-							{(eventDetails.additionalCosts ?? []).map((c: { item: string; cost: number }, i: number) => (
-								<div key={i} className="flex justify-between">
-									<span className="text-light-300">{c.item}</span>
-									<span className="font-medium">₱{c.cost.toLocaleString()}</span>
+							{(eventDetails.additionalCosts ?? []).map((c: { item: string; description?: string; cost: number }, i: number) => (
+								<div key={i}>
+									<div className="flex justify-between">
+										<span className="text-light-300">{c.item}</span>
+										<span className="font-medium">₱{c.cost.toLocaleString()}</span>
+									</div>
+									{c.description && (
+										<p className="text-xs text-light-300/60 mt-0.5">{c.description}</p>
+									)}
 								</div>
 							))}
 							<div className="border-t border-dark-100 pt-2 flex justify-between font-semibold">
@@ -331,25 +338,54 @@ export default function ConfirmationPage() {
 			</div>
 
 			{/* Player List */}
-			<div className="bg-secondary rounded-2xl border border-dark-100 overflow-hidden">
-				<div className="px-5 py-3 border-b border-dark-100">
-					<h2 className="text-sm font-semibold text-light-200 uppercase tracking-wide">
-						Players ({playerConfirmations.length})
-					</h2>
-				</div>
-				<div className="divide-y divide-dark-100">
-					{playerConfirmations.map((pc) => (
-						<PlayerConfirmationRow
-							key={pc.playerId}
-							pc={pc}
-							locked={locked}
-							updating={updatingPlayer === pc.playerId}
-							onConfirm={() => handleStatusChange(pc.playerId, "confirmed")}
-							onDecline={() => handleStatusChange(pc.playerId, "declined")}
-						/>
-					))}
-				</div>
-			</div>
+			{(() => {
+				const filteredPlayers = playerSearch
+					? playerConfirmations.filter((pc) =>
+							pc.playerName.toLowerCase().includes(playerSearch.toLowerCase()),
+						)
+					: playerConfirmations;
+				return (
+					<div className="bg-secondary rounded-2xl border border-dark-100 overflow-hidden">
+						<div className="px-5 py-3 border-b border-dark-100 space-y-3">
+							<h2 className="text-sm font-semibold text-light-200 uppercase tracking-wide">
+								Players ({playerConfirmations.length})
+							</h2>
+							{playerConfirmations.length > 5 && (
+								<div className="relative">
+									<FiSearch
+										size={14}
+										className="absolute left-3 top-1/2 -translate-y-1/2 text-light-300/50"
+									/>
+									<input
+										type="text"
+										placeholder="Search your name..."
+										value={playerSearch}
+										onChange={(e) => setPlayerSearch(e.target.value)}
+										className="w-full bg-dark-200 border border-dark-100 rounded-lg pl-9 pr-3 py-2 text-sm text-light-100 placeholder:text-light-300/40 outline-none focus:border-accent/50"
+									/>
+								</div>
+							)}
+						</div>
+						<div className="divide-y divide-dark-100">
+							{filteredPlayers.map((pc) => (
+								<PlayerConfirmationRow
+									key={pc.playerId}
+									pc={pc}
+									locked={locked}
+									updating={updatingPlayer === pc.playerId}
+									onConfirm={() => handleStatusChange(pc.playerId, "confirmed")}
+									onDecline={() => handleStatusChange(pc.playerId, "declined")}
+								/>
+							))}
+							{playerSearch && filteredPlayers.length === 0 && (
+								<div className="px-5 py-6 text-center text-sm text-light-300">
+									No players found matching &ldquo;{playerSearch}&rdquo;
+								</div>
+							)}
+						</div>
+					</div>
+				);
+			})()}
 		</div>
 	);
 }

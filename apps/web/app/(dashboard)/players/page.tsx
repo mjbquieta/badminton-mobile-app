@@ -6,6 +6,14 @@ import { PlayerLevelBadge } from "@/components/PlayerLevelBadge";
 import { PlayerLevelSelector } from "@/components/PlayerLevelSelector";
 import { PlayerTrophyBadge } from "@/components/PlayerTrophyBadge";
 import { useAuth } from "@/contexts/AuthContext";
+import { generatePin, generateSerialId } from "@/utils/confirmation-helpers";
+import {
+  createConfirmationDoc,
+  deleteConfirmationDoc,
+  subscribeToConfirmation,
+  updateConfirmationEventDetails,
+  updateConfirmationPlayers,
+} from "@badminton/firebase";
 import {
   addPlayer,
   clearPlayers,
@@ -20,27 +28,27 @@ import {
   useAppDispatch,
   useAppSelector,
 } from "@badminton/store";
-import { PlayerLevel, type Player, type EventDetails, type PlayerConfirmation, type CostItem } from "@badminton/types";
-import { UNVERIFIED_LIMITS } from "@badminton/ui-shared";
-import { generateSerialId, generatePin } from "@/utils/confirmation-helpers";
 import {
-  createConfirmationDoc,
-  deleteConfirmationDoc,
-  subscribeToConfirmation,
-  updateConfirmationEventDetails,
-  updateConfirmationPlayers,
-} from "@badminton/firebase";
-import { useEffect, useRef, useState, useMemo } from "react";
+  PlayerLevel,
+  type CostItem,
+  type EventDetails,
+  type Player,
+  type PlayerConfirmation,
+} from "@badminton/types";
+import { UNVERIFIED_LIMITS } from "@badminton/ui-shared";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   FiCheck,
   FiClipboard,
   FiClock,
   FiDollarSign,
   FiEdit2,
+  FiExternalLink,
   FiEye,
   FiEyeOff,
   FiFile,
   FiPlus,
+  FiShare2,
   FiTrash2,
   FiUpload,
   FiUsers,
@@ -82,6 +90,7 @@ export default function PlayersPage() {
   const [showDisableConfirm, setShowDisableConfirm] = useState(false);
   const [showPinVisible, setShowPinVisible] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
+  const [pinCopied, setPinCopied] = useState(false);
   const [showEditEventModal, setShowEditEventModal] = useState(false);
 
   // Event details form fields
@@ -91,7 +100,9 @@ export default function PlayersPage() {
   const [eventStartTime, setEventStartTime] = useState("");
   const [eventEndTime, setEventEndTime] = useState("");
   const [eventCourtCost, setEventCourtCost] = useState(0);
-  const [eventAdditionalCosts, setEventAdditionalCosts] = useState<CostItem[]>([]);
+  const [eventAdditionalCosts, setEventAdditionalCosts] = useState<CostItem[]>(
+    [],
+  );
   const [eventNotes, setEventNotes] = useState("");
 
   const filtered = players.filter((p) =>
@@ -162,7 +173,12 @@ export default function PlayersPage() {
       );
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [players, confirmation.meta.enabled, confirmation.meta.serialId, dispatch]);
+  }, [
+    players,
+    confirmation.meta.enabled,
+    confirmation.meta.serialId,
+    dispatch,
+  ]);
 
   function handleAdd() {
     dispatch(
@@ -364,6 +380,17 @@ export default function PlayersPage() {
     setTimeout(() => setLinkCopied(false), 2000);
   }
 
+  function handleOpenLink() {
+    const link = `${window.location.origin}/confirm/${confirmation.meta.serialId}`;
+    window.open(link, "_blank");
+  }
+
+  function handleCopyPin() {
+    navigator.clipboard.writeText(confirmation.meta.pin);
+    setPinCopied(true);
+    setTimeout(() => setPinCopied(false), 2000);
+  }
+
   function openEditEventDetails() {
     if (confirmation.eventDetails) {
       setEventLocation(confirmation.eventDetails.location);
@@ -429,37 +456,58 @@ export default function PlayersPage() {
   return (
     <div className="p-4 sm:p-6 md:p-8 max-w-5xl">
       {/* Header */}
-      <div className="flex items-start sm:items-center justify-between gap-3 mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold">Players</h1>
           <p className="text-light-300 text-sm mt-1">{players.length} total</p>
         </div>
-        <div className="flex flex-wrap gap-2 sm:gap-3 shrink-0 justify-end">
+        <div className="flex items-center gap-2.5 sm:gap-3">
           {/* Confirmation Toggle */}
-          <div className="relative group flex items-center gap-2">
-            <button
-              onClick={handleToggleConfirmation}
-              role="switch"
-              aria-checked={confirmation.meta.enabled}
-              aria-label="Toggle player confirmation"
-              className={`relative inline-flex h-7 w-12 shrink-0 cursor-pointer items-center rounded-full transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-accent/50 focus:ring-offset-2 focus:ring-offset-primary ${
-                confirmation.meta.enabled ? "bg-success" : "bg-dark-100"
-              }`}
+          <div className="relative">
+            <div
+              className="animate-rainbow-spin rounded-xl p-[1.6px]"
+              style={{
+                background:
+                  "conic-gradient(from var(--rainbow-angle, 0deg), #ff0000, #ff8800, #ffdd00, #00ff00, #0088ff, #8800ff, #ff0000)",
+              }}
             >
-              <span
-                className={`inline-block h-5 w-5 rounded-full bg-white shadow-md transition-transform duration-200 ease-in-out ${
-                  confirmation.meta.enabled ? "translate-x-6" : "translate-x-1"
-                }`}
-              />
-            </button>
-            <span className="hidden sm:inline text-xs text-light-300">
-              Player RSVP
-            </span>
+              <button
+                onClick={handleToggleConfirmation}
+                className="flex items-center gap-2.5 bg-secondary rounded-[10px] px-3 py-2 cursor-pointer"
+              >
+                {/* Toggle switch */}
+                <span
+                  role="switch"
+                  aria-checked={confirmation.meta.enabled}
+                  aria-label="Toggle player RSVP"
+                  className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors duration-200 ${
+                    confirmation.meta.enabled ? "bg-success" : "bg-dark-100"
+                  }`}
+                >
+                  <span
+                    className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow-sm transition-transform duration-200 ${
+                      confirmation.meta.enabled
+                        ? "translate-x-[18px]"
+                        : "translate-x-1"
+                    }`}
+                  />
+                </span>
+                <span className="text-xs font-semibold text-light-200 whitespace-nowrap">
+                  Player RSVP
+                </span>
+              </button>
+            </div>
+            {/* NEW badge */}
+            {!confirmation.meta.enabled && (
+              <span className="absolute -top-2 -right-2 bg-danger text-white text-[9px] font-bold uppercase px-1.5 py-0.5 rounded-full -rotate-12 shadow-md pointer-events-none">
+                NEW
+              </span>
+            )}
           </div>
           {players.length > 0 && (
             <button
               onClick={() => setShowClearConfirm(true)}
-              className="px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm text-danger border border-danger/30 hover:bg-danger/10"
+              className="px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm text-danger border border-danger/30 hover:bg-danger/10 whitespace-nowrap"
             >
               Clear All
             </button>
@@ -472,14 +520,14 @@ export default function PlayersPage() {
               setImportMode("file");
               setShowImportModal(true);
             }}
-            className="flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm border border-dark-100 text-light-200 hover:bg-dark-200"
+            className="flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm border border-dark-100 text-light-200 hover:bg-dark-200 whitespace-nowrap"
           >
             <FiUpload size={14} />
             <span className="hidden sm:inline">Import</span>
           </button>
           <button
             onClick={() => setShowAddModal(true)}
-            className="px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm bg-accent text-primary font-semibold hover:bg-accent/80"
+            className="px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm bg-accent text-primary font-semibold hover:bg-accent/80 whitespace-nowrap"
           >
             + Add
           </button>
@@ -530,6 +578,13 @@ export default function PlayersPage() {
                   <FiClipboard size={14} />
                 )}
               </button>
+              <button
+                onClick={handleOpenLink}
+                className="p-2 rounded-lg border border-dark-100 text-light-300 hover:text-accent hover:border-accent/30 transition-colors"
+                title="Open in new tab"
+              >
+                <FiExternalLink size={14} />
+              </button>
             </div>
             <div className="flex items-center gap-2">
               <span className="text-xs text-light-300">PIN:</span>
@@ -539,14 +594,31 @@ export default function PlayersPage() {
               <button
                 onClick={() => setShowPinVisible(!showPinVisible)}
                 className="p-1 rounded text-light-300 hover:text-light-100 transition-colors"
+                title={showPinVisible ? "Hide PIN" : "Show PIN"}
               >
-                {showPinVisible ? (
-                  <FiEyeOff size={12} />
+                {showPinVisible ? <FiEyeOff size={12} /> : <FiEye size={12} />}
+              </button>
+              <button
+                onClick={handleCopyPin}
+                className="p-1 rounded text-light-300 hover:text-accent transition-colors"
+                title="Copy PIN"
+              >
+                {pinCopied ? (
+                  <FiCheck size={12} className="text-success" />
                 ) : (
-                  <FiEye size={12} />
+                  <FiClipboard size={12} />
                 )}
               </button>
             </div>
+          </div>
+
+          {/* How to Share */}
+          <div className="bg-dark-200 rounded-xl p-3 flex items-start gap-2">
+            <FiShare2 size={12} className="shrink-0 mt-0.5 text-accent" />
+            <p className="text-xs text-light-300 leading-relaxed">
+              Copy the link and PIN above and share it with your players via
+              Messenger, Viber, WhatsApp, or any messaging app.
+            </p>
           </div>
 
           {/* Attendance Preview */}
@@ -568,13 +640,17 @@ export default function PlayersPage() {
                   {confirmedCount > 0 && (
                     <div
                       className="bg-success transition-all duration-500 ease-out"
-                      style={{ width: `${(confirmedCount / confirmation.playerConfirmations.length) * 100}%` }}
+                      style={{
+                        width: `${(confirmedCount / confirmation.playerConfirmations.length) * 100}%`,
+                      }}
                     />
                   )}
                   {declinedCount > 0 && (
                     <div
                       className="bg-danger transition-all duration-500 ease-out"
-                      style={{ width: `${(declinedCount / confirmation.playerConfirmations.length) * 100}%` }}
+                      style={{
+                        width: `${(declinedCount / confirmation.playerConfirmations.length) * 100}%`,
+                      }}
                     />
                   )}
                 </div>
@@ -582,22 +658,34 @@ export default function PlayersPage() {
                   <div className="flex items-center gap-1.5">
                     <span className="w-2 h-2 rounded-full bg-success" />
                     <span className="text-light-300">Going</span>
-                    <span className="font-bold text-success">{confirmedCount}</span>
+                    <span className="font-bold text-success">
+                      {confirmedCount}
+                    </span>
                     <span className="text-light-300/50">
-                      ({confirmation.playerConfirmations.length > 0
-                        ? Math.round((confirmedCount / confirmation.playerConfirmations.length) * 100)
-                        : 0}%)
+                      (
+                      {confirmation.playerConfirmations.length > 0
+                        ? Math.round(
+                            (confirmedCount /
+                              confirmation.playerConfirmations.length) *
+                              100,
+                          )
+                        : 0}
+                      %)
                     </span>
                   </div>
                   <div className="flex items-center gap-1.5">
                     <span className="w-2 h-2 rounded-full bg-danger" />
                     <span className="text-light-300">Not Going</span>
-                    <span className="font-bold text-danger">{declinedCount}</span>
+                    <span className="font-bold text-danger">
+                      {declinedCount}
+                    </span>
                   </div>
                   <div className="flex items-center gap-1.5">
                     <span className="w-2 h-2 rounded-full bg-dark-100" />
                     <span className="text-light-300">Pending</span>
-                    <span className="font-bold text-light-300">{pendingCount}</span>
+                    <span className="font-bold text-light-300">
+                      {pendingCount}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -612,26 +700,42 @@ export default function PlayersPage() {
                 Cost Breakdown
               </div>
               <div className="bg-dark-200 rounded-xl p-3 space-y-2 text-sm">
-                {confirmation.eventDetails && confirmation.eventDetails.courtCost > 0 && (
-                  <div className="flex justify-between">
-                    <span className="text-light-300">Court</span>
-                    <span className="font-medium">₱{confirmation.eventDetails.courtCost.toLocaleString()}</span>
-                  </div>
-                )}
+                {confirmation.eventDetails &&
+                  confirmation.eventDetails.courtCost > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-light-300">Court</span>
+                      <span className="font-medium">
+                        ₱{confirmation.eventDetails.courtCost.toLocaleString()}
+                      </span>
+                    </div>
+                  )}
                 {confirmation.eventDetails?.additionalCosts.map((c, i) => (
-                  <div key={i} className="flex justify-between">
-                    <span className="text-light-300">{c.item}</span>
-                    <span className="font-medium">₱{c.cost.toLocaleString()}</span>
+                  <div key={i}>
+                    <div className="flex justify-between">
+                      <span className="text-light-300">{c.item}</span>
+                      <span className="font-medium">
+                        ₱{c.cost.toLocaleString()}
+                      </span>
+                    </div>
+                    {c.description && (
+                      <p className="text-xs text-light-300/60 mt-0.5">
+                        {c.description}
+                      </p>
+                    )}
                   </div>
                 ))}
                 <div className="border-t border-dark-100 pt-2 flex justify-between font-semibold">
                   <span>Total</span>
-                  <span className="text-accent">₱{totalCost.toLocaleString()}</span>
+                  <span className="text-accent">
+                    ₱{totalCost.toLocaleString()}
+                  </span>
                 </div>
               </div>
               {confirmedCount > 0 && (
                 <div className="bg-accent/10 border border-accent/20 rounded-xl p-3 flex justify-between items-center">
-                  <span className="text-sm text-light-200">Per player ({confirmedCount} going)</span>
+                  <span className="text-sm text-light-200">
+                    Per player ({confirmedCount} going)
+                  </span>
                   <span className="text-lg font-bold text-accent">
                     ₱{Math.ceil(costPerPlayer).toLocaleString()}
                   </span>
@@ -668,7 +772,8 @@ export default function PlayersPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
         {filtered.map((player) => {
           const pc = confirmationStatusMap.get(player.id);
-          const isConfirmed = !confirmation.meta.enabled || pc?.status === "confirmed";
+          const isConfirmed =
+            !confirmation.meta.enabled || pc?.status === "confirmed";
           return (
             <div
               key={player.id}
@@ -787,9 +892,7 @@ export default function PlayersPage() {
             </label>
             <div className="flex items-center gap-4">
               <button
-                onClick={() =>
-                  setEditGameCount(Math.max(0, editGameCount - 1))
-                }
+                onClick={() => setEditGameCount(Math.max(0, editGameCount - 1))}
                 className="w-10 h-10 rounded-xl bg-dark-200 text-light-100 text-xl hover:bg-dark-100"
               >
                 -
@@ -860,6 +963,7 @@ export default function PlayersPage() {
         open={showEventDetailsModal}
         onClose={() => setShowEventDetailsModal(false)}
         title="Event Details"
+        size="xl"
       >
         <EventDetailsForm
           location={eventLocation}
@@ -890,6 +994,7 @@ export default function PlayersPage() {
         open={showEditEventModal}
         onClose={() => setShowEditEventModal(false)}
         title="Edit Event Details"
+        size="xl"
       >
         <EventDetailsForm
           location={eventLocation}
@@ -983,9 +1088,7 @@ export default function PlayersPage() {
                 ) : (
                   <div className="flex flex-col items-center gap-2">
                     <FiUpload
-                      className={
-                        isDragging ? "text-accent" : "text-light-300"
-                      }
+                      className={isDragging ? "text-accent" : "text-light-300"}
                       size={28}
                     />
                     <p className="text-sm text-light-200">
@@ -1070,20 +1173,29 @@ function ConfirmationStatusBadge({
 }) {
   if (status === "confirmed") {
     return (
-      <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-success/20" title="Confirmed">
+      <span
+        className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-success/20"
+        title="Confirmed"
+      >
         <FiCheck size={10} className="text-success" />
       </span>
     );
   }
   if (status === "declined") {
     return (
-      <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-danger/20" title="Declined">
+      <span
+        className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-danger/20"
+        title="Declined"
+      >
         <FiX size={10} className="text-danger" />
       </span>
     );
   }
   return (
-    <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-light-300/20" title="Pending">
+    <span
+      className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-light-300/20"
+      title="Pending"
+    >
       <FiClock size={10} className="text-light-300" />
     </span>
   );
@@ -1136,10 +1248,17 @@ function EventDetailsForm({
     "w-full bg-dark-200 border border-dark-100 rounded-xl px-4 py-2.5 text-sm text-light-100 placeholder:text-light-300 outline-none focus:border-accent/50";
 
   function addCostItem() {
-    onAdditionalCostsChange([...additionalCosts, { item: "", cost: 0 }]);
+    onAdditionalCostsChange([
+      ...additionalCosts,
+      { item: "", description: "", cost: 0 },
+    ]);
   }
 
-  function updateCostItem(index: number, field: "item" | "cost", value: string | number) {
+  function updateCostItem(
+    index: number,
+    field: "item" | "description" | "cost",
+    value: string | number,
+  ) {
     const updated = [...additionalCosts];
     updated[index] = { ...updated[index], [field]: value };
     onAdditionalCostsChange(updated);
@@ -1150,136 +1269,172 @@ function EventDetailsForm({
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
+      {/* Banner */}
       <div className="bg-accent/10 border border-accent/20 rounded-xl px-4 py-3 text-xs text-light-200 leading-relaxed">
-        This will generate a public link you can share with players so they can confirm or decline attendance before you start drafting. Fill in the event details below — they will be shown on the RSVP page.
-      </div>
-      <div>
-        <label className="text-sm text-light-200 mb-1.5 block">
-          Location <span className="text-danger">*</span>
-        </label>
-        <input
-          type="text"
-          placeholder="e.g. City Sports Center"
-          value={location}
-          onChange={(e) => onLocationChange(e.target.value)}
-          className={inputClass}
-          autoFocus
-        />
-      </div>
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <label className="text-sm text-light-200 mb-1.5 block">
-            Courts Reserved
-          </label>
-          <input
-            type="number"
-            min={1}
-            value={courts}
-            onChange={(e) => {
-              const val = parseInt(e.target.value, 10);
-              if (!isNaN(val) && val >= 1) onCourtsChange(val);
-            }}
-            className={inputClass}
-          />
-        </div>
-        <div>
-          <label className="text-sm text-light-200 mb-1.5 block">
-            Court Cost
-          </label>
-          <input
-            type="number"
-            min={0}
-            value={courtCost || ""}
-            placeholder="0"
-            onChange={(e) => {
-              const val = parseFloat(e.target.value);
-              onCourtCostChange(isNaN(val) ? 0 : val);
-            }}
-            className={inputClass}
-          />
-        </div>
-      </div>
-      <div>
-        <label className="text-sm text-light-200 mb-1.5 block">
-          Date <span className="text-danger">*</span>
-        </label>
-        <input
-          type="date"
-          value={date}
-          onChange={(e) => onDateChange(e.target.value)}
-          className={inputClass}
-        />
-      </div>
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <label className="text-sm text-light-200 mb-1.5 block">
-            Start Time <span className="text-danger">*</span>
-          </label>
-          <input
-            type="time"
-            value={startTime}
-            onChange={(e) => onStartTimeChange(e.target.value)}
-            className={inputClass}
-          />
-        </div>
-        <div>
-          <label className="text-sm text-light-200 mb-1.5 block">
-            End Time <span className="text-danger">*</span>
-          </label>
-          <input
-            type="time"
-            value={endTime}
-            onChange={(e) => onEndTimeChange(e.target.value)}
-            className={inputClass}
-          />
-        </div>
+        This will generate a public link you can share with players so they can
+        confirm or decline attendance before you start drafting. Fill in the
+        event details below they will be shown on the RSVP page.
       </div>
 
-      {/* Additional Costs */}
-      <div>
-        <label className="text-sm text-light-200 mb-1.5 block">
-          Additional Costs
-        </label>
-        <div className="space-y-2">
-          {additionalCosts.map((costItem, i) => (
-            <div key={i} className="flex items-center gap-2">
+      {/* Two-column layout: Event Details | Costs */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+        {/* Left: Event Details */}
+        <div className="space-y-3">
+          <h3 className="text-xs font-semibold text-light-300 uppercase tracking-wide">
+            Event Details
+          </h3>
+          <div>
+            <label className="text-sm text-light-200 mb-1.5 block">
+              Location <span className="text-danger">*</span>
+            </label>
+            <input
+              type="text"
+              placeholder="e.g. City Sports Center"
+              value={location}
+              onChange={(e) => onLocationChange(e.target.value)}
+              className={inputClass}
+              autoFocus
+            />
+          </div>
+          <div>
+            <label className="text-sm text-light-200 mb-1.5 block">
+              Courts Reserved
+            </label>
+            <input
+              type="number"
+              min={1}
+              value={courts}
+              onChange={(e) => {
+                const val = parseInt(e.target.value, 10);
+                if (!isNaN(val) && val >= 1) onCourtsChange(val);
+              }}
+              className={inputClass}
+            />
+          </div>
+          <div>
+            <label className="text-sm text-light-200 mb-1.5 block">
+              Date <span className="text-danger">*</span>
+            </label>
+            <input
+              type="date"
+              value={date}
+              onChange={(e) => onDateChange(e.target.value)}
+              className={inputClass}
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-sm text-light-200 mb-1.5 block">
+                Start Time <span className="text-danger">*</span>
+              </label>
               <input
-                type="text"
-                placeholder="e.g. Shuttlecocks"
-                value={costItem.item}
-                onChange={(e) => updateCostItem(i, "item", e.target.value)}
-                className="flex-1 bg-dark-200 border border-dark-100 rounded-xl px-3 py-2 text-sm text-light-100 placeholder:text-light-300 outline-none focus:border-accent/50"
+                type="time"
+                value={startTime}
+                onChange={(e) => onStartTimeChange(e.target.value)}
+                className={inputClass}
               />
+            </div>
+            <div>
+              <label className="text-sm text-light-200 mb-1.5 block">
+                End Time <span className="text-danger">*</span>
+              </label>
               <input
-                type="number"
-                min={0}
-                placeholder="Cost"
-                value={costItem.cost || ""}
-                onChange={(e) => {
-                  const val = parseFloat(e.target.value);
-                  updateCostItem(i, "cost", isNaN(val) ? 0 : val);
-                }}
-                className="w-24 bg-dark-200 border border-dark-100 rounded-xl px-3 py-2 text-sm text-light-100 placeholder:text-light-300 outline-none focus:border-accent/50"
+                type="time"
+                value={endTime}
+                onChange={(e) => onEndTimeChange(e.target.value)}
+                className={inputClass}
               />
+            </div>
+          </div>
+        </div>
+
+        {/* Right: Costs */}
+        <div className="space-y-3">
+          <h3 className="text-xs font-semibold text-light-300 uppercase tracking-wide">
+            Costs
+          </h3>
+          <div>
+            <label className="text-sm text-light-200 mb-1.5 block">
+              Court Cost
+            </label>
+            <input
+              type="number"
+              min={0}
+              value={courtCost || ""}
+              placeholder="0"
+              onChange={(e) => {
+                const val = parseFloat(e.target.value);
+                onCourtCostChange(isNaN(val) ? 0 : val);
+              }}
+              className={inputClass}
+            />
+          </div>
+          <div>
+            <label className="text-sm text-light-200 mb-1.5 block">
+              Additional Costs
+            </label>
+            <div className="space-y-3">
+              {additionalCosts.map((costItem, i) => (
+                <div
+                  key={i}
+                  className="bg-dark-200 rounded-xl p-3 space-y-2 relative"
+                >
+                  <button
+                    onClick={() => removeCostItem(i)}
+                    className="absolute top-2 right-2 p-1 rounded-lg text-light-300 hover:text-danger hover:bg-danger/10 transition-colors"
+                  >
+                    <FiX size={14} />
+                  </button>
+                  <div className="flex items-center gap-2 pr-8">
+                    <input
+                      type="text"
+                      placeholder="e.g. Shuttlecocks"
+                      value={costItem.item}
+                      onChange={(e) =>
+                        updateCostItem(i, "item", e.target.value)
+                      }
+                      className="flex-1 bg-dark-300 border border-dark-100 rounded-lg px-3 py-2 text-sm text-light-100 placeholder:text-light-300 outline-none focus:border-accent/50"
+                    />
+                    <input
+                      type="number"
+                      min={0}
+                      placeholder="Cost"
+                      value={costItem.cost || ""}
+                      onChange={(e) => {
+                        const val = parseFloat(e.target.value);
+                        updateCostItem(i, "cost", isNaN(val) ? 0 : val);
+                      }}
+                      className="w-24 bg-dark-300 border border-dark-100 rounded-lg px-3 py-2 text-sm text-light-100 placeholder:text-light-300 outline-none focus:border-accent/50"
+                    />
+                  </div>
+                  <input
+                    type="text"
+                    placeholder="Description (optional)"
+                    value={costItem.description ?? ""}
+                    onChange={(e) =>
+                      updateCostItem(i, "description", e.target.value)
+                    }
+                    className="w-full bg-dark-300 border border-dark-100 rounded-lg px-3 py-2 text-xs text-light-200 placeholder:text-light-300/40 outline-none focus:border-accent/50"
+                  />
+                </div>
+              ))}
               <button
-                onClick={() => removeCostItem(i)}
-                className="p-2 rounded-lg text-light-300 hover:text-danger hover:bg-danger/10 transition-colors shrink-0"
+                onClick={addCostItem}
+                className="flex items-center gap-1.5 text-xs text-accent hover:text-accent/80 transition-colors py-1"
               >
-                <FiX size={14} />
+                <FiPlus size={12} />
+                Add Item
               </button>
             </div>
-          ))}
-          <button
-            onClick={addCostItem}
-            className="flex items-center gap-1.5 text-xs text-accent hover:text-accent/80 transition-colors py-1"
-          >
-            <FiPlus size={12} />
-            Add Item
-          </button>
+          </div>
         </div>
       </div>
 
+      {/* Divider */}
+      <div className="border-t border-dark-100" />
+
+      {/* Notes */}
       <div>
         <label className="text-sm text-light-200 mb-1.5 block">
           Notes (optional)

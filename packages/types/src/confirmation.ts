@@ -12,6 +12,7 @@ export type PlayerConfirmation = {
 
 export type CostItem = {
 	item: string;
+	description?: string;
 	cost: number;
 };
 

@@ -7,9 +7,16 @@ interface ModalProps {
   onClose: () => void;
   title: string;
   children: React.ReactNode;
+  size?: 'default' | 'lg' | 'xl';
 }
 
-export function Modal({ open, onClose, title, children }: ModalProps) {
+const sizeClasses = {
+  default: 'max-w-md',
+  lg: 'max-w-lg',
+  xl: 'max-w-3xl',
+} as const;
+
+export function Modal({ open, onClose, title, children, size = 'default' }: ModalProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
 
   useEffect(() => {
@@ -23,11 +30,13 @@ export function Modal({ open, onClose, title, children }: ModalProps) {
     }
   }, [open]);
 
+  const maxWidthClass = sizeClasses[size];
+
   return (
     <dialog
       ref={dialogRef}
       onClose={onClose}
-      className="backdrop:bg-black/60 bg-secondary border border-dark-100 rounded-2xl p-0 w-full max-w-md text-light-100 shadow-elevated"
+      className={`backdrop:bg-black/60 bg-secondary border border-dark-100 rounded-2xl p-0 w-full ${maxWidthClass} text-light-100 shadow-elevated`}
     >
       <div className="p-6">
         <div className="flex justify-between items-center mb-4">

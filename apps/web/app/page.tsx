@@ -56,6 +56,16 @@ function LandingContent() {
         {menuOpen && (
           <div className="sm:hidden mt-3 flex flex-col gap-1 bg-secondary/90 backdrop-blur border border-dark-100 rounded-2xl p-3">
             <a
+              href="#player-rsvp"
+              className="relative text-sm font-semibold text-accent px-3 py-2.5 rounded-xl hover:bg-dark-200 transition-colors flex items-center gap-2"
+              onClick={() => setMenuOpen(false)}
+            >
+              Player RSVP
+              <span className="bg-danger text-white text-[8px] font-bold uppercase px-1.5 py-0.5 rounded-full">
+                NEW
+              </span>
+            </a>
+            <a
               href="https://michaelquieta.com"
               target="_blank"
               rel="noopener noreferrer"
@@ -101,6 +111,25 @@ function LandingContent() {
             </span>
           </div>
           <div className="flex items-center gap-3">
+            <div className="relative">
+              <div
+                className="animate-rainbow-spin rounded-xl p-[1.5px]"
+                style={{
+                  background:
+                    "conic-gradient(from var(--rainbow-angle, 0deg), #ff0000, #ff8800, #ffdd00, #00ff00, #0088ff, #8800ff, #ff0000)",
+                }}
+              >
+                <a
+                  href="#player-rsvp"
+                  className="flex items-center gap-1.5 bg-secondary rounded-[10px] px-4 py-1.5 text-sm font-semibold text-light-100 hover:text-accent transition-colors"
+                >
+                  Player RSVP
+                </a>
+              </div>
+              <span className="absolute -top-2 -right-2 bg-danger text-white text-[8px] font-bold uppercase px-1.5 py-0.5 rounded-full -rotate-12 shadow-md pointer-events-none">
+                NEW
+              </span>
+            </div>
             <a
               href="https://michaelquieta.com"
               target="_blank"
@@ -210,7 +239,7 @@ function LandingContent() {
               <h3 className="font-semibold mb-1">Draft Matches</h3>
               <p className="text-light-300 text-sm leading-relaxed">
                 Plan your session ahead of time. Build 2v2 matchups manually or
-                let auto-draft fill the schedule — up to 30 matches per session.
+                let auto-draft fill the schedule up to 30 matches per session.
               </p>
             </div>
 
@@ -295,7 +324,7 @@ function LandingContent() {
             Auto-draft modes
           </p>
           <p className="text-light-300 text-sm mb-8">
-            Choose how matches are generated — every session is different.
+            Choose how matches are generated every session is different.
           </p>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -316,7 +345,7 @@ function LandingContent() {
                 <h4 className="font-semibold">Random</h4>
               </div>
               <p className="text-light-300 text-sm leading-relaxed">
-                Fully randomized — anyone can end up against anyone. Great for
+                Fully randomized anyone can end up against anyone. Great for
                 casual sessions where you just want to have fun.
               </p>
             </div>
@@ -327,7 +356,7 @@ function LandingContent() {
                 <h4 className="font-semibold">Skill Match</h4>
               </div>
               <p className="text-light-300 text-sm leading-relaxed">
-                Groups players of the same level — Beginner, Intermediate,
+                Groups players of the same level Beginner, Intermediate,
                 Advanced, or Pro. Keeps matches competitive and fair.
               </p>
             </div>
@@ -377,6 +406,137 @@ function LandingContent() {
               <p className="text-light-300 text-xs">
                 Mark winners, earn trophies, and track stats in real time
               </p>
+            </div>
+          </div>
+        </section>
+
+        {/* Player RSVP Feature */}
+        <section
+          id="player-rsvp"
+          className="mt-24 max-w-5xl w-full scroll-mt-8"
+        >
+          <div className="inline-block bg-accent/10 border border-accent/30 text-accent text-[10px] font-bold uppercase tracking-widest px-3 py-1 rounded-full mb-4">
+            New Feature
+          </div>
+          <h2 className="text-3xl sm:text-4xl font-bold mb-3">Player RSVP</h2>
+          <p className="text-light-300 text-sm sm:text-base max-w-lg mx-auto mb-12 leading-relaxed">
+            Share a link with your players so they can confirm or decline
+            attendance before you start drafting. No more guessing who&apos;s
+            coming.
+          </p>
+
+          {/* Step-by-step showcase */}
+          <div className="space-y-16">
+            {/* Step 1: Enable & Setup */}
+            <div className="flex flex-col md:flex-row items-center gap-8">
+              <div className="flex-1 text-left order-2 md:order-1">
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="w-7 h-7 rounded-full bg-accent/10 border border-accent/30 flex items-center justify-center text-accent text-xs font-bold">
+                    1
+                  </span>
+                  <h3 className="font-semibold text-lg">Set Up Your Event</h3>
+                </div>
+                <p className="text-light-300 text-sm leading-relaxed">
+                  Toggle Player RSVP on the Players page and fill in your event
+                  details location, date, time, courts, and costs. A secure
+                  shareable link and PIN are generated instantly.
+                </p>
+              </div>
+              <div className="flex-1 order-1 md:order-2">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src="/ss-rsvp-1.png"
+                  alt="Event Details form with location, date, time, and cost fields"
+                  className="rounded-2xl border border-dark-100 shadow-elevated w-full"
+                />
+              </div>
+            </div>
+
+            {/* Step 2: Share the Link */}
+            <div className="flex flex-col md:flex-row items-center gap-8">
+              <div className="flex-1">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src="/ss-rsvp-5.png"
+                  alt="RSVP panel showing shareable link, PIN, attendance tracker, and cost breakdown"
+                  className="rounded-2xl border border-dark-100 shadow-elevated w-full"
+                />
+              </div>
+              <div className="flex-1 text-left">
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="w-7 h-7 rounded-full bg-accent/10 border border-accent/30 flex items-center justify-center text-accent text-xs font-bold">
+                    2
+                  </span>
+                  <h3 className="font-semibold text-lg">
+                    Share with Your Players
+                  </h3>
+                </div>
+                <p className="text-light-300 text-sm leading-relaxed">
+                  Copy the link and PIN, then send it to your group chat —
+                  Messenger, Viber, WhatsApp, or any messaging app. Track
+                  attendance and per-player costs in real time.
+                </p>
+              </div>
+            </div>
+
+            {/* Step 3: Players Confirm */}
+            <div className="flex flex-col md:flex-row items-center gap-8">
+              <div className="flex-1 text-left order-2 md:order-1">
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="w-7 h-7 rounded-full bg-accent/10 border border-accent/30 flex items-center justify-center text-accent text-xs font-bold">
+                    3
+                  </span>
+                  <h3 className="font-semibold text-lg">
+                    Players Confirm Attendance
+                  </h3>
+                </div>
+                <p className="text-light-300 text-sm leading-relaxed">
+                  Players enter the PIN to view event details, costs, and the
+                  full player list. They tap Confirm or Decline updates appear
+                  in real time for everyone.
+                </p>
+              </div>
+              <div className="flex-1 order-1 md:order-2 grid grid-cols-2 gap-3">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src="/ss-rsvp-2.png"
+                  alt="PIN entry screen for player confirmation"
+                  className="rounded-2xl border border-dark-100 shadow-elevated w-full"
+                />
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src="/ss-rsvp-3.png"
+                  alt="Event details and cost breakdown on the public RSVP page"
+                  className="rounded-2xl border border-dark-100 shadow-elevated w-full"
+                />
+              </div>
+            </div>
+
+            {/* Step 4: Player List */}
+            <div className="flex flex-col md:flex-row items-center gap-8">
+              <div className="flex-1">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src="/ss-rsvp-4.png"
+                  alt="Player list with Confirm and Decline buttons"
+                  className="rounded-2xl border border-dark-100 shadow-elevated w-full max-w-sm mx-auto"
+                />
+              </div>
+              <div className="flex-1 text-left">
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="w-7 h-7 rounded-full bg-accent/10 border border-accent/30 flex items-center justify-center text-accent text-xs font-bold">
+                    4
+                  </span>
+                  <h3 className="font-semibold text-lg">
+                    Draft with Confirmed Players
+                  </h3>
+                </div>
+                <p className="text-light-300 text-sm leading-relaxed">
+                  Once everyone has responded, lock confirmations and head to
+                  Draft. Only confirmed players are included in the matchups —
+                  no more no-shows messing up your schedule.
+                </p>
+              </div>
             </div>
           </div>
         </section>
