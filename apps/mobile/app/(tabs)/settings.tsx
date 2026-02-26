@@ -13,6 +13,8 @@ import { AccountContent } from "../screens/account";
 import { CourtsContent } from "../screens/courts";
 import { FeedbackContent } from "../screens/feedback";
 import { PlayersContent } from "../screens/players";
+import { RSVPContent } from "../screens/rsvp";
+import { useTheme, type ThemeMode } from "@/contexts/ThemeContext";
 
 const AboutContent = () => {
   return (
@@ -71,8 +73,9 @@ const settings = () => {
   const { logout, emailVerified, sendVerificationEmail, refreshUser } =
     useAuth();
   const { showToast } = useToast();
+  const { themeMode, setThemeMode } = useTheme();
   const [activeTab, setActiveTab] = useState<
-    "menu" | "manage_players" | "courts" | "account" | "feedback" | "about"
+    "menu" | "manage_players" | "courts" | "rsvp" | "account" | "feedback" | "about"
   >("menu");
 
   const handleVerifyEmail = () => {
@@ -143,6 +146,14 @@ const settings = () => {
       ),
     },
     {
+      key: "rsvp" as const,
+      label: "RSVP",
+      description: "Manage event attendance",
+      icon: (
+        <MaterialCommunityIcons name="calendar-check" size={22} color={BadmintonPalette.court.lime} />
+      ),
+    },
+    {
       key: "account" as const,
       label: "Account",
       description: "Password & club name",
@@ -174,6 +185,8 @@ const settings = () => {
         return "Players";
       case "courts":
         return "Courts";
+      case "rsvp":
+        return "RSVP";
       case "account":
         return "Account";
       case "feedback":
@@ -245,6 +258,7 @@ const settings = () => {
                       item.key as
                         | "manage_players"
                         | "courts"
+                        | "rsvp"
                         | "account"
                         | "feedback"
                         | "about",
@@ -272,6 +286,36 @@ const settings = () => {
                 />
               </TouchableOpacity>
             ))}
+          </View>
+
+          {/* Theme Toggle */}
+          <View className="mt-4 bg-secondary border border-dark-100 rounded-2xl overflow-hidden">
+            <View className="px-4 py-3 border-b border-dark-100">
+              <Text className="text-xs font-bold uppercase" style={{ color: BadmintonPalette.text.muted }}>
+                Theme
+              </Text>
+            </View>
+            <View className="flex-row p-2" style={{ gap: 4 }}>
+              {(["dark", "light", "system"] as const).map((mode) => (
+                <TouchableOpacity
+                  key={mode}
+                  onPress={() => setThemeMode(mode)}
+                  className={`flex-1 py-2.5 rounded-xl items-center ${themeMode === mode ? "bg-court-deep/30" : ""}`}
+                >
+                  <MaterialCommunityIcons
+                    name={mode === "dark" ? "weather-night" : mode === "light" ? "white-balance-sunny" : "theme-light-dark"}
+                    size={18}
+                    color={themeMode === mode ? BadmintonPalette.court.lime : BadmintonPalette.text.muted}
+                  />
+                  <Text
+                    className="text-xs font-semibold mt-1 capitalize"
+                    style={{ color: themeMode === mode ? BadmintonPalette.court.lime : BadmintonPalette.text.muted }}
+                  >
+                    {mode}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
           </View>
 
           {/* Sign Out */}
@@ -310,6 +354,8 @@ const settings = () => {
             <PlayersContent contentContainerClassName="px-6" />
           ) : activeTab === "courts" ? (
             <CourtsContent contentContainerClassName="px-6" />
+          ) : activeTab === "rsvp" ? (
+            <RSVPContent contentContainerClassName="px-6" />
           ) : activeTab === "account" ? (
             <AccountContent />
           ) : activeTab === "feedback" ? (

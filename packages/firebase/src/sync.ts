@@ -69,8 +69,12 @@ export function createFirebaseSync(
         state.courts.items,
         state.drafts.items,
         state.confirmation.meta
-      ).catch((err) => {
-        console.error('[firebase-sync] Failed to write to Firestore:', err);
+      ).catch((err: unknown) => {
+        if (err && typeof err === 'object' && 'code' in err && (err as { code: string }).code === 'unavailable') {
+          console.warn('[firebase-sync] Offline - write queued by Firestore SDK');
+        } else {
+          console.error('[firebase-sync] Failed to write to Firestore:', err);
+        }
       });
     }, debounceMs);
   });

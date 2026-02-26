@@ -1,5 +1,5 @@
 export type { FirebaseConfig } from './config';
-export { initializeFirebase, getFirebaseApp } from './config';
+export { initializeFirebase, getFirebaseApp, enableOfflinePersistence } from './config';
 
 export type { SessionData } from './firestore';
 export {
@@ -40,4 +40,41 @@ export {
   setAuthInstance,
   updateUserPassword,
   updateUserClubName,
+  updateUserRole,
 } from './auth';
+
+export { toTimestampMs } from './timestamp-helpers';
+
+export {
+  saveMatchRecord,
+  saveMatchRecordsBatch,
+  getMatchHistory,
+  getMatchHistoryBySession,
+  subscribeToMatchHistory,
+  deleteMatchRecord,
+  clearMatchHistory as clearMatchHistoryFirestore,
+} from './match-history-firestore';
+
+export {
+  saveTournament,
+  getTournaments,
+  getTournament,
+  updateTournament as updateTournamentFirestore,
+  deleteTournament,
+  subscribeToTournaments,
+} from './tournament-firestore';
+
+export {
+  saveSchedule,
+  getSchedules,
+  updateSchedule as updateScheduleFirestore,
+  deleteSchedule,
+  subscribeToSchedules,
+} from './schedule-firestore';
+
+export {
+  saveDraftTemplate,
+  getDraftTemplates,
+  deleteDraftTemplate,
+  subscribeToDraftTemplates,
+} from './draft-template-firestore';

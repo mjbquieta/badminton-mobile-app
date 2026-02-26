@@ -12,4 +12,6 @@ export type Player = {
 	level: PlayerLevel;
 	trophies: number;
 	active?: boolean;
+	avatarUrl?: string;
+	avatarColor?: string;
 };

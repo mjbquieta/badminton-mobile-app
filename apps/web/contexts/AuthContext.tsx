@@ -22,6 +22,7 @@ interface AuthContextType {
   profile: UserProfile | null;
   loading: boolean;
   emailVerified: boolean;
+  isAdmin: boolean;
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string, clubName: string) => Promise<{ verificationEmailSent: boolean }>;
   logout: () => Promise<void>;
@@ -72,6 +73,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [user, user?.emailVerified]);
 
   const emailVerified = user?.emailVerified ?? false;
+  const isAdmin = profile?.role === 'admin' || !profile?.role;
 
   const login = async (email: string, password: string) => {
     await loginUser(email, password);
@@ -110,7 +112,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <AuthContext.Provider value={{
-      user, profile, loading, emailVerified,
+      user, profile, loading, emailVerified, isAdmin,
       login, register, logout, sendVerificationEmail, refreshUser,
       updatePassword, updateClubName,
     }}>

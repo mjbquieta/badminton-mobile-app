@@ -24,10 +24,14 @@ export function Modal({ open, onClose, title, children, size = 'default' }: Moda
     if (!dialog) return;
 
     if (open) {
-      dialog.showModal();
+      if (!dialog.open) dialog.showModal();
     } else {
-      dialog.close();
+      if (dialog.open) dialog.close();
     }
+
+    return () => {
+      if (dialog.open) dialog.close();
+    };
   }, [open]);
 
   const maxWidthClass = sizeClasses[size];

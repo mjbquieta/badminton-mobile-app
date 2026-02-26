@@ -1,10 +1,10 @@
-import AntDesign from "@expo/vector-icons/AntDesign";
 import FontAwesome5 from "@expo/vector-icons/FontAwesome5";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 
+import PlayerAvatar from "@/components/PlayerAvatar";
 import PlayerLevelBadge from "@/components/PlayerLevelBadge";
 import { BadmintonPalette } from "@/constants/palette";
-import type { PlayerLevel } from "@badminton/types";
+import type { Player, PlayerLevel } from "@badminton/types";
 import React from "react";
 import { Text, TouchableOpacity, View } from "react-native";
 
@@ -28,6 +28,7 @@ const statusConfig = {
 };
 
 const PlayerCard = ({
+  player,
   name,
   onDelete,
   onEdit,
@@ -40,6 +41,7 @@ const PlayerCard = ({
   level,
   courtName,
 }: {
+  player?: Player;
   name: string;
   onDelete?: () => void;
   onEdit?: () => void;
@@ -90,13 +92,9 @@ const PlayerCard = ({
         )}
 
         {/* Avatar */}
-        {!isSelectMode && (
-          <View className="size-12 rounded-xl bg-court-deep/20 items-center justify-center mr-4">
-            <AntDesign
-              name="user"
-              size={20}
-              color={BadmintonPalette.court.lime}
-            />
+        {!isSelectMode && player && (
+          <View className="mr-4">
+            <PlayerAvatar player={player} size="lg" />
           </View>
         )}
 

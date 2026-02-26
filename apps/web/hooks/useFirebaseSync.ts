@@ -5,6 +5,10 @@ import {
   createSession,
   getSession,
   createFirebaseSync,
+  enableOfflinePersistence,
+  subscribeToTournaments,
+  subscribeToSchedules,
+  subscribeToDraftTemplates,
   type SyncableStore,
 } from '@badminton/firebase';
 
@@ -17,12 +21,21 @@ import {
 export function useFirebaseSync(store: SyncableStore, sessionId: string) {
   const [isLoading, setIsLoading] = useState(true);
   const cleanupRef = useRef<(() => void) | null>(null);
+  const offlineInitRef = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
 
     async function init() {
       try {
+        // Enable offline persistence once
+        if (!offlineInitRef.current) {
+          offlineInitRef.current = true;
+          await enableOfflinePersistence({ multiTab: true }).catch(() => {
+            // Silently handle - persistence may already be enabled or not supported
+          });
+        }
+
         const defaultMeta = { enabled: false, serialId: '', pin: '', locked: false };
 
         // Reset store to prevent stale data from a previous session
@@ -43,7 +56,26 @@ export function useFirebaseSync(store: SyncableStore, sessionId: string) {
         }
 
         if (!cancelled) {
-          cleanupRef.current = createFirebaseSync(store, sessionId);
+          const mainCleanup = createFirebaseSync(store, sessionId);
+
+          // Subscribe to user-scoped collections (tournaments, schedules, templates)
+          const unsubTournaments = subscribeToTournaments(sessionId, (tournaments) => {
+            store.dispatch({ type: 'tournaments/setTournaments', payload: tournaments });
+          });
+          const unsubSchedules = subscribeToSchedules(sessionId, (schedules) => {
+            store.dispatch({ type: 'schedules/setSchedules', payload: schedules });
+          });
+          const unsubTemplates = subscribeToDraftTemplates(sessionId, (templates) => {
+            store.dispatch({ type: 'draftTemplates/setDraftTemplates', payload: templates });
+          });
+
+          cleanupRef.current = () => {
+            mainCleanup();
+            unsubTournaments();
+            unsubSchedules();
+            unsubTemplates();
+          };
+
           setIsLoading(false);
         }
       } catch (error) {
@@ -63,4 +95,26 @@ export function useFirebaseSync(store: SyncableStore, sessionId: string) {
   }, [store, sessionId]);
 
   return { sessionId, isLoading };
+}
+
+/**
+ * Hook that tracks online/offline status.
+ */
+export function useOnlineStatus() {
+  const [isOnline, setIsOnline] = useState(
+    typeof navigator !== 'undefined' ? navigator.onLine : true,
+  );
+
+  useEffect(() => {
+    function handleOnline() { setIsOnline(true); }
+    function handleOffline() { setIsOnline(false); }
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
+  return isOnline;
 }

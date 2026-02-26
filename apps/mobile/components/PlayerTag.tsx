@@ -1,17 +1,20 @@
+import PlayerAvatar from "@/components/PlayerAvatar";
 import { BadmintonPalette } from "@/constants/palette";
-import type { PlayerLevel } from "@badminton/types";
+import type { Player, PlayerLevel } from "@badminton/types";
 import AntDesign from "@expo/vector-icons/AntDesign";
 import React from "react";
 import { Text, TouchableOpacity, View } from "react-native";
 import PlayerLevelBadge from "./PlayerLevelBadge";
 
 const PlayerTag = ({
+  player,
   name,
   level,
   gameCount,
   onDeleteTag,
   onPress,
 }: {
+  player?: Player;
   name: string;
   level?: PlayerLevel;
   gameCount?: number;
@@ -20,9 +23,15 @@ const PlayerTag = ({
 }) => {
   const content = (
     <View className="flex-row items-center bg-dark-200 rounded-xl px-3 py-2 border border-dark-100">
-      <View className="size-7 rounded-lg bg-court-deep/20 items-center justify-center mr-2">
-        <AntDesign name="user" size={12} color={BadmintonPalette.court.lime} />
-      </View>
+      {player ? (
+        <View className="mr-2">
+          <PlayerAvatar player={player} size="sm" />
+        </View>
+      ) : (
+        <View className="size-7 rounded-lg bg-court-deep/20 items-center justify-center mr-2">
+          <AntDesign name="user" size={12} color={BadmintonPalette.court.lime} />
+        </View>
+      )}
 
       <View className="flex-shrink">
         <View className="flex-row items-center">

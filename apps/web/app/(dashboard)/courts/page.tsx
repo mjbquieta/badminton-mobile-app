@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import { type Court } from '@badminton/types';
+import { type Court, type Player } from '@badminton/types';
 import {
   useAppSelector,
   useAppDispatch,
@@ -10,6 +10,8 @@ import {
   removeCourt,
   clearCourts,
   clearCourtsError,
+  removePlayerFromCourt,
+  addPlayersToCourtManually,
 } from '@badminton/store';
 import { Modal } from '@/components/Modal';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
@@ -19,16 +21,18 @@ import { UNVERIFIED_LIMITS } from '@badminton/ui-shared';
 import { FiTrash2 } from 'react-icons/fi';
 
 export default function CourtsPage() {
-  const { emailVerified } = useAuth();
+  const { emailVerified, isAdmin } = useAuth();
   const dispatch = useAppDispatch();
   const courts = useAppSelector((state) => state.courts.items);
   const courtsError = useAppSelector((state) => state.courts.error);
-  const hasDrafts = useAppSelector((state) => state.drafts.items.length > 0);
-
   const [showAddModal, setShowAddModal] = useState(false);
   const [addSingle, setAddSingle] = useState(false);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Court | null>(null);
+
+  // Drag-and-drop state
+  const [dragOverCourtId, setDragOverCourtId] = useState<string | null>(null);
+  const [dragOverBench, setDragOverBench] = useState(false);
 
   function handleAddCourt() {
     dispatch(addCourt({ id: uuidv4(), name: '', players: [], isSingle: addSingle, maxCourts: emailVerified ? undefined : UNVERIFIED_LIMITS.MAX_COURTS }));
@@ -36,11 +40,66 @@ export default function CourtsPage() {
   }
 
   function getCourtBorderColor(court: Court) {
+    if (dragOverCourtId === court.id) return 'border-accent ring-2 ring-accent/30';
     const needed = court.isSingle ? 2 : 4;
     if (court.players.length === needed) return 'border-success';
     if (court.players.length > 0) return 'border-accent';
     return 'border-dark-100';
   }
+
+  function handleDragStart(e: React.DragEvent, player: Player, fromCourtId: string) {
+    e.dataTransfer.setData('application/json', JSON.stringify({ player, fromCourtId }));
+    e.dataTransfer.effectAllowed = 'move';
+  }
+
+  function handleCourtDragOver(e: React.DragEvent, courtId: string) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    setDragOverCourtId(courtId);
+  }
+
+  function handleCourtDragLeave() {
+    setDragOverCourtId(null);
+  }
+
+  function handleCourtDrop(e: React.DragEvent, targetCourtId: string) {
+    e.preventDefault();
+    setDragOverCourtId(null);
+    try {
+      const data = JSON.parse(e.dataTransfer.getData('application/json'));
+      const { player, fromCourtId } = data as { player: Player; fromCourtId: string };
+      if (fromCourtId === targetCourtId) return;
+      dispatch(removePlayerFromCourt({ courtId: fromCourtId, playerId: player.id }));
+      dispatch(addPlayersToCourtManually({ courtId: targetCourtId, players: [player] }));
+    } catch {
+      // Invalid drag data
+    }
+  }
+
+  function handleBenchDragOver(e: React.DragEvent) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    setDragOverBench(true);
+  }
+
+  function handleBenchDragLeave() {
+    setDragOverBench(false);
+  }
+
+  function handleBenchDrop(e: React.DragEvent) {
+    e.preventDefault();
+    setDragOverBench(false);
+    try {
+      const data = JSON.parse(e.dataTransfer.getData('application/json'));
+      const { player, fromCourtId } = data as { player: Player; fromCourtId: string };
+      dispatch(removePlayerFromCourt({ courtId: fromCourtId, playerId: player.id }));
+    } catch {
+      // Invalid drag data
+    }
+  }
+
+  // Check if any court has players (for showing bench)
+  const anyPlayersOnCourts = courts.some((c) => c.players.length > 0);
 
   return (
     <div className="p-4 sm:p-6 md:p-8 max-w-5xl">
@@ -50,33 +109,25 @@ export default function CourtsPage() {
           <h1 className="text-2xl sm:text-3xl font-bold">Courts</h1>
           <p className="text-light-300 text-sm mt-1">{courts.length} total</p>
         </div>
+        {isAdmin && (
         <div className="flex gap-2 sm:gap-3 shrink-0">
           {courts.length > 0 && (
             <button
               onClick={() => setShowClearConfirm(true)}
-              disabled={hasDrafts}
-              className="px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm text-danger border border-danger/30 hover:bg-danger/10 disabled:opacity-40 disabled:cursor-not-allowed"
+              className="px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm text-danger border border-danger/30 hover:bg-danger/10"
             >
               Clear All
             </button>
           )}
           <button
             onClick={() => setShowAddModal(true)}
-            disabled={hasDrafts}
-            className="px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm bg-accent text-primary font-semibold hover:bg-accent/80 disabled:opacity-40 disabled:cursor-not-allowed"
-            title={hasDrafts ? 'Clear drafts first before adding courts' : undefined}
+            className="px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm bg-accent text-primary font-semibold hover:bg-accent/80"
           >
             + Add Court
           </button>
         </div>
+        )}
       </div>
-
-      {/* Drafts lock notice */}
-      {hasDrafts && (
-        <p className="text-xs text-light-300 bg-dark-200 rounded-lg px-3 py-2 mb-4">
-          Courts are locked while drafts exist. Clear all drafts first to add or remove courts.
-        </p>
-      )}
 
       {/* Error */}
       {courtsError && (
@@ -95,6 +146,9 @@ export default function CourtsPage() {
             <div
               key={court.id}
               className={`bg-secondary p-4 rounded-2xl border-2 ${getCourtBorderColor(court)} transition-colors`}
+              onDragOver={(e) => handleCourtDragOver(e, court.id)}
+              onDragLeave={handleCourtDragLeave}
+              onDrop={(e) => handleCourtDrop(e, court.id)}
             >
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
@@ -103,27 +157,54 @@ export default function CourtsPage() {
                     {court.isSingle ? 'Singles' : 'Doubles'}
                   </span>
                 </div>
-                {!hasDrafts && (
-                  <button
-                    onClick={() => setDeleteTarget(court)}
-                    className="p-1.5 rounded-lg text-light-300 hover:text-danger hover:bg-danger/10"
-                  >
-                    <FiTrash2 size={16} />
-                  </button>
+                {isAdmin && (
+                <button
+                  onClick={() => setDeleteTarget(court)}
+                  className="p-1.5 rounded-lg text-light-300 hover:text-danger hover:bg-danger/10"
+                >
+                  <FiTrash2 size={16} />
+                </button>
                 )}
               </div>
 
-              {hasPlayers && (
+              {hasPlayers ? (
                 <div className="flex flex-wrap gap-1.5">
                   {court.players.map((player) => (
-                    <PlayerTag key={player.id} player={player} />
+                    <span
+                      key={player.id}
+                      draggable
+                      onDragStart={(e) => handleDragStart(e, player, court.id)}
+                      className="cursor-grab active:cursor-grabbing"
+                    >
+                      <PlayerTag player={player} />
+                    </span>
                   ))}
                 </div>
+              ) : (
+                <p className="text-xs text-light-300/50 py-2">
+                  Drop players here
+                </p>
               )}
             </div>
           );
         })}
       </div>
+
+      {/* Bench Drop Zone */}
+      {anyPlayersOnCourts && (
+        <div
+          onDragOver={handleBenchDragOver}
+          onDragLeave={handleBenchDragLeave}
+          onDrop={handleBenchDrop}
+          className={`mt-4 border-2 border-dashed rounded-2xl p-4 text-center transition-colors ${
+            dragOverBench
+              ? 'border-danger bg-danger/5 text-danger'
+              : 'border-dark-100 text-light-300/50'
+          }`}
+        >
+          <p className="text-sm">Drop here to remove from court</p>
+        </div>
+      )}
 
       {courts.length === 0 && (
         <p className="text-center text-light-300 py-12">No courts yet. Add some!</p>

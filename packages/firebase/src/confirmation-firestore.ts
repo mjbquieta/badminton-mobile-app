@@ -16,6 +16,7 @@ import {
 	type EventDetails,
 } from '@badminton/types';
 import { getFirebaseApp } from './config';
+import { toTimestampMs } from './timestamp-helpers';
 
 let db: Firestore | null = null;
 
@@ -49,7 +50,12 @@ export async function getConfirmationDoc(
 ): Promise<ConfirmationDocument | null> {
 	const snap = await getDoc(doc(getDb(), 'confirmations', serialId));
 	if (!snap.exists()) return null;
-	return snap.data() as ConfirmationDocument;
+	const data = snap.data();
+	return {
+		...data,
+		createdAt: toTimestampMs(data.createdAt),
+		updatedAt: toTimestampMs(data.updatedAt),
+	} as ConfirmationDocument;
 }
 
 export async function updateConfirmationEventDetails(
@@ -116,7 +122,12 @@ export function subscribeToConfirmation(
 		doc(getDb(), 'confirmations', serialId),
 		(snap) => {
 			if (!snap.exists()) return;
-			onData(snap.data() as ConfirmationDocument);
+			const data = snap.data();
+			onData({
+				...data,
+				createdAt: toTimestampMs(data.createdAt),
+				updatedAt: toTimestampMs(data.updatedAt),
+			} as ConfirmationDocument);
 		},
 		onError,
 	);

@@ -6,6 +6,7 @@ const nextConfig = {
     '@badminton/store',
     '@badminton/types',
     '@badminton/ui-shared',
+    'qrcode.react',
   ],
 };
 

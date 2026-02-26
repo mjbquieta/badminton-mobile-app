@@ -14,6 +14,7 @@ import {
 } from 'firebase/auth';
 import { doc, setDoc, getDoc, getDocs, updateDoc, collection, query, where, serverTimestamp, getFirestore } from 'firebase/firestore';
 import { getFirebaseApp } from './config';
+import { toTimestampMs } from './timestamp-helpers';
 
 let auth: Auth | null = null;
 
@@ -61,6 +62,7 @@ export async function registerUser(
   await setDoc(doc(db, 'users', user.uid), {
     email,
     clubName,
+    role: 'admin',
     createdAt: serverTimestamp(),
   });
 
@@ -136,14 +138,21 @@ export function getAuthErrorMessage(error: unknown): string {
 export interface UserProfile {
   email: string;
   clubName: string;
-  createdAt: unknown;
+  role: 'admin' | 'player';
+  createdAt: number | null;
 }
 
 export async function getUserProfile(uid: string): Promise<UserProfile | null> {
   const db = getFirestore(getFirebaseApp());
   const snap = await getDoc(doc(db, 'users', uid));
   if (!snap.exists()) return null;
-  return snap.data() as UserProfile;
+  const data = snap.data();
+  return {
+    email: data.email as string,
+    clubName: data.clubName as string,
+    role: (data.role as 'admin' | 'player') ?? 'admin',
+    createdAt: toTimestampMs(data.createdAt),
+  };
 }
 
 export async function sendVerificationEmail(user: User): Promise<void> {
@@ -184,6 +193,14 @@ export async function updateUserClubName(
   }
 
   await updateDoc(doc(db, 'users', uid), { clubName: newClubName });
+}
+
+export async function updateUserRole(
+  uid: string,
+  role: 'admin' | 'player'
+): Promise<void> {
+  const db = getFirestore(getFirebaseApp());
+  await updateDoc(doc(db, 'users', uid), { role });
 }
 
 export type { User } from 'firebase/auth';
