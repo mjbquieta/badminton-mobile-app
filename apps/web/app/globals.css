@@ -100,3 +100,16 @@ body {
 .animate-rainbow-spin {
   animation: rainbow-spin 3s linear infinite;
 }
+
+@media print {
+  nav,
+  .sidebar,
+  button,
+  .no-print {
+    display: none !important;
+  }
+  body {
+    background: white;
+    color: black;
+  }
+}

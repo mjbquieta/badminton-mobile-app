@@ -7,15 +7,17 @@ import { useAuth } from '@/contexts/AuthContext';
 import { ConfirmDialog } from './ConfirmDialog';
 import { AiOutlineHome, AiOutlineTeam } from 'react-icons/ai';
 import { MdOutlineSportsTennis } from 'react-icons/md';
-import { FiLogOut, FiSettings } from 'react-icons/fi';
+import { FiClock, FiLogOut, FiSettings, FiWifiOff } from 'react-icons/fi';
 import { RiDraftLine } from 'react-icons/ri';
 import type { IconType } from 'react-icons';
+import { useOnlineStatus } from '@/hooks/useFirebaseSync';
 
 const navItems: { href: string; label: string; icon: IconType }[] = [
   { href: '/home', label: 'Dashboard', icon: AiOutlineHome },
   { href: '/players', label: 'Players', icon: AiOutlineTeam },
   { href: '/courts', label: 'Courts', icon: MdOutlineSportsTennis },
   { href: '/draft', label: 'Draft', icon: RiDraftLine },
+  { href: '/history', label: 'History', icon: FiClock },
   { href: '/settings', label: 'Settings', icon: FiSettings },
 ];
 
@@ -23,6 +25,7 @@ export function Sidebar() {
   const pathname = usePathname();
   const { logout, profile } = useAuth();
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const isOnline = useOnlineStatus();
 
   return (
     <>
@@ -65,6 +68,13 @@ export function Sidebar() {
           })}
         </nav>
 
+        {!isOnline && (
+          <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-warning/10 border border-warning/20 text-warning text-xs font-medium mb-2">
+            <FiWifiOff size={14} />
+            Offline
+          </div>
+        )}
+
         <button
           onClick={() => setShowLogoutConfirm(true)}
           className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-light-300 hover:bg-dark-200 hover:text-danger transition-colors mt-2"
@@ -73,6 +83,14 @@ export function Sidebar() {
           Sign Out
         </button>
       </aside>
+
+      {/* Mobile Offline Banner */}
+      {!isOnline && (
+        <div className="md:hidden fixed top-0 left-0 right-0 bg-warning/10 border-b border-warning/20 text-warning text-xs font-medium text-center py-1.5 z-50 flex items-center justify-center gap-1.5">
+          <FiWifiOff size={12} />
+          You are offline
+        </div>
+      )}
 
       {/* Mobile Bottom Tab Bar */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-secondary border-t border-dark-100 z-40">

@@ -5,6 +5,7 @@ import {
   createSession,
   getSession,
   createFirebaseSync,
+  enableOfflinePersistence,
   type SyncableStore,
 } from '@badminton/firebase';
 
@@ -17,12 +18,21 @@ import {
 export function useFirebaseSync(store: SyncableStore, sessionId: string) {
   const [isLoading, setIsLoading] = useState(true);
   const cleanupRef = useRef<(() => void) | null>(null);
+  const offlineInitRef = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
 
     async function init() {
       try {
+        // Enable offline persistence once
+        if (!offlineInitRef.current) {
+          offlineInitRef.current = true;
+          await enableOfflinePersistence({ multiTab: true }).catch(() => {
+            // Silently handle - persistence may already be enabled or not supported
+          });
+        }
+
         const defaultMeta = { enabled: false, serialId: '', pin: '', locked: false };
 
         // Reset store to prevent stale data from a previous session
@@ -63,4 +73,26 @@ export function useFirebaseSync(store: SyncableStore, sessionId: string) {
   }, [store, sessionId]);
 
   return { sessionId, isLoading };
+}
+
+/**
+ * Hook that tracks online/offline status.
+ */
+export function useOnlineStatus() {
+  const [isOnline, setIsOnline] = useState(
+    typeof navigator !== 'undefined' ? navigator.onLine : true,
+  );
+
+  useEffect(() => {
+    function handleOnline() { setIsOnline(true); }
+    function handleOffline() { setIsOnline(false); }
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
+  return isOnline;
 }

@@ -1,9 +1,16 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { Modal } from "@/components/Modal";
+import { PlayerAvatar } from "@/components/PlayerAvatar";
 import { PlayerLevelBadge } from "@/components/PlayerLevelBadge";
 import { PlayerLevelSelector } from "@/components/PlayerLevelSelector";
+
+const QRCodeModal = dynamic(
+  () => import("@/components/QRCodeModal").then((mod) => mod.QRCodeModal),
+  { ssr: false },
+);
 import { PlayerTrophyBadge } from "@/components/PlayerTrophyBadge";
 import { useAuth } from "@/contexts/AuthContext";
 import { generatePin, generateSerialId } from "@/utils/confirmation-helpers";
@@ -121,6 +128,7 @@ export default function PlayersPage() {
   const [linkCopied, setLinkCopied] = useState(false);
   const [pinCopied, setPinCopied] = useState(false);
   const [showEditEventModal, setShowEditEventModal] = useState(false);
+  const [showQRCode, setShowQRCode] = useState(false);
 
   // Event details form fields
   const [eventLocation, setEventLocation] = useState("");
@@ -685,6 +693,21 @@ export default function PlayersPage() {
               >
                 <FiExternalLink size={14} />
               </button>
+              <button
+                onClick={() => setShowQRCode(true)}
+                className="p-2 rounded-lg border border-dark-100 text-light-300 hover:text-accent hover:border-accent/30 transition-colors"
+                title="Show QR Code"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="2" y="2" width="8" height="8" rx="1" />
+                  <rect x="14" y="2" width="8" height="8" rx="1" />
+                  <rect x="2" y="14" width="8" height="8" rx="1" />
+                  <rect x="14" y="14" width="4" height="4" />
+                  <rect x="20" y="14" width="2" height="2" />
+                  <rect x="14" y="20" width="2" height="2" />
+                  <rect x="20" y="20" width="2" height="2" />
+                </svg>
+              </button>
             </div>
             <div className="flex items-center gap-2">
               <span className="text-xs text-light-300">PIN:</span>
@@ -983,6 +1006,7 @@ export default function PlayersPage() {
                       )}
                     </div>
                   )}
+                  <PlayerAvatar player={player} size="sm" />
                   <PlayerLevelBadge level={player.level} size="md" />
                   <span className="font-semibold">{player.name}</span>
                   {confirmation.meta.enabled && pc && (
@@ -1226,6 +1250,20 @@ export default function PlayersPage() {
         confirmLabel="Disable"
         danger
       />
+
+      {/* QR Code Modal */}
+      {confirmation.meta.enabled && (
+        <QRCodeModal
+          open={showQRCode}
+          onClose={() => setShowQRCode(false)}
+          url={
+            typeof window !== "undefined"
+              ? `${window.location.origin}/confirm/${confirmation.meta.serialId}`
+              : `/confirm/${confirmation.meta.serialId}`
+          }
+          pin={confirmation.meta.pin}
+        />
+      )}
 
       {/* Event Details Modal (Enable) */}
       <Modal
