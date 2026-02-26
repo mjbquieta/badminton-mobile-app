@@ -6,6 +6,9 @@ import {
   getSession,
   createFirebaseSync,
   enableOfflinePersistence,
+  subscribeToTournaments,
+  subscribeToSchedules,
+  subscribeToDraftTemplates,
   type SyncableStore,
 } from '@badminton/firebase';
 
@@ -53,7 +56,26 @@ export function useFirebaseSync(store: SyncableStore, sessionId: string) {
         }
 
         if (!cancelled) {
-          cleanupRef.current = createFirebaseSync(store, sessionId);
+          const mainCleanup = createFirebaseSync(store, sessionId);
+
+          // Subscribe to user-scoped collections (tournaments, schedules, templates)
+          const unsubTournaments = subscribeToTournaments(sessionId, (tournaments) => {
+            store.dispatch({ type: 'tournaments/setTournaments', payload: tournaments });
+          });
+          const unsubSchedules = subscribeToSchedules(sessionId, (schedules) => {
+            store.dispatch({ type: 'schedules/setSchedules', payload: schedules });
+          });
+          const unsubTemplates = subscribeToDraftTemplates(sessionId, (templates) => {
+            store.dispatch({ type: 'draftTemplates/setDraftTemplates', payload: templates });
+          });
+
+          cleanupRef.current = () => {
+            mainCleanup();
+            unsubTournaments();
+            unsubSchedules();
+            unsubTemplates();
+          };
+
           setIsLoading(false);
         }
       } catch (error) {

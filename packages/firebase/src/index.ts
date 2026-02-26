@@ -54,3 +54,27 @@ export {
   deleteMatchRecord,
   clearMatchHistory as clearMatchHistoryFirestore,
 } from './match-history-firestore';
+
+export {
+  saveTournament,
+  getTournaments,
+  getTournament,
+  updateTournament as updateTournamentFirestore,
+  deleteTournament,
+  subscribeToTournaments,
+} from './tournament-firestore';
+
+export {
+  saveSchedule,
+  getSchedules,
+  updateSchedule as updateScheduleFirestore,
+  deleteSchedule,
+  subscribeToSchedules,
+} from './schedule-firestore';
+
+export {
+  saveDraftTemplate,
+  getDraftTemplates,
+  deleteDraftTemplate,
+  subscribeToDraftTemplates,
+} from './draft-template-firestore';

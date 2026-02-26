@@ -3,6 +3,7 @@ import {
   createSession,
   getSession,
   createFirebaseSync,
+  enableOfflinePersistence,
   type SyncableStore,
 } from '@badminton/firebase';
 
@@ -23,6 +24,11 @@ export function useFirebaseSync(store: SyncableStore, sessionId: string) {
 
     async function init() {
       try {
+        // Enable offline persistence for Firestore
+        await enableOfflinePersistence().catch(() => {
+          // Already enabled or not supported - safe to ignore
+        });
+
         // Reset store to prevent stale data from a previous session
         store.dispatch({ type: 'players/setPlayers', payload: [] });
         store.dispatch({ type: 'courts/setCourts', payload: [] });

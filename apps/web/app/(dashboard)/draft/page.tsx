@@ -46,13 +46,12 @@ import { RiDraftLine } from "react-icons/ri";
 import { v4 as uuidv4 } from "uuid";
 
 export default function DraftPage() {
-  const { isAdmin } = useAuth();
+  const { isAdmin, user } = useAuth();
   const dispatch = useAppDispatch();
   const drafts = useAppSelector((state) => state.drafts.items);
   const draftsError = useAppSelector((state) => state.drafts.error);
   const players = useAppSelector((state) => state.players.items);
   const courts = useAppSelector((state) => state.courts.items);
-
   const [showSelectModal, setShowSelectModal] = useState(false);
   const [editingDraft, setEditingDraft] = useState<Draft | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Draft | null>(null);
@@ -75,7 +74,6 @@ export default function DraftPage() {
   const [scoreA, setScoreA] = useState("");
   const [scoreB, setScoreB] = useState("");
   const [showExportModal, setShowExportModal] = useState(false);
-
   // Undo/Redo stacks
   const undoStack = useRef<Draft[][]>([]);
   const redoStack = useRef<Draft[][]>([]);
@@ -1165,6 +1163,7 @@ export default function DraftPage() {
         resolvePlayer={resolvePlayer}
         courtCount={courtCount}
       />
+
     </div>
   );
 }

@@ -109,6 +109,7 @@ const CourtCard = ({
             {players.map((p) => (
               <PlayerTag
                 key={p.id}
+                player={p}
                 name={p.name}
                 level={p.level}
                 gameCount={p.gameCount}

@@ -37,3 +37,42 @@ export type {
 
 // Auth / Permissions
 export { ROLE_PERMISSIONS, hasPermission, getPermissions } from './auth';
+
+// Tournament bracket
+export {
+	seedPlayers,
+	pairTeamsBalanced,
+	seedTeams,
+	generateBracket,
+	generateBracketManual,
+	generateSingleEliminationBracket,
+	advanceWinner,
+	isTournamentComplete,
+	getTournamentWinner,
+} from './tournament';
+
+// Tournament Swiss
+export {
+	getSwissRoundCount,
+	computeSwissStandings,
+	generateSwissPairings,
+	recordSwissResult,
+	isSwissPhaseComplete,
+	getPlayoffParticipants,
+} from './tournament';
+
+// Analytics
+export {
+	computeWinRateOverTime,
+	computeHeadToHeadMatrix,
+	computeCourtUtilization,
+	computeParticipationTrend,
+	computeAvailabilityHeatmap,
+} from './statistics/analytics';
+export type {
+	WinRateDataPoint,
+	HeadToHeadMatrixEntry,
+	CourtUtilizationEntry,
+	ParticipationDataPoint,
+	AvailabilityHeatmapCell,
+} from './statistics/analytics';

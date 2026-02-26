@@ -1,6 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import Link from "next/link";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { Modal } from "@/components/Modal";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
@@ -1022,7 +1023,7 @@ export default function PlayersPage() {
                   )}
                   <PlayerAvatar player={player} size="sm" />
                   <PlayerLevelBadge level={player.level} size="md" />
-                  <span className="font-semibold">{player.name}</span>
+                  <Link href={`/players/${player.id}`} className="font-semibold hover:text-accent transition-colors">{player.name}</Link>
                   {confirmation.meta.enabled && pc && (
                     <ConfirmationStatusBadge status={pc.status} />
                   )}

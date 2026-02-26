@@ -119,7 +119,7 @@ const EditDraftScreen = ({
 							style={{ gap: 8 }}
 						>
 							<View className="flex-1 flex-shrink">
-								<PlayerTag name={p.name} level={p.level} />
+								<PlayerTag player={p} name={p.name} level={p.level} />
 							</View>
 							<TouchableOpacity
 								onPress={() => onReplace(index)}
@@ -158,7 +158,7 @@ const EditDraftScreen = ({
 							style={{ gap: 8 }}
 						>
 							<View className="flex-1 flex-shrink">
-								<PlayerTag name={p.name} level={p.level} />
+								<PlayerTag player={p} name={p.name} level={p.level} />
 							</View>
 							<TouchableOpacity
 								onPress={() => onReplace(index)}

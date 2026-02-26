@@ -5,6 +5,9 @@ import { draftsReducer } from './slices/drafts';
 import { playersReducer } from './slices/players';
 import { matchHistoryReducer } from './slices/match-history';
 import { themeReducer } from './slices/theme';
+import { tournamentsReducer } from './slices/tournaments';
+import { schedulesReducer } from './slices/schedules';
+import { draftTemplatesReducer } from './slices/draft-templates';
 
 export const configureAppStore = () => {
 	return configureStore({
@@ -15,6 +18,9 @@ export const configureAppStore = () => {
 			confirmation: confirmationReducer,
 			matchHistory: matchHistoryReducer,
 			theme: themeReducer,
+			tournaments: tournamentsReducer,
+			schedules: schedulesReducer,
+			draftTemplates: draftTemplatesReducer,
 		},
 	});
 };
