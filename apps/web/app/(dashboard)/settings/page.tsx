@@ -1,6 +1,7 @@
 "use client";
 
 import { useAuth } from "@/contexts/AuthContext";
+import { useTheme } from "@/contexts/ThemeContext";
 import { getAuthErrorMessage } from "@badminton/firebase";
 import { useState } from "react";
 import {
@@ -9,12 +10,16 @@ import {
 	FiLock,
 	FiMail,
 	FiMessageSquare,
+	FiMoon,
 	FiSettings,
+	FiSun,
 	FiX,
 } from "react-icons/fi";
+import type { ThemeMode } from "@badminton/types";
 
 export default function SettingsPage() {
 	const { profile, user, updatePassword, updateClubName } = useAuth();
+	const { theme, setTheme, resolvedTheme } = useTheme();
 
 	// Club name state
 	const [editingClubName, setEditingClubName] = useState(false);
@@ -152,6 +157,35 @@ export default function SettingsPage() {
 			</div>
 
 			<div className="space-y-4">
+				{/* Theme */}
+				<div className="bg-secondary rounded-2xl border border-dark-100 p-4 sm:p-5">
+					<div className="flex items-center gap-2 mb-3">
+						{resolvedTheme === "dark" ? (
+							<FiMoon size={16} className="text-light-300" />
+						) : (
+							<FiSun size={16} className="text-light-300" />
+						)}
+						<h2 className="text-sm font-semibold text-light-200 uppercase tracking-wide">
+							Theme
+						</h2>
+					</div>
+					<div className="flex gap-2">
+						{(["dark", "light", "system"] as ThemeMode[]).map((mode) => (
+							<button
+								key={mode}
+								onClick={() => setTheme(mode)}
+								className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors capitalize ${
+									theme === mode
+										? "bg-accent/15 text-accent border border-accent/30"
+										: "bg-dark-200 text-light-300 border border-dark-100 hover:text-light-100"
+								}`}
+							>
+								{mode}
+							</button>
+						))}
+					</div>
+				</div>
+
 				{/* Account Info */}
 				<div className="bg-secondary rounded-2xl border border-dark-100 p-4 sm:p-5">
 					<div className="flex items-center gap-2 mb-3">

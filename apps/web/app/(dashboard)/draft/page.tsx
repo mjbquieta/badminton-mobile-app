@@ -6,6 +6,7 @@ import { ManualSelectModal } from "@/components/ManualSelectModal";
 import { Modal } from "@/components/Modal";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
 import { PlayerLevelBadge } from "@/components/PlayerLevelBadge";
+import { useAuth } from "@/contexts/AuthContext";
 import { computeBalanceScore, generateAutoDrafts } from "@badminton/core";
 import {
   addDraft,
@@ -45,6 +46,7 @@ import { RiDraftLine } from "react-icons/ri";
 import { v4 as uuidv4 } from "uuid";
 
 export default function DraftPage() {
+  const { isAdmin } = useAuth();
   const dispatch = useAppDispatch();
   const drafts = useAppSelector((state) => state.drafts.items);
   const draftsError = useAppSelector((state) => state.drafts.error);
@@ -307,7 +309,7 @@ export default function DraftPage() {
               <span className="hidden sm:inline">Export</span>
             </button>
           )}
-          {(drafts.length > 0 || players.length > 0) && (
+          {isAdmin && (drafts.length > 0 || players.length > 0) && (
             <button
               onClick={() => setShowResetConfirm(true)}
               className="flex items-center gap-1.5 p-2 sm:px-4 sm:py-2 rounded-xl text-xs sm:text-sm text-danger border border-danger/30 hover:bg-danger/10 transition-colors"
@@ -317,6 +319,7 @@ export default function DraftPage() {
               <span className="hidden sm:inline">Reset</span>
             </button>
           )}
+          {isAdmin && (
           <button
             onClick={() =>
               courts.length === 0
@@ -330,6 +333,8 @@ export default function DraftPage() {
             <FiZap size={14} />
             <span className="hidden sm:inline">Auto Draft</span>
           </button>
+          )}
+          {isAdmin && (
           <button
             onClick={() =>
               courts.length === 0
@@ -343,6 +348,7 @@ export default function DraftPage() {
             <FiPlus size={14} />
             <span className="hidden sm:inline">New Draft</span>
           </button>
+          )}
         </div>
       </div>
 
@@ -456,6 +462,7 @@ export default function DraftPage() {
                       </span>
                     ) : (
                       <>
+                        {isAdmin && (
                         <button
                           onClick={() => setFinishTarget(draft)}
                           className="p-1.5 rounded-lg text-light-300 hover:text-green-400 hover:bg-green-400/10 transition-colors"
@@ -463,6 +470,8 @@ export default function DraftPage() {
                         >
                           <FiCheck size={14} />
                         </button>
+                        )}
+                        {isAdmin && (
                         <button
                           onClick={() => setEditingDraft(draft)}
                           className="p-1.5 rounded-lg text-light-300 hover:text-accent hover:bg-accent/10 transition-colors"
@@ -470,6 +479,8 @@ export default function DraftPage() {
                         >
                           <FiEdit2 size={14} />
                         </button>
+                        )}
+                        {isAdmin && (
                         <button
                           onClick={() => setDeleteTarget(draft)}
                           className="p-1.5 rounded-lg text-light-300 hover:text-danger hover:bg-danger/10 transition-colors"
@@ -477,6 +488,7 @@ export default function DraftPage() {
                         >
                           <FiTrash2 size={14} />
                         </button>
+                        )}
                       </>
                     )}
                   </div>

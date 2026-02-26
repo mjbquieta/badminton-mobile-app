@@ -68,7 +68,7 @@ export async function updateSessionPlayers(
   players: Player[]
 ): Promise<void> {
   await updateDoc(doc(getDb(), 'sessions', sessionId), {
-    players,
+    players: JSON.parse(JSON.stringify(players)),
     updatedAt: serverTimestamp(),
   });
 }
@@ -90,14 +90,16 @@ export async function updateSessionFull(
   drafts: Draft[] = [],
   confirmation?: ConfirmationMeta
 ): Promise<void> {
+  // Firestore rejects undefined values — JSON round-trip strips them
+  const clean = <T>(v: T): T => JSON.parse(JSON.stringify(v));
   const data: Record<string, unknown> = {
-    players,
-    courts: courts.map(courtToFirestore),
-    drafts,
+    players: clean(players),
+    courts: clean(courts.map(courtToFirestore)),
+    drafts: clean(drafts),
     updatedAt: serverTimestamp(),
   };
   if (confirmation) {
-    data.confirmation = confirmation;
+    data.confirmation = clean(confirmation);
   }
   await setDoc(doc(getDb(), 'sessions', sessionId), data, { merge: true });
 }
@@ -107,7 +109,7 @@ export async function updateSessionDrafts(
   drafts: Draft[]
 ): Promise<void> {
   await updateDoc(doc(getDb(), 'sessions', sessionId), {
-    drafts,
+    drafts: JSON.parse(JSON.stringify(drafts)),
     updatedAt: serverTimestamp(),
   });
 }

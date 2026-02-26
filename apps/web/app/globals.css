@@ -2,10 +2,55 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --foreground-rgb: 255, 255, 255;
-  --background-start-rgb: 10, 10, 10;
-  --background-end-rgb: 10, 10, 10;
+/* Dark theme (default) - RGB channels for Tailwind opacity modifier support */
+:root,
+:root.dark {
+  --bg-primary: 10 10 10;
+  --bg-secondary: 20 20 20;
+  --bg-surface: 20 20 20;
+  --bg-elevated: 30 30 30;
+  --border-dark-100: 42 42 42;
+  --border-dark-200: 30 30 30;
+  --border-dark-300: 20 20 20;
+  --text-light-100: 255 255 255;
+  --text-light-200: 163 163 163;
+  --text-light-300: 102 102 102;
+  --color-accent: 255 212 0;
+  --color-success: 34 197 94;
+  --color-danger: 239 68 68;
+  --color-info: 59 130 246;
+  --color-warning: 249 115 22;
+  --color-beginner: 34 197 94;
+  --color-intermediate: 59 130 246;
+  --color-advanced: 168 85 247;
+  --color-pro: 255 212 0;
+  --shadow-card: 0 2px 8px rgba(0, 0, 0, 0.3);
+  --shadow-elevated: 0 4px 16px rgba(0, 0, 0, 0.4);
+}
+
+/* Light theme */
+:root.light {
+  --bg-primary: 255 255 255;
+  --bg-secondary: 245 245 245;
+  --bg-surface: 245 245 245;
+  --bg-elevated: 235 235 235;
+  --border-dark-100: 212 212 212;
+  --border-dark-200: 235 235 235;
+  --border-dark-300: 245 245 245;
+  --text-light-100: 23 23 23;
+  --text-light-200: 82 82 82;
+  --text-light-300: 163 163 163;
+  --color-accent: 202 138 4;
+  --color-success: 22 163 74;
+  --color-danger: 220 38 38;
+  --color-info: 37 99 235;
+  --color-warning: 234 88 12;
+  --color-beginner: 22 163 74;
+  --color-intermediate: 37 99 235;
+  --color-advanced: 147 51 234;
+  --color-pro: 202 138 4;
+  --shadow-card: 0 2px 8px rgba(0, 0, 0, 0.08);
+  --shadow-elevated: 0 4px 16px rgba(0, 0, 0, 0.12);
 }
 
 * {
@@ -13,13 +58,8 @@
 }
 
 body {
-  color: rgb(var(--foreground-rgb));
-  background: linear-gradient(
-      to bottom,
-      transparent,
-      rgb(var(--background-end-rgb))
-    )
-    rgb(var(--background-start-rgb));
+  color: rgb(var(--text-light-100));
+  background: rgb(var(--bg-primary));
   min-height: 100vh;
 }
 

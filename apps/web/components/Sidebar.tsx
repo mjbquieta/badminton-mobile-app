@@ -7,10 +7,11 @@ import { useAuth } from '@/contexts/AuthContext';
 import { ConfirmDialog } from './ConfirmDialog';
 import { AiOutlineHome, AiOutlineTeam } from 'react-icons/ai';
 import { MdOutlineSportsTennis } from 'react-icons/md';
-import { FiClock, FiLogOut, FiSettings, FiWifiOff } from 'react-icons/fi';
+import { FiClock, FiLogOut, FiMoon, FiSettings, FiSun, FiWifiOff } from 'react-icons/fi';
 import { RiDraftLine } from 'react-icons/ri';
 import type { IconType } from 'react-icons';
 import { useOnlineStatus } from '@/hooks/useFirebaseSync';
+import { useTheme } from '@/contexts/ThemeContext';
 
 const navItems: { href: string; label: string; icon: IconType }[] = [
   { href: '/home', label: 'Dashboard', icon: AiOutlineHome },
@@ -26,6 +27,7 @@ export function Sidebar() {
   const { logout, profile } = useAuth();
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const isOnline = useOnlineStatus();
+  const { resolvedTheme, toggleTheme } = useTheme();
 
   return (
     <>
@@ -67,6 +69,14 @@ export function Sidebar() {
             );
           })}
         </nav>
+
+        <button
+          onClick={toggleTheme}
+          className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-light-300 hover:bg-dark-200 hover:text-light-100 transition-colors"
+        >
+          {resolvedTheme === 'dark' ? <FiSun size={18} /> : <FiMoon size={18} />}
+          {resolvedTheme === 'dark' ? 'Light Mode' : 'Dark Mode'}
+        </button>
 
         {!isOnline && (
           <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-warning/10 border border-warning/20 text-warning text-xs font-medium mb-2">

@@ -68,7 +68,7 @@ import {
 import { v4 as uuidv4 } from "uuid";
 
 export default function PlayersPage() {
-  const { user, emailVerified } = useAuth();
+  const { user, emailVerified, isAdmin } = useAuth();
   const dispatch = useAppDispatch();
   const players = useAppSelector((state) => state.players.items);
   const playersError = useAppSelector((state) => state.players.error);
@@ -389,6 +389,8 @@ export default function PlayersPage() {
   function handleToggleConfirmation() {
     if (confirmation.meta.enabled) {
       setShowDisableConfirm(true);
+    } else if (players.length === 0) {
+      return;
     } else {
       // Reset form fields
       setEventLocation("");
@@ -536,7 +538,8 @@ export default function PlayersPage() {
           <p className="text-light-300 text-sm mt-1">{players.length} total</p>
         </div>
         <div className="flex items-center gap-2.5 sm:gap-3">
-          {/* Confirmation Toggle */}
+          {/* Confirmation Toggle (admin only) */}
+          {isAdmin && (
           <div className="relative">
             <div
               className="animate-rainbow-spin rounded-xl p-[1.6px]"
@@ -547,7 +550,13 @@ export default function PlayersPage() {
             >
               <button
                 onClick={handleToggleConfirmation}
-                className="flex items-center gap-2.5 bg-secondary rounded-[10px] px-3 py-2 cursor-pointer"
+                disabled={!confirmation.meta.enabled && players.length === 0}
+                className={`flex items-center gap-2.5 bg-secondary rounded-[10px] px-3 py-2 ${
+                  !confirmation.meta.enabled && players.length === 0
+                    ? "opacity-50 cursor-not-allowed"
+                    : "cursor-pointer"
+                }`}
+                title={!confirmation.meta.enabled && players.length === 0 ? "Add players first" : undefined}
               >
                 {/* Toggle switch */}
                 <span
@@ -578,13 +587,17 @@ export default function PlayersPage() {
               </span>
             )}
           </div>
+          )}
+          {isAdmin && (
           <button
             onClick={() => setShowAddModal(true)}
             className="px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm bg-accent text-primary font-semibold hover:bg-accent/80 whitespace-nowrap"
           >
             + Add
           </button>
-          {/* Ellipsis Menu */}
+          )}
+          {/* Ellipsis Menu (admin only) */}
+          {isAdmin && (
           <div className="relative" ref={menuRef}>
             <button
               onClick={() => setShowMenu(!showMenu)}
@@ -639,6 +652,7 @@ export default function PlayersPage() {
               </div>
             )}
           </div>
+          )}
         </div>
       </div>
 
@@ -1013,7 +1027,7 @@ export default function PlayersPage() {
                     <ConfirmationStatusBadge status={pc.status} />
                   )}
                 </div>
-                {!selecting && (
+                {!selecting && isAdmin && (
                   <div className="flex gap-1">
                     <button
                       onClick={() => dispatch(togglePlayerActive(player.id))}
