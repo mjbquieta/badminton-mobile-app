@@ -65,6 +65,13 @@ function LandingContent() {
                 NEW
               </span>
             </a>
+            <Link
+              href="/whats-new"
+              className="text-sm font-semibold text-accent px-3 py-2.5 rounded-xl hover:bg-dark-200 transition-colors"
+              onClick={() => setMenuOpen(false)}
+            >
+              What&apos;s New
+            </Link>
             <a
               href="https://michaelquieta.com"
               target="_blank"
@@ -130,6 +137,12 @@ function LandingContent() {
                 NEW
               </span>
             </div>
+            <Link
+              href="/whats-new"
+              className="text-sm font-semibold text-accent hover:text-accent/80 transition-colors px-4 py-2"
+            >
+              What&apos;s New
+            </Link>
             <a
               href="https://michaelquieta.com"
               target="_blank"
