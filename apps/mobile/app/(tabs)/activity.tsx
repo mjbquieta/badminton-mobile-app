@@ -1,10 +1,12 @@
 import AutoDraftScreen from "@/components/activity/AutoDraftScreen";
 import EditDraftScreen from "@/components/activity/EditDraftScreen";
 import FinishMatchScreen from "@/components/activity/FinishMatchScreen";
+import MatchHistoryScreen from "@/components/activity/MatchHistoryScreen";
 import PlayerSelectionScreen from "@/components/activity/PlayerSelectionScreen";
 import ConfirmationAlert from "@/components/ConfirmationAlert";
 import PlayerTag from "@/components/PlayerTag";
 import { useToast } from "@/components/Toast";
+import { useAuth } from "@/contexts/AuthContext";
 import { BadmintonPalette } from "@/constants/palette";
 import {
   addDraft,
@@ -22,11 +24,13 @@ import {
   useAppSelector,
 } from "@badminton/store";
 import { type Player, PlayerLevel, type Draft, type Court } from "@badminton/types";
+import { generateAutoDrafts, type ShuffleMode, computeBalanceScore, MatchupTracker } from "@badminton/core";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import React, { useCallback, useMemo, useRef, useState } from "react";
 import {
   Alert,
   ScrollView,
+  Share,
   Text,
   TouchableOpacity,
   View,
@@ -39,6 +43,9 @@ type DraftCardProps = {
 	matchNumber: number;
 	playerMap: Map<string, Player>;
 	courts: Court[];
+	balanceScore?: number;
+	isRepeated?: boolean;
+	isAdmin?: boolean;
 	onEdit: (draft: Draft) => void;
 	onFinish: (draft: Draft) => void;
 	onDelete: (draft: Draft, matchNumber: number) => void;
@@ -49,6 +56,9 @@ const DraftCard = React.memo(function DraftCard({
 	matchNumber,
 	playerMap,
 	courts,
+	balanceScore,
+	isRepeated,
+	isAdmin = true,
 	onEdit,
 	onFinish,
 	onDelete,
@@ -91,6 +101,40 @@ const DraftCard = React.memo(function DraftCard({
 							</Text>
 						</View>
 					)}
+					{!draft.finished && balanceScore != null && (
+						<View
+							className="px-2 py-0.5 rounded-md"
+							style={{
+								backgroundColor:
+									balanceScore >= 80
+										? `${BadmintonPalette.accent.success}20`
+										: balanceScore >= 50
+											? `${BadmintonPalette.accent.warning}20`
+											: `${BadmintonPalette.accent.danger}20`,
+							}}
+						>
+							<Text
+								className="text-[10px] font-bold"
+								style={{
+									color:
+										balanceScore >= 80
+											? BadmintonPalette.accent.success
+											: balanceScore >= 50
+												? BadmintonPalette.accent.warning
+												: BadmintonPalette.accent.danger,
+								}}
+							>
+								{Math.round(balanceScore)}%
+							</Text>
+						</View>
+					)}
+					{isRepeated && (
+						<MaterialCommunityIcons
+							name="alert-circle-outline"
+							size={14}
+							color={BadmintonPalette.accent.warning}
+						/>
+					)}
 				</View>
 				{draft.finished ? (
 					<View className="px-2 py-1 rounded-full bg-accent/15">
@@ -98,7 +142,7 @@ const DraftCard = React.memo(function DraftCard({
 							FINISHED
 						</Text>
 					</View>
-				) : (
+				) : isAdmin ? (
 					<View className="flex-row gap-2">
 						<TouchableOpacity
 							onPress={() => onEdit(draft)}
@@ -132,7 +176,7 @@ const DraftCard = React.memo(function DraftCard({
 							</Text>
 						</TouchableOpacity>
 					</View>
-				)}
+				) : null}
 			</View>
 
 			{/* Teams */}
@@ -157,6 +201,7 @@ const DraftCard = React.memo(function DraftCard({
 						{teamA.map((p) => (
 							<PlayerTag
 								key={p.id}
+								player={p}
 								name={p.name}
 								level={p.level}
 								gameCount={p.gameCount}
@@ -164,11 +209,31 @@ const DraftCard = React.memo(function DraftCard({
 						))}
 					</View>
 
-					{/* VS */}
-					<View className="px-3">
-						<Text className="text-xs font-bold text-danger uppercase">
-							vs
-						</Text>
+					{/* VS / Score */}
+					<View className="px-3 items-center">
+						{draft.finished && draft.scoreA != null && draft.scoreB != null ? (
+							<>
+								<Text
+									className="text-sm font-bold"
+									style={{ color: draft.winner === "A" ? BadmintonPalette.accent.primary : BadmintonPalette.text.muted }}
+								>
+									{draft.scoreA}
+								</Text>
+								<Text className="text-[10px] font-bold text-danger uppercase my-0.5">
+									vs
+								</Text>
+								<Text
+									className="text-sm font-bold"
+									style={{ color: draft.winner === "B" ? BadmintonPalette.accent.primary : BadmintonPalette.text.muted }}
+								>
+									{draft.scoreB}
+								</Text>
+							</>
+						) : (
+							<Text className="text-xs font-bold text-danger uppercase">
+								vs
+							</Text>
+						)}
 					</View>
 
 					{/* Team B */}
@@ -190,6 +255,7 @@ const DraftCard = React.memo(function DraftCard({
 						{teamB.map((p) => (
 							<PlayerTag
 								key={p.id}
+								player={p}
 								name={p.name}
 								level={p.level}
 								gameCount={p.gameCount}
@@ -205,6 +271,7 @@ const DraftCard = React.memo(function DraftCard({
 const activity = () => {
   const dispatch = useAppDispatch();
   const { showToast } = useToast();
+  const { isAdmin } = useAuth();
   const allPlayers = useAppSelector((s) => s.players.items);
   const players = useMemo(() => allPlayers.filter((p) => p.active ?? true), [allPlayers]);
   const courts = useAppSelector((s) => s.courts.items);
@@ -231,6 +298,7 @@ const activity = () => {
     new Set([PlayerLevel.BEGINNER, PlayerLevel.INTERMEDIATE, PlayerLevel.ADVANCED, PlayerLevel.PRO]),
   );
   const [finishTarget, setFinishTarget] = useState<Draft | null>(null);
+  const [showHistory, setShowHistory] = useState(false);
 
   // Edit draft state (Replace / Exchange)
   const [editingDraft, setEditingDraft] = useState<Draft | null>(null);
@@ -260,6 +328,7 @@ const activity = () => {
       title: "Delete Draft",
       message: `Delete draft #${matchNumber}?`,
       onConfirm: () => {
+        pushUndo();
         dispatch(removeDraft(draft.id));
         showToastRef.current({ type: "info", message: "Draft deleted" });
       },
@@ -286,8 +355,70 @@ const activity = () => {
     return r;
   }, [drafts, courtCount]);
 
+  // Balance scores per draft
+  const balanceScores = useMemo(() => {
+    const scores = new Map<string, number>();
+    for (const d of drafts) {
+      if (d.finished) continue;
+      const half = Math.ceil(d.playerIds.length / 2);
+      const teamAPlayers = d.playerIds.slice(0, half).map((id) => playerMap.get(id)).filter((p): p is Player => !!p);
+      const teamBPlayers = d.playerIds.slice(half).map((id) => playerMap.get(id)).filter((p): p is Player => !!p);
+      if (teamAPlayers.length > 0 && teamBPlayers.length > 0) {
+        scores.set(d.id, computeBalanceScore(teamAPlayers, teamBPlayers));
+      }
+    }
+    return scores;
+  }, [drafts, playerMap]);
+
+  // Combo frequency for repetition warnings
+  const repeatedDraftIds = useMemo(() => {
+    const freq = new Map<string, number>();
+    for (const d of drafts) {
+      const key = MatchupTracker.toKey(d.playerIds);
+      freq.set(key, (freq.get(key) ?? 0) + 1);
+    }
+    const repeated = new Set<string>();
+    for (const d of drafts) {
+      const key = MatchupTracker.toKey(d.playerIds);
+      if ((freq.get(key) ?? 0) > 1) repeated.add(d.id);
+    }
+    return repeated;
+  }, [drafts]);
+
+  // Undo/Redo stacks
+  const [undoStack, setUndoStack] = useState<Draft[][]>([]);
+  const [redoStack, setRedoStack] = useState<Draft[][]>([]);
+  const draftsRef = useRef(drafts);
+  draftsRef.current = drafts;
+
+  function pushUndo() {
+    setUndoStack((prev) => [...prev.slice(-19), draftsRef.current]);
+    setRedoStack([]);
+  }
+
+  function handleUndo() {
+    if (undoStack.length === 0) return;
+    const prev = undoStack[undoStack.length - 1];
+    setUndoStack((s) => s.slice(0, -1));
+    setRedoStack((s) => [...s, draftsRef.current]);
+    dispatch(clearDrafts());
+    if (prev.length > 0) dispatch(addDraftsBatch(prev));
+    showToast({ type: "info", message: "Undone" });
+  }
+
+  function handleRedo() {
+    if (redoStack.length === 0) return;
+    const next = redoStack[redoStack.length - 1];
+    setRedoStack((s) => s.slice(0, -1));
+    setUndoStack((s) => [...s, draftsRef.current]);
+    dispatch(clearDrafts());
+    if (next.length > 0) dispatch(addDraftsBatch(next));
+    showToast({ type: "info", message: "Redone" });
+  }
+
   function handleCreateDraft(selectedIds: string[]) {
     if (selectedIds.length !== 4) return;
+    pushUndo();
     const draftId = uuidv4();
     dispatch(addDraft({ id: draftId, playerIds: selectedIds }));
     if (courts.length > 0) {
@@ -298,8 +429,9 @@ const activity = () => {
     setShowSelectModal(false);
   }
 
-  function handleFinish(winner: "A" | "B") {
+  function handleFinish(winner: "A" | "B", scoreA?: number, scoreB?: number) {
     if (!finishTarget || finishTarget.finished) return;
+    pushUndo();
     const half = Math.ceil(finishTarget.playerIds.length / 2);
     const winnerIds =
       winner === "A"
@@ -307,220 +439,46 @@ const activity = () => {
         : finishTarget.playerIds.slice(half);
     dispatch(incrementPlayersGameCount(finishTarget.playerIds));
     dispatch(incrementPlayersTrophies(winnerIds));
-    dispatch(finishDraft({ id: finishTarget.id, winner }));
+    dispatch(finishDraft({ id: finishTarget.id, winner, scoreA, scoreB }));
     showToast({ type: "success", message: "Match finished" });
     setFinishTarget(null);
   }
 
-  // Compute C(n, k)
-  function comb(n: number, k: number): number {
-    if (k > n) return 0;
-    let result = 1;
-    for (let i = 0; i < k; i++) result = (result * (n - i)) / (i + 1);
-    return Math.round(result);
-  }
-
   function handleAutoDraft(mode: "balanced" | "random" | "skill-match", levels: Set<PlayerLevel>) {
-    const usedCombos = new Set(
-      drafts.map((d) => [...d.playerIds].sort().join(",")),
-    );
+    const playerIds = mode === "skill-match"
+      ? draftablePlayers.filter((p) => levels.has(p.level)).map((p) => p.id)
+      : draftablePlayers.map((p) => p.id);
 
-    function shuffle<T>(arr: T[]): T[] {
-      for (let i = arr.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [arr[i], arr[j]] = [arr[j], arr[i]];
-      }
-      return arr;
+    if (playerIds.length < 2) {
+      showToast({
+        type: "info",
+        message: mode === "skill-match"
+          ? "Not enough players with selected levels"
+          : "Not enough players",
+      });
+      setShowAutoDraftModal(false);
+      return;
     }
 
-    function generateCombos(pool: string[], size: number): string[][] {
-      const combos: string[][] = [];
-      function build(start: number, current: string[]) {
-        if (current.length === size) {
-          combos.push([...current]);
-          return;
-        }
-        for (let i = start; i < pool.length; i++) {
-          current.push(pool[i]);
-          build(i + 1, current);
-          current.pop();
-        }
-      }
-      build(0, []);
-      return shuffle(combos);
+    const playerLevels = new Map(draftablePlayers.map((p) => [p.id, p.level]));
+    const result = generateAutoDrafts({
+      mode: mode as ShuffleMode,
+      draftCount,
+      playerIds,
+      playerLevels,
+      courts: courts.map((c) => ({ id: c.id, isSingle: c.isSingle })),
+      existingDrafts: drafts,
+      existingDraftCount: drafts.length,
+      selectedLevels: levels,
+      idGenerator: uuidv4,
+    });
+
+    if (result.drafts.length > 0) {
+      pushUndo();
+      dispatch(addDraftsBatch(result.drafts));
     }
 
-    function getComboSize(draftIndex: number): number {
-      if (courts.length === 0) return 4;
-      const courtIndex = (drafts.length + draftIndex) % courts.length;
-      return courts[courtIndex].isSingle ? 2 : 4;
-    }
-
-    const pendingDrafts: { id: string; playerIds: string[]; courtId?: string }[] = [];
-
-    function commitDraft(combo: string[], draftIndex: number) {
-      shuffle(combo);
-      const key = [...combo].sort().join(",");
-      usedCombos.add(key);
-      const draftId = uuidv4();
-      const courtId = courts.length > 0
-        ? courts[(drafts.length + draftIndex) % courts.length].id
-        : undefined;
-      pendingDrafts.push({ id: draftId, playerIds: combo, courtId });
-    }
-
-    const roundSize = courts.length > 0 ? courts.length : Infinity;
-    const usedInRound = new Set<string>();
-    let created = 0;
-
-    if (mode === "skill-match") {
-      const filteredIds = draftablePlayers
-        .filter((p) => levels.has(p.level))
-        .map((p) => p.id);
-
-      if (filteredIds.length < 2) {
-        showToast({ type: "info", message: "Not enough players with selected levels" });
-        setShowAutoDraftModal(false);
-        return;
-      }
-
-      const maxCombos = Math.min(draftCount, comb(filteredIds.length, 2) + comb(filteredIds.length, 4));
-      const counts = new Map(filteredIds.map((id) => [id, 0]));
-
-      for (let i = 0; i < maxCombos; i++) {
-        if (i % roundSize === 0) usedInRound.clear();
-        const comboSize = getComboSize(i);
-
-        const sorted = [...filteredIds].sort(
-          (a, b) => counts.get(a)! - counts.get(b)!,
-        );
-        let idx = 0;
-        while (idx < sorted.length) {
-          const count = counts.get(sorted[idx])!;
-          let end = idx;
-          while (end < sorted.length && counts.get(sorted[end])! === count) end++;
-          const tier = sorted.slice(idx, end);
-          shuffle(tier);
-          for (let t = 0; t < tier.length; t++) sorted[idx + t] = tier[t];
-          idx = end;
-        }
-
-        let found = false;
-        for (let poolSize = comboSize; poolSize <= sorted.length && !found; poolSize++) {
-          const pool = sorted.slice(0, poolSize);
-          const combos = generateCombos(pool, comboSize);
-          for (const combo of combos) {
-            if (combo.some((id) => usedInRound.has(id))) continue;
-            const key = [...combo].sort().join(",");
-            if (usedCombos.has(key)) continue;
-            for (const id of combo) usedInRound.add(id);
-            commitDraft(combo, i);
-            for (const id of combo) counts.set(id, counts.get(id)! + 1);
-            found = true;
-            created++;
-            break;
-          }
-        }
-        if (!found) {
-          usedCombos.clear();
-          for (let poolSize = comboSize; poolSize <= sorted.length && !found; poolSize++) {
-            const pool = sorted.slice(0, poolSize);
-            const combos = generateCombos(pool, comboSize);
-            for (const combo of combos) {
-              if (combo.some((id) => usedInRound.has(id))) continue;
-              for (const id of combo) usedInRound.add(id);
-              commitDraft(combo, i);
-              for (const id of combo) counts.set(id, counts.get(id)! + 1);
-              found = true;
-              created++;
-              break;
-            }
-          }
-        }
-        if (!found) {
-          if (i % roundSize === 0) break;
-          const nextRound = (Math.floor(i / roundSize) + 1) * roundSize;
-          i = nextRound - 1;
-        }
-      }
-    } else {
-      const ids = draftablePlayers.map((p) => p.id);
-      if (ids.length < 2) {
-        showToast({ type: "info", message: "Not enough players" });
-        setShowAutoDraftModal(false);
-        return;
-      }
-
-      const maxCombos = Math.min(draftCount, comb(ids.length, 2) + comb(ids.length, 4));
-      const counts = new Map(ids.map((id) => [id, 0]));
-
-      for (let i = 0; i < maxCombos; i++) {
-        if (i % roundSize === 0) usedInRound.clear();
-        const comboSize = getComboSize(i);
-
-        let sorted: string[];
-        if (mode === "random") {
-          sorted = shuffle([...ids]);
-        } else {
-          sorted = [...ids].sort(
-            (a, b) => counts.get(a)! - counts.get(b)!,
-          );
-          let idx = 0;
-          while (idx < sorted.length) {
-            const count = counts.get(sorted[idx])!;
-            let end = idx;
-            while (end < sorted.length && counts.get(sorted[end])! === count) end++;
-            const tier = sorted.slice(idx, end);
-            shuffle(tier);
-            for (let t = 0; t < tier.length; t++) sorted[idx + t] = tier[t];
-            idx = end;
-          }
-        }
-
-        let found = false;
-        for (let poolSize = comboSize; poolSize <= sorted.length && !found; poolSize++) {
-          const pool = sorted.slice(0, poolSize);
-          const combos = generateCombos(pool, comboSize);
-          for (const combo of combos) {
-            if (combo.some((id) => usedInRound.has(id))) continue;
-            const key = [...combo].sort().join(",");
-            if (usedCombos.has(key)) continue;
-            for (const id of combo) usedInRound.add(id);
-            commitDraft(combo, i);
-            for (const id of combo) counts.set(id, counts.get(id)! + 1);
-            found = true;
-            created++;
-            break;
-          }
-        }
-        if (!found) {
-          usedCombos.clear();
-          for (let poolSize = comboSize; poolSize <= sorted.length && !found; poolSize++) {
-            const pool = sorted.slice(0, poolSize);
-            const combos = generateCombos(pool, comboSize);
-            for (const combo of combos) {
-              if (combo.some((id) => usedInRound.has(id))) continue;
-              for (const id of combo) usedInRound.add(id);
-              commitDraft(combo, i);
-              for (const id of combo) counts.set(id, counts.get(id)! + 1);
-              found = true;
-              created++;
-              break;
-            }
-          }
-        }
-        if (!found) {
-          if (i % roundSize === 0) break;
-          const nextRound = (Math.floor(i / roundSize) + 1) * roundSize;
-          i = nextRound - 1;
-        }
-      }
-    }
-
-    if (pendingDrafts.length > 0) {
-      dispatch(addDraftsBatch(pendingDrafts));
-    }
-
+    const created = result.drafts.length;
     showToast({
       type: created > 0 ? "success" : "info",
       message: created > 0 ? `${created} draft${created > 1 ? "s" : ""} created` : "No new drafts could be generated",
@@ -539,6 +497,33 @@ const activity = () => {
         showToast({ type: "info", message: "All drafts reset" });
       },
     });
+  }
+
+  async function handleShareSchedule() {
+    if (drafts.length === 0) return;
+    const lines: string[] = ["Match Schedule", ""];
+    let setNum = 0;
+    for (let i = 0; i < drafts.length; i++) {
+      if (i % courtCount === 0) {
+        setNum++;
+        if (setNum > 1) lines.push("");
+        lines.push(`--- Set ${setNum} ---`);
+      }
+      const d = drafts[i];
+      const half = Math.ceil(d.playerIds.length / 2);
+      const teamA = d.playerIds.slice(0, half).map((id) => playerMap.get(id)?.name ?? "?").join(", ");
+      const teamB = d.playerIds.slice(half).map((id) => playerMap.get(id)?.name ?? "?").join(", ");
+      const court = courts.find((c) => c.id === d.courtId);
+      const courtLabel = court ? ` (${court.name})` : "";
+      const score = d.scoreA != null && d.scoreB != null ? ` [${d.scoreA}-${d.scoreB}]` : "";
+      const winner = d.finished ? ` → Team ${d.winner} wins${score}` : "";
+      lines.push(`#${i + 1}${courtLabel}: ${teamA} vs ${teamB}${winner}`);
+    }
+    try {
+      await Share.share({ message: lines.join("\n") });
+    } catch {
+      // User cancelled
+    }
   }
 
   function handleChangePlayer(selectedIds: string[]) {
@@ -651,6 +636,20 @@ const activity = () => {
     );
   }
 
+  // Screen: Match History
+  if (showHistory) {
+    return (
+      <SafeAreaView className="flex-1 bg-primary">
+        <MatchHistoryScreen
+          drafts={drafts}
+          courts={courts}
+          playerMap={playerMap}
+          onBack={() => setShowHistory(false)}
+        />
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView className="flex-1 bg-primary">
       {/* Header */}
@@ -668,6 +667,53 @@ const activity = () => {
             <Text className="text-light-300 text-sm">
               Manage matches and drafts
             </Text>
+          </View>
+          {/* Share / Undo / Redo */}
+          <View className="flex-row" style={{ gap: 4 }}>
+            {drafts.length > 0 && (
+              <TouchableOpacity
+                onPress={handleShareSchedule}
+                className="size-10 rounded-xl items-center justify-center bg-dark-200 border border-dark-100"
+                accessibilityRole="button"
+                accessibilityLabel="Share schedule"
+              >
+                <MaterialCommunityIcons
+                  name="share-variant"
+                  size={18}
+                  color={BadmintonPalette.text.secondary}
+                />
+              </TouchableOpacity>
+            )}
+          </View>
+          <View className="flex-row" style={{ gap: 4 }}>
+            <TouchableOpacity
+              onPress={handleUndo}
+              disabled={undoStack.length === 0}
+              className="size-10 rounded-xl items-center justify-center bg-dark-200 border border-dark-100"
+              style={{ opacity: undoStack.length === 0 ? 0.3 : 1 }}
+              accessibilityRole="button"
+              accessibilityLabel="Undo"
+            >
+              <MaterialCommunityIcons
+                name="undo"
+                size={18}
+                color={BadmintonPalette.text.secondary}
+              />
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={handleRedo}
+              disabled={redoStack.length === 0}
+              className="size-10 rounded-xl items-center justify-center bg-dark-200 border border-dark-100"
+              style={{ opacity: redoStack.length === 0 ? 0.3 : 1 }}
+              accessibilityRole="button"
+              accessibilityLabel="Redo"
+            >
+              <MaterialCommunityIcons
+                name="redo"
+                size={18}
+                color={BadmintonPalette.text.secondary}
+              />
+            </TouchableOpacity>
           </View>
         </View>
       </View>
@@ -761,7 +807,7 @@ const activity = () => {
             )}
 
             {/* Auto Draft */}
-            <TouchableOpacity
+            {isAdmin && <TouchableOpacity
               onPress={() => {
                 if (courts.length === 0) {
                   Alert.alert("No Courts Available", "Please add at least one court before creating drafts.");
@@ -810,10 +856,10 @@ const activity = () => {
                 size={24}
                 color={BadmintonPalette.bg.base}
               />
-            </TouchableOpacity>
+            </TouchableOpacity>}
 
             {/* New Draft */}
-            <TouchableOpacity
+            {isAdmin && <TouchableOpacity
               onPress={() => {
                 if (courts.length === 0) {
                   Alert.alert(
@@ -864,10 +910,33 @@ const activity = () => {
                 size={24}
                 color={BadmintonPalette.text.muted}
               />
-            </TouchableOpacity>
+            </TouchableOpacity>}
+
+            {/* Match History */}
+            {completedDrafts.length > 0 && (
+              <TouchableOpacity
+                onPress={() => setShowHistory(true)}
+                className="flex-row items-center justify-center p-3 rounded-xl border border-accent/30"
+                style={{ backgroundColor: `${BadmintonPalette.accent.primary}10` }}
+                accessibilityRole="button"
+                accessibilityLabel="View match history"
+              >
+                <MaterialCommunityIcons
+                  name="history"
+                  size={18}
+                  color={BadmintonPalette.accent.primary}
+                />
+                <Text
+                  className="text-sm font-bold ml-2"
+                  style={{ color: BadmintonPalette.accent.primary }}
+                >
+                  Match History ({completedDrafts.length})
+                </Text>
+              </TouchableOpacity>
+            )}
 
             {/* Reset */}
-            {drafts.length > 0 && (
+            {isAdmin && drafts.length > 0 && (
               <TouchableOpacity
                 onPress={handleReset}
                 className="flex-row items-center justify-center p-3 rounded-xl border border-danger/30"
@@ -923,6 +992,9 @@ const activity = () => {
                     matchNumber={roundIndex * courtCount + indexInRound + 1}
                     playerMap={playerMap}
                     courts={courts}
+                    balanceScore={balanceScores.get(draft.id)}
+                    isRepeated={repeatedDraftIds.has(draft.id)}
+                    isAdmin={isAdmin}
                     onEdit={handleEditDraft}
                     onFinish={handleFinishTarget}
                     onDelete={handleDeleteDraft}

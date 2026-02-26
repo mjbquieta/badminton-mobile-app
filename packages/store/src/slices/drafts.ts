@@ -89,12 +89,26 @@ const draftsSlice = createSlice({
 
 		finishDraft: (
 			state,
-			action: PayloadAction<{ id: string; winner: 'A' | 'B' }>
+			action: PayloadAction<{ id: string; winner: 'A' | 'B'; scoreA?: number; scoreB?: number }>
 		) => {
 			const draft = state.items.find((d) => d.id === action.payload.id);
 			if (draft) {
 				draft.finished = true;
 				draft.winner = action.payload.winner;
+				draft.scoreA = action.payload.scoreA;
+				draft.scoreB = action.payload.scoreB;
+			}
+			state.error = null;
+		},
+
+		updateDraftScore: (
+			state,
+			action: PayloadAction<{ id: string; scoreA: number; scoreB: number }>
+		) => {
+			const draft = state.items.find((d) => d.id === action.payload.id);
+			if (draft) {
+				draft.scoreA = action.payload.scoreA;
+				draft.scoreB = action.payload.scoreB;
 			}
 			state.error = null;
 		},
@@ -117,6 +131,7 @@ export const {
 	updateDraftPlayers,
 	updateDraftCourt,
 	finishDraft,
+	updateDraftScore,
 	clearDrafts,
 	clearDraftsError,
 	setDrafts,

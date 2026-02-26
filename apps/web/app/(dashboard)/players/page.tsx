@@ -1,9 +1,17 @@
 "use client";
 
+import dynamic from "next/dynamic";
+import Link from "next/link";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { Modal } from "@/components/Modal";
+import { PlayerAvatar } from "@/components/PlayerAvatar";
 import { PlayerLevelBadge } from "@/components/PlayerLevelBadge";
 import { PlayerLevelSelector } from "@/components/PlayerLevelSelector";
+
+const QRCodeModal = dynamic(
+  () => import("@/components/QRCodeModal").then((mod) => mod.QRCodeModal),
+  { ssr: false },
+);
 import { PlayerTrophyBadge } from "@/components/PlayerTrophyBadge";
 import { useAuth } from "@/contexts/AuthContext";
 import { generatePin, generateSerialId } from "@/utils/confirmation-helpers";
@@ -61,7 +69,7 @@ import {
 import { v4 as uuidv4 } from "uuid";
 
 export default function PlayersPage() {
-  const { user, emailVerified } = useAuth();
+  const { user, emailVerified, isAdmin } = useAuth();
   const dispatch = useAppDispatch();
   const players = useAppSelector((state) => state.players.items);
   const playersError = useAppSelector((state) => state.players.error);
@@ -121,6 +129,7 @@ export default function PlayersPage() {
   const [linkCopied, setLinkCopied] = useState(false);
   const [pinCopied, setPinCopied] = useState(false);
   const [showEditEventModal, setShowEditEventModal] = useState(false);
+  const [showQRCode, setShowQRCode] = useState(false);
 
   // Event details form fields
   const [eventLocation, setEventLocation] = useState("");
@@ -381,6 +390,8 @@ export default function PlayersPage() {
   function handleToggleConfirmation() {
     if (confirmation.meta.enabled) {
       setShowDisableConfirm(true);
+    } else if (players.length === 0) {
+      return;
     } else {
       // Reset form fields
       setEventLocation("");
@@ -528,7 +539,8 @@ export default function PlayersPage() {
           <p className="text-light-300 text-sm mt-1">{players.length} total</p>
         </div>
         <div className="flex items-center gap-2.5 sm:gap-3">
-          {/* Confirmation Toggle */}
+          {/* Confirmation Toggle (admin only) */}
+          {isAdmin && (
           <div className="relative">
             <div
               className="animate-rainbow-spin rounded-xl p-[1.6px]"
@@ -539,7 +551,13 @@ export default function PlayersPage() {
             >
               <button
                 onClick={handleToggleConfirmation}
-                className="flex items-center gap-2.5 bg-secondary rounded-[10px] px-3 py-2 cursor-pointer"
+                disabled={!confirmation.meta.enabled && players.length === 0}
+                className={`flex items-center gap-2.5 bg-secondary rounded-[10px] px-3 py-2 ${
+                  !confirmation.meta.enabled && players.length === 0
+                    ? "opacity-50 cursor-not-allowed"
+                    : "cursor-pointer"
+                }`}
+                title={!confirmation.meta.enabled && players.length === 0 ? "Add players first" : undefined}
               >
                 {/* Toggle switch */}
                 <span
@@ -570,13 +588,17 @@ export default function PlayersPage() {
               </span>
             )}
           </div>
+          )}
+          {isAdmin && (
           <button
             onClick={() => setShowAddModal(true)}
             className="px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm bg-accent text-primary font-semibold hover:bg-accent/80 whitespace-nowrap"
           >
             + Add
           </button>
-          {/* Ellipsis Menu */}
+          )}
+          {/* Ellipsis Menu (admin only) */}
+          {isAdmin && (
           <div className="relative" ref={menuRef}>
             <button
               onClick={() => setShowMenu(!showMenu)}
@@ -631,6 +653,7 @@ export default function PlayersPage() {
               </div>
             )}
           </div>
+          )}
         </div>
       </div>
 
@@ -684,6 +707,21 @@ export default function PlayersPage() {
                 title="Open in new tab"
               >
                 <FiExternalLink size={14} />
+              </button>
+              <button
+                onClick={() => setShowQRCode(true)}
+                className="p-2 rounded-lg border border-dark-100 text-light-300 hover:text-accent hover:border-accent/30 transition-colors"
+                title="Show QR Code"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="2" y="2" width="8" height="8" rx="1" />
+                  <rect x="14" y="2" width="8" height="8" rx="1" />
+                  <rect x="2" y="14" width="8" height="8" rx="1" />
+                  <rect x="14" y="14" width="4" height="4" />
+                  <rect x="20" y="14" width="2" height="2" />
+                  <rect x="14" y="20" width="2" height="2" />
+                  <rect x="20" y="20" width="2" height="2" />
+                </svg>
               </button>
             </div>
             <div className="flex items-center gap-2">
@@ -983,13 +1021,14 @@ export default function PlayersPage() {
                       )}
                     </div>
                   )}
+                  <PlayerAvatar player={player} size="sm" />
                   <PlayerLevelBadge level={player.level} size="md" />
-                  <span className="font-semibold">{player.name}</span>
+                  <Link href={`/players/${player.id}`} className="font-semibold hover:text-accent transition-colors">{player.name}</Link>
                   {confirmation.meta.enabled && pc && (
                     <ConfirmationStatusBadge status={pc.status} />
                   )}
                 </div>
-                {!selecting && (
+                {!selecting && isAdmin && (
                   <div className="flex gap-1">
                     <button
                       onClick={() => dispatch(togglePlayerActive(player.id))}
@@ -1226,6 +1265,20 @@ export default function PlayersPage() {
         confirmLabel="Disable"
         danger
       />
+
+      {/* QR Code Modal */}
+      {confirmation.meta.enabled && (
+        <QRCodeModal
+          open={showQRCode}
+          onClose={() => setShowQRCode(false)}
+          url={
+            typeof window !== "undefined"
+              ? `${window.location.origin}/confirm/${confirmation.meta.serialId}`
+              : `/confirm/${confirmation.meta.serialId}`
+          }
+          pin={confirmation.meta.pin}
+        />
+      )}
 
       {/* Event Details Modal (Enable) */}
       <Modal

@@ -66,7 +66,7 @@ export const PlayersContent = ({
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [showMenu, setShowMenu] = useState(false);
 
-  const { emailVerified } = useAuth();
+  const { emailVerified, isAdmin } = useAuth();
   const dispatch = useAppDispatch();
   const { showToast } = useToast();
   const players = useAppSelector((s: RootState) => s.players.items);
@@ -235,23 +235,25 @@ export const PlayersContent = ({
   return (
     <View className={`flex-1 bg-primary ${contentContainerClassName}`}>
       {/* Add Player Button */}
-      <View className="mb-6">
-        <TouchableOpacity
-          onPress={() => setShowAddModal(true)}
-          className="flex-row items-center justify-center py-3.5 rounded-2xl"
-          style={{ backgroundColor: BadmintonPalette.accent.primary }}
-          accessibilityRole="button"
-          accessibilityLabel="Add player"
-        >
-          <AntDesign name="plus" size={18} color={BadmintonPalette.bg.base} />
-          <Text
-            className="text-base font-bold ml-2"
-            style={{ color: BadmintonPalette.bg.base }}
+      {isAdmin && (
+        <View className="mb-6">
+          <TouchableOpacity
+            onPress={() => setShowAddModal(true)}
+            className="flex-row items-center justify-center py-3.5 rounded-2xl"
+            style={{ backgroundColor: BadmintonPalette.accent.primary }}
+            accessibilityRole="button"
+            accessibilityLabel="Add player"
           >
-            Add Player
-          </Text>
-        </TouchableOpacity>
-      </View>
+            <AntDesign name="plus" size={18} color={BadmintonPalette.bg.base} />
+            <Text
+              className="text-base font-bold ml-2"
+              style={{ color: BadmintonPalette.bg.base }}
+            >
+              Add Player
+            </Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
       {/* Players List */}
       {players.length > 0 && (
@@ -414,6 +416,7 @@ export const PlayersContent = ({
             renderItem={({ item }) =>
               selecting ? (
                 <PlayerCard
+                  player={item}
                   name={item.name}
                   gameCount={item.gameCount}
                   level={item.level}
@@ -431,15 +434,16 @@ export const PlayersContent = ({
                 />
               ) : (
                 <PlayerCard
+                  player={item}
                   name={item.name}
                   gameCount={item.gameCount}
                   level={item.level}
                   status={statusMetaById[item.id]?.status ?? "bench"}
                   courtName={statusMetaById[item.id]?.courtName}
                   inactive={!(item.active ?? true)}
-                  onToggleActive={() => dispatch(togglePlayerActive(item.id))}
-                  onEdit={() => setEditingPlayer(item)}
-                  onDelete={() => {
+                  onToggleActive={isAdmin ? () => dispatch(togglePlayerActive(item.id)) : undefined}
+                  onEdit={isAdmin ? () => setEditingPlayer(item) : undefined}
+                  onDelete={isAdmin ? () => {
                     const meta = statusMetaById[item.id];
                     const status = meta?.status ?? "bench";
 
@@ -463,7 +467,7 @@ export const PlayersContent = ({
                         dispatch(removePlayer(item.id));
                       },
                     });
-                  }}
+                  } : undefined}
                 />
               )
             }
@@ -607,27 +611,29 @@ export const PlayersContent = ({
                 </Text>
               </TouchableOpacity>
             )}
-            <TouchableOpacity
-              onPress={() => {
-                setShowImportModal(true);
-                setShowMenu(false);
-              }}
-              className="flex-row items-center px-4 py-3.5 border-b border-dark-100"
-              accessibilityRole="button"
-            >
-              <AntDesign
-                name="download"
-                size={18}
-                color={BadmintonPalette.text.secondary}
-              />
-              <Text
-                className="text-sm font-semibold ml-3"
-                style={{ color: BadmintonPalette.text.primary }}
+            {isAdmin && (
+              <TouchableOpacity
+                onPress={() => {
+                  setShowImportModal(true);
+                  setShowMenu(false);
+                }}
+                className="flex-row items-center px-4 py-3.5 border-b border-dark-100"
+                accessibilityRole="button"
               >
-                Import
-              </Text>
-            </TouchableOpacity>
-            {players.length > 0 && (
+                <AntDesign
+                  name="download"
+                  size={18}
+                  color={BadmintonPalette.text.secondary}
+                />
+                <Text
+                  className="text-sm font-semibold ml-3"
+                  style={{ color: BadmintonPalette.text.primary }}
+                >
+                  Import
+                </Text>
+              </TouchableOpacity>
+            )}
+            {isAdmin && players.length > 0 && (
               <TouchableOpacity
                 onPress={() => {
                   setShowMenu(false);

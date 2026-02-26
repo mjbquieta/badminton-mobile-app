@@ -1,9 +1,13 @@
 "use client";
 
 import { ConfirmDialog } from "@/components/ConfirmDialog";
+import { ExportScheduleModal } from "@/components/ExportScheduleModal";
 import { ManualSelectModal } from "@/components/ManualSelectModal";
 import { Modal } from "@/components/Modal";
+import { PlayerAvatar } from "@/components/PlayerAvatar";
 import { PlayerLevelBadge } from "@/components/PlayerLevelBadge";
+import { useAuth } from "@/contexts/AuthContext";
+import { computeBalanceScore, generateAutoDrafts } from "@badminton/core";
 import {
   addDraft,
   addDraftsBatch,
@@ -14,6 +18,7 @@ import {
   incrementPlayersTrophies,
   removeDraft,
   resetAllGameCounts,
+  setDrafts,
   updateDraftCourt,
   updateDraftPlayers,
   useAppDispatch,
@@ -21,14 +26,18 @@ import {
 } from "@badminton/store";
 import { PlayerLevel, type Draft, type Player } from "@badminton/types";
 import { playerLevelConfig } from "@badminton/ui-shared";
-import { useMemo, useState } from "react";
+import { useRef, useMemo, useState } from "react";
 import {
   FiAlertCircle,
+  FiAlertTriangle,
   FiCheck,
+  FiCornerUpLeft,
+  FiCornerUpRight,
   FiEdit2,
   FiPlus,
   FiRepeat,
   FiRotateCcw,
+  FiShare2,
   FiTrash2,
   FiX,
   FiZap,
@@ -37,12 +46,12 @@ import { RiDraftLine } from "react-icons/ri";
 import { v4 as uuidv4 } from "uuid";
 
 export default function DraftPage() {
+  const { isAdmin, user } = useAuth();
   const dispatch = useAppDispatch();
   const drafts = useAppSelector((state) => state.drafts.items);
   const draftsError = useAppSelector((state) => state.drafts.error);
   const players = useAppSelector((state) => state.players.items);
   const courts = useAppSelector((state) => state.courts.items);
-
   const [showSelectModal, setShowSelectModal] = useState(false);
   const [editingDraft, setEditingDraft] = useState<Draft | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Draft | null>(null);
@@ -62,6 +71,14 @@ export default function DraftPage() {
   );
   const [finishTarget, setFinishTarget] = useState<Draft | null>(null);
   const [showNoCourts, setShowNoCourts] = useState(false);
+  const [scoreA, setScoreA] = useState("");
+  const [scoreB, setScoreB] = useState("");
+  const [showExportModal, setShowExportModal] = useState(false);
+  // Undo/Redo stacks
+  const undoStack = useRef<Draft[][]>([]);
+  const redoStack = useRef<Draft[][]>([]);
+  const [canUndo, setCanUndo] = useState(false);
+  const [canRedo, setCanRedo] = useState(false);
 
   // Player edit sub-modes (Replace / Exchange)
   const [changeTarget, setChangeTarget] = useState<{
@@ -89,14 +106,43 @@ export default function DraftPage() {
     return activePlayers.filter((p) => confirmedIds.has(p.id));
   }, [players, isConfirmationActive, confirmation.playerConfirmations]);
 
-  const playerMap = useMemo(() => new Map(players.map((p) => [p.id, p])), [players]);
+  const playerMap = useMemo(
+    () => new Map(players.map((p) => [p.id, p])),
+    [players],
+  );
 
   function resolvePlayer(id: string): Player | undefined {
     return playerMap.get(id);
   }
 
+  function pushUndo() {
+    undoStack.current.push([...drafts]);
+    redoStack.current = [];
+    setCanUndo(true);
+    setCanRedo(false);
+  }
+
+  function handleUndo() {
+    if (undoStack.current.length === 0) return;
+    const prev = undoStack.current.pop()!;
+    redoStack.current.push([...drafts]);
+    dispatch(setDrafts(prev));
+    setCanUndo(undoStack.current.length > 0);
+    setCanRedo(true);
+  }
+
+  function handleRedo() {
+    if (redoStack.current.length === 0) return;
+    const next = redoStack.current.pop()!;
+    undoStack.current.push([...drafts]);
+    dispatch(setDrafts(next));
+    setCanUndo(true);
+    setCanRedo(redoStack.current.length > 0);
+  }
+
   function handleCreateDraft(selectedIds: string[]) {
     if (selectedIds.length !== 4) return;
+    pushUndo();
     dispatch(addDraft({ id: uuidv4(), playerIds: selectedIds }));
   }
 
@@ -107,14 +153,27 @@ export default function DraftPage() {
       winner === "A"
         ? finishTarget.playerIds.slice(0, half)
         : finishTarget.playerIds.slice(half);
+    pushUndo();
     dispatch(incrementPlayersGameCount(finishTarget.playerIds));
     dispatch(incrementPlayersTrophies(winnerIds));
-    dispatch(finishDraft({ id: finishTarget.id, winner }));
+    const numA = parseInt(scoreA, 10);
+    const numB = parseInt(scoreB, 10);
+    dispatch(
+      finishDraft({
+        id: finishTarget.id,
+        winner,
+        scoreA: !isNaN(numA) ? numA : undefined,
+        scoreB: !isNaN(numB) ? numB : undefined,
+      }),
+    );
     setFinishTarget(null);
+    setScoreA("");
+    setScoreB("");
   }
 
   function handleDelete() {
     if (!deleteTarget) return;
+    pushUndo();
     dispatch(removeDraft(deleteTarget.id));
     setDeleteTarget(null);
   }
@@ -123,7 +182,12 @@ export default function DraftPage() {
     if (!changeTarget || selectedIds.length !== 1) return;
     const newPlayerIds = [...changeTarget.draft.playerIds];
     newPlayerIds[changeTarget.playerIndex] = selectedIds[0];
-    dispatch(updateDraftPlayers({ id: changeTarget.draft.id, playerIds: newPlayerIds }));
+    dispatch(
+      updateDraftPlayers({
+        id: changeTarget.draft.id,
+        playerIds: newPlayerIds,
+      }),
+    );
     // Update editingDraft to reflect the change in the modal
     if (editingDraft && editingDraft.id === changeTarget.draft.id) {
       setEditingDraft({ ...editingDraft, playerIds: newPlayerIds });
@@ -148,245 +212,29 @@ export default function DraftPage() {
     setExchangeTarget(null);
   }
 
-  // Compute C(n, k)
-  function comb(n: number, k: number): number {
-    if (k > n) return 0;
-    let result = 1;
-    for (let i = 0; i < k; i++) result = (result * (n - i)) / (i + 1);
-    return Math.round(result);
-  }
-
   function handleAutoDraft() {
-    const usedCombos = new Set(
-      drafts.map((d) => [...d.playerIds].sort().join(",")),
+    const playerIds = draftablePlayers.map((p) => p.id);
+    const playerLevels = new Map(
+      draftablePlayers.map((p) => [p.id, p.level]),
     );
+    const courtSpecs = courts.map((c) => ({ id: c.id, isSingle: c.isSingle }));
 
-    // Shuffle array helper (Fisher-Yates)
-    function shuffle<T>(arr: T[]): T[] {
-      for (let i = arr.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [arr[i], arr[j]] = [arr[j], arr[i]];
-      }
-      return arr;
-    }
+    const result = generateAutoDrafts({
+      mode: shuffleMode,
+      draftCount,
+      playerIds,
+      playerLevels,
+      courts: courtSpecs,
+      existingDrafts: drafts,
+      existingDraftCount: drafts.length,
+      selectedLevels:
+        shuffleMode === "skill-match" ? selectedLevels : undefined,
+      idGenerator: uuidv4,
+    });
 
-    // Generate all N-player combos from a pool, shuffled
-    function generateCombos(pool: string[], size: number): string[][] {
-      const combos: string[][] = [];
-      function build(start: number, current: string[]) {
-        if (current.length === size) { combos.push([...current]); return; }
-        for (let i = start; i < pool.length; i++) {
-          current.push(pool[i]);
-          build(i + 1, current);
-          current.pop();
-        }
-      }
-      build(0, []);
-      return shuffle(combos);
-    }
-
-    // Determine combo size based on the court this draft will be assigned to
-    function getComboSize(draftIndex: number): number {
-      if (courts.length === 0) return 4;
-      const courtIndex = (drafts.length + draftIndex) % courts.length;
-      return courts[courtIndex].isSingle ? 2 : 4;
-    }
-
-    // Track players already assigned within the current round/set
-    const roundSize = courts.length > 0 ? courts.length : Infinity;
-    const usedInRound = new Set<string>();
-    const pendingDrafts: { id: string; playerIds: string[]; courtId?: string }[] = [];
-
-    // Queue a draft from a combo (batched dispatch at the end)
-    function commitDraft(combo: string[], draftIndex: number) {
-      shuffle(combo); // shuffle team A/B assignment
-      const key = [...combo].sort().join(",");
-      usedCombos.add(key);
-      const draftId = uuidv4();
-      const courtId = courts.length > 0
-        ? courts[(drafts.length + draftIndex) % courts.length].id
-        : undefined;
-      pendingDrafts.push({ id: draftId, playerIds: combo, courtId });
-    }
-
-    if (shuffleMode === "skill-match") {
-      // --- Skill Match: drafts from selected levels only, mixed freely ---
-      const filteredIds = draftablePlayers
-        .filter((p) => selectedLevels.has(p.level))
-        .map((p) => p.id);
-
-      if (filteredIds.length < 2) {
-        setShowAutoDraftConfirm(false);
-        return;
-      }
-
-      const maxCombos = Math.min(draftCount, comb(filteredIds.length, 2) + comb(filteredIds.length, 4));
-      const counts = new Map(filteredIds.map((id) => [id, 0]));
-
-      for (let i = 0; i < maxCombos; i++) {
-        if (i % roundSize === 0) usedInRound.clear();
-        const comboSize = getComboSize(i);
-
-        // Sort by game count, shuffle within same count tier
-        const sorted = [...filteredIds].sort(
-          (a, b) => counts.get(a)! - counts.get(b)!,
-        );
-        let idx = 0;
-        while (idx < sorted.length) {
-          const count = counts.get(sorted[idx])!;
-          let end = idx;
-          while (end < sorted.length && counts.get(sorted[end])! === count)
-            end++;
-          const tier = sorted.slice(idx, end);
-          shuffle(tier);
-          for (let t = 0; t < tier.length; t++) sorted[idx + t] = tier[t];
-          idx = end;
-        }
-
-        let found = false;
-        for (
-          let poolSize = comboSize;
-          poolSize <= sorted.length && !found;
-          poolSize++
-        ) {
-          const pool = sorted.slice(0, poolSize);
-          const combos = generateCombos(pool, comboSize);
-
-          for (const combo of combos) {
-            if (combo.some((id) => usedInRound.has(id))) continue;
-            const key = [...combo].sort().join(",");
-            if (usedCombos.has(key)) continue;
-
-            for (const id of combo) usedInRound.add(id);
-            commitDraft(combo, i);
-            for (const id of combo) {
-              counts.set(id, counts.get(id)! + 1);
-            }
-            found = true;
-            break;
-          }
-        }
-        // If no unique combo found, allow reuse and retry
-        if (!found) {
-          usedCombos.clear();
-          for (
-            let poolSize = comboSize;
-            poolSize <= sorted.length && !found;
-            poolSize++
-          ) {
-            const pool = sorted.slice(0, poolSize);
-            const combos = generateCombos(pool, comboSize);
-
-            for (const combo of combos) {
-              if (combo.some((id) => usedInRound.has(id))) continue;
-
-              for (const id of combo) usedInRound.add(id);
-              commitDraft(combo, i);
-              for (const id of combo) {
-                counts.set(id, counts.get(id)! + 1);
-              }
-              found = true;
-              break;
-            }
-          }
-        }
-        if (!found) {
-          if (i % roundSize === 0) break;
-          const nextRound = (Math.floor(i / roundSize) + 1) * roundSize;
-          i = nextRound - 1;
-        }
-      }
-    } else {
-      // --- Balanced & Random modes ---
-      const ids = draftablePlayers.map((p) => p.id);
-      if (ids.length < 2) return;
-
-      const maxCombos = Math.min(draftCount, comb(ids.length, 2) + comb(ids.length, 4));
-      const counts = new Map(ids.map((id) => [id, 0]));
-
-      for (let i = 0; i < maxCombos; i++) {
-        if (i % roundSize === 0) usedInRound.clear();
-        const comboSize = getComboSize(i);
-
-        // Build player order based on mode
-        let sorted: string[];
-        if (shuffleMode === "random") {
-          sorted = shuffle([...ids]);
-        } else {
-          // "balanced" — sort by game count, shuffle within same count tier
-          sorted = [...ids].sort(
-            (a, b) => counts.get(a)! - counts.get(b)!,
-          );
-          let idx = 0;
-          while (idx < sorted.length) {
-            const count = counts.get(sorted[idx])!;
-            let end = idx;
-            while (end < sorted.length && counts.get(sorted[end])! === count)
-              end++;
-            const tier = sorted.slice(idx, end);
-            shuffle(tier);
-            for (let t = 0; t < tier.length; t++) sorted[idx + t] = tier[t];
-            idx = end;
-          }
-        }
-
-        let found = false;
-        for (
-          let poolSize = comboSize;
-          poolSize <= sorted.length && !found;
-          poolSize++
-        ) {
-          const pool = sorted.slice(0, poolSize);
-          const combos = generateCombos(pool, comboSize);
-
-          for (const combo of combos) {
-            if (combo.some((id) => usedInRound.has(id))) continue;
-            const key = [...combo].sort().join(",");
-            if (usedCombos.has(key)) continue;
-
-            for (const id of combo) usedInRound.add(id);
-            commitDraft(combo, i);
-            for (const id of combo) {
-              counts.set(id, counts.get(id)! + 1);
-            }
-            found = true;
-            break;
-          }
-        }
-        // If no unique combo found, allow reuse and retry
-        if (!found) {
-          usedCombos.clear();
-          for (
-            let poolSize = comboSize;
-            poolSize <= sorted.length && !found;
-            poolSize++
-          ) {
-            const pool = sorted.slice(0, poolSize);
-            const combos = generateCombos(pool, comboSize);
-
-            for (const combo of combos) {
-              if (combo.some((id) => usedInRound.has(id))) continue;
-
-              for (const id of combo) usedInRound.add(id);
-              commitDraft(combo, i);
-              for (const id of combo) {
-                counts.set(id, counts.get(id)! + 1);
-              }
-              found = true;
-              break;
-            }
-          }
-        }
-        if (!found) {
-          if (i % roundSize === 0) break;
-          const nextRound = (Math.floor(i / roundSize) + 1) * roundSize;
-          i = nextRound - 1;
-        }
-      }
-    }
-
-    if (pendingDrafts.length > 0) {
-      dispatch(addDraftsBatch(pendingDrafts));
+    if (result.drafts.length > 0) {
+      pushUndo();
+      dispatch(addDraftsBatch(result.drafts));
     }
     setShowAutoDraftConfirm(false);
   }
@@ -401,6 +249,16 @@ export default function DraftPage() {
     return r;
   }, [drafts, courtCount]);
 
+  // Track matchup frequency for repetition warnings
+  const comboFrequency = useMemo(() => {
+    const freq = new Map<string, number>();
+    for (const d of drafts) {
+      const key = [...d.playerIds].sort().join(",");
+      freq.set(key, (freq.get(key) ?? 0) + 1);
+    }
+    return freq;
+  }, [drafts]);
+
   return (
     <div className="p-4 sm:p-6 md:p-8 pb-24 md:pb-8 max-w-5xl">
       {/* Header */}
@@ -412,12 +270,44 @@ export default function DraftPage() {
           <div>
             <h1 className="text-2xl sm:text-3xl font-bold">Draft</h1>
             {drafts.length > 0 && (
-              <span className="text-sm text-light-300 mt-0.5">{drafts.length} matches</span>
+              <span className="text-sm text-light-300 mt-0.5">
+                {drafts.length} matches
+              </span>
             )}
           </div>
         </div>
         <div className="flex flex-wrap gap-2 sm:gap-3 justify-end">
-          {(drafts.length > 0 || players.length > 0) && (
+          {canUndo && (
+            <button
+              onClick={handleUndo}
+              className="flex items-center gap-1.5 p-2 sm:px-4 sm:py-2 rounded-xl text-xs sm:text-sm text-light-300 border border-dark-100 hover:bg-dark-200 transition-colors"
+              title="Undo"
+            >
+              <FiCornerUpLeft size={14} />
+              <span className="hidden sm:inline">Undo</span>
+            </button>
+          )}
+          {canRedo && (
+            <button
+              onClick={handleRedo}
+              className="flex items-center gap-1.5 p-2 sm:px-4 sm:py-2 rounded-xl text-xs sm:text-sm text-light-300 border border-dark-100 hover:bg-dark-200 transition-colors"
+              title="Redo"
+            >
+              <FiCornerUpRight size={14} />
+              <span className="hidden sm:inline">Redo</span>
+            </button>
+          )}
+          {drafts.length > 0 && (
+            <button
+              onClick={() => setShowExportModal(true)}
+              className="flex items-center gap-1.5 p-2 sm:px-4 sm:py-2 rounded-xl text-xs sm:text-sm text-light-300 border border-dark-100 hover:bg-dark-200 transition-colors"
+              title="Export"
+            >
+              <FiShare2 size={14} />
+              <span className="hidden sm:inline">Export</span>
+            </button>
+          )}
+          {isAdmin && (drafts.length > 0 || players.length > 0) && (
             <button
               onClick={() => setShowResetConfirm(true)}
               className="flex items-center gap-1.5 p-2 sm:px-4 sm:py-2 rounded-xl text-xs sm:text-sm text-danger border border-danger/30 hover:bg-danger/10 transition-colors"
@@ -427,8 +317,13 @@ export default function DraftPage() {
               <span className="hidden sm:inline">Reset</span>
             </button>
           )}
+          {isAdmin && (
           <button
-            onClick={() => courts.length === 0 ? setShowNoCourts(true) : setShowAutoDraftConfirm(true)}
+            onClick={() =>
+              courts.length === 0
+                ? setShowNoCourts(true)
+                : setShowAutoDraftConfirm(true)
+            }
             disabled={draftablePlayers.length < 4}
             className="flex items-center gap-1.5 p-2 sm:px-4 sm:py-2 rounded-xl text-xs sm:text-sm bg-accent/20 text-accent font-semibold hover:bg-accent/30 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             title="Auto Draft"
@@ -436,8 +331,14 @@ export default function DraftPage() {
             <FiZap size={14} />
             <span className="hidden sm:inline">Auto Draft</span>
           </button>
+          )}
+          {isAdmin && (
           <button
-            onClick={() => courts.length === 0 ? setShowNoCourts(true) : setShowSelectModal(true)}
+            onClick={() =>
+              courts.length === 0
+                ? setShowNoCourts(true)
+                : setShowSelectModal(true)
+            }
             disabled={draftablePlayers.length < 4}
             className="flex items-center gap-1.5 p-2 sm:px-4 sm:py-2 rounded-xl text-xs sm:text-sm bg-accent text-primary font-semibold hover:bg-accent/80 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             title="New Draft"
@@ -445,6 +346,7 @@ export default function DraftPage() {
             <FiPlus size={14} />
             <span className="hidden sm:inline">New Draft</span>
           </button>
+          )}
         </div>
       </div>
 
@@ -467,7 +369,9 @@ export default function DraftPage() {
         <div className="bg-success/10 border border-success/30 text-success rounded-xl px-4 py-3 mb-4 flex items-center gap-3">
           <FiCheck size={16} className="shrink-0" />
           <span className="text-sm">
-            RSVP active — {draftablePlayers.length} confirmed {draftablePlayers.length === 1 ? "player" : "players"} available for drafting
+            RSVP active — {draftablePlayers.length} confirmed{" "}
+            {draftablePlayers.length === 1 ? "player" : "players"} available for
+            drafting
           </span>
         </div>
       )}
@@ -498,12 +402,32 @@ export default function DraftPage() {
               {round.map((draft, indexInRound) => {
                 const matchNumber = roundIndex * courtCount + indexInRound + 1;
                 const half = Math.ceil(draft.playerIds.length / 2);
-                const teamA = draft.playerIds.slice(0, half)
+                const teamA = draft.playerIds
+                  .slice(0, half)
                   .map(resolvePlayer)
                   .filter((p): p is Player => p !== undefined);
-                const teamB = draft.playerIds.slice(half)
+                const teamB = draft.playerIds
+                  .slice(half)
                   .map(resolvePlayer)
                   .filter((p): p is Player => p !== undefined);
+
+                // Balance score for non-finished drafts
+                const balanceScore =
+                  !draft.finished && teamA.length > 0 && teamB.length > 0
+                    ? computeBalanceScore(teamA, teamB)
+                    : null;
+                const balanceColor =
+                  balanceScore !== null
+                    ? balanceScore >= 80
+                      ? "text-green-400 bg-green-400/10"
+                      : balanceScore >= 50
+                        ? "text-yellow-400 bg-yellow-400/10"
+                        : "text-red-400 bg-red-400/10"
+                    : "";
+
+                // Matchup repetition detection
+                const comboKey = [...draft.playerIds].sort().join(",");
+                const isRepeated = (comboFrequency.get(comboKey) ?? 0) > 1;
 
                 const courtSelect = (
                   <select
@@ -536,6 +460,7 @@ export default function DraftPage() {
                       </span>
                     ) : (
                       <>
+                        {isAdmin && (
                         <button
                           onClick={() => setFinishTarget(draft)}
                           className="p-1.5 rounded-lg text-light-300 hover:text-green-400 hover:bg-green-400/10 transition-colors"
@@ -543,6 +468,8 @@ export default function DraftPage() {
                         >
                           <FiCheck size={14} />
                         </button>
+                        )}
+                        {isAdmin && (
                         <button
                           onClick={() => setEditingDraft(draft)}
                           className="p-1.5 rounded-lg text-light-300 hover:text-accent hover:bg-accent/10 transition-colors"
@@ -550,6 +477,8 @@ export default function DraftPage() {
                         >
                           <FiEdit2 size={14} />
                         </button>
+                        )}
+                        {isAdmin && (
                         <button
                           onClick={() => setDeleteTarget(draft)}
                           className="p-1.5 rounded-lg text-light-300 hover:text-danger hover:bg-danger/10 transition-colors"
@@ -557,6 +486,7 @@ export default function DraftPage() {
                         >
                           <FiTrash2 size={14} />
                         </button>
+                        )}
                       </>
                     )}
                   </div>
@@ -567,30 +497,57 @@ export default function DraftPage() {
                     <div className="flex-1 flex flex-col flex-wrap-reverse items-start gap-1">
                       {teamA.map((p) => (
                         <div key={p.id} className="flex items-center gap-1.5">
+                          <PlayerAvatar player={p} size="sm" />
                           <PlayerLevelBadge level={p.level} />
-                          <span className={`text-sm truncate ${draft.finished && draft.winner === "A" ? "text-accent font-semibold" : "text-light-100"}`}>
+                          <span
+                            className={`text-sm truncate ${draft.finished && draft.winner === "A" ? "text-accent font-semibold" : "text-light-100"}`}
+                          >
                             {p.name}
                           </span>
                         </div>
                       ))}
                       {teamA.length === 0 && (
-                        <span className="text-xs text-danger/70 italic">Missing</span>
+                        <span className="text-xs text-danger/70 italic">
+                          Missing
+                        </span>
                       )}
                     </div>
-                    <span className="text-[10px] sm:text-xs font-bold text-red-500 uppercase shrink-0">
-                      vs
-                    </span>
+                    <div className="flex flex-col items-center gap-0.5 shrink-0">
+                      {draft.finished &&
+                      draft.scoreA != null &&
+                      draft.scoreB != null ? (
+                        <span className="text-xs font-bold text-light-100 tabular-nums">
+                          {draft.scoreA} - {draft.scoreB}
+                        </span>
+                      ) : (
+                        <span className="text-[10px] sm:text-xs font-bold text-red-500 uppercase">
+                          vs
+                        </span>
+                      )}
+                      {balanceScore !== null && (
+                        <span
+                          className={`text-[9px] font-semibold px-1.5 py-0.5 rounded-full ${balanceColor}`}
+                        >
+                          {balanceScore}%
+                        </span>
+                      )}
+                    </div>
                     <div className="flex-1 flex flex-col items-start gap-1">
                       {teamB.map((p) => (
                         <div key={p.id} className="flex items-center gap-1.5">
+                          <PlayerAvatar player={p} size="sm" />
                           <PlayerLevelBadge level={p.level} />
-                          <span className={`text-sm truncate ${draft.finished && draft.winner === "B" ? "text-accent font-semibold" : "text-light-100"}`}>
+                          <span
+                            className={`text-sm truncate ${draft.finished && draft.winner === "B" ? "text-accent font-semibold" : "text-light-100"}`}
+                          >
                             {p.name}
                           </span>
                         </div>
                       ))}
                       {teamB.length === 0 && (
-                        <span className="text-xs text-danger/70 italic">Missing</span>
+                        <span className="text-xs text-danger/70 italic">
+                          Missing
+                        </span>
                       )}
                     </div>
                   </div>
@@ -599,12 +556,19 @@ export default function DraftPage() {
                 return (
                   <div
                     key={draft.id}
-                    className={`border-b border-dark-100 last:border-b-0 transition-colors group ${draft.finished ? "opacity-40" : "hover:bg-dark-200/30"}`}
+                    className={`border-b border-dark-100 last:border-b-0 transition-colors group ${isRepeated && !draft.finished ? "border-l-2 border-l-orange-400" : ""} ${draft.finished ? "opacity-40" : "hover:bg-dark-200/30"}`}
                   >
                     {/* Mobile Card Layout */}
                     <div className="sm:hidden p-3 space-y-2">
                       <div className="flex items-center justify-between gap-2">
                         <div className="flex items-center gap-2">
+                          {isRepeated && !draft.finished && (
+                            <FiAlertTriangle
+                              size={12}
+                              className="text-orange-400 shrink-0"
+                              title="Repeated matchup"
+                            />
+                          )}
                           <span className="text-sm font-bold text-accent/80 shrink-0">
                             #{matchNumber}
                           </span>
@@ -617,7 +581,14 @@ export default function DraftPage() {
 
                     {/* Desktop Grid Layout */}
                     <div className="hidden sm:grid grid-cols-[60px_110px_1fr_116px] items-center px-4 py-3">
-                      <span className="text-sm font-bold text-accent/80">
+                      <span className="text-sm font-bold text-accent/80 flex items-center gap-1">
+                        {isRepeated && !draft.finished && (
+                          <FiAlertTriangle
+                            size={12}
+                            className="text-orange-400"
+                            title="Repeated matchup"
+                          />
+                        )}
                         {matchNumber}
                       </span>
                       <div className="max-w-[100px]">{courtSelect}</div>
@@ -655,116 +626,173 @@ export default function DraftPage() {
       />
 
       {/* Edit Draft Modal */}
-      {editingDraft && (() => {
-        const half = Math.ceil(editingDraft.playerIds.length / 2);
-        const eTeamA = editingDraft.playerIds.slice(0, half)
-          .map((id, i) => ({ id, index: i, player: resolvePlayer(id) }))
-          .filter((o): o is { id: string; index: number; player: Player } => !!o.player);
-        const eTeamB = editingDraft.playerIds.slice(half)
-          .map((id, i) => ({ id, index: half + i, player: resolvePlayer(id) }))
-          .filter((o): o is { id: string; index: number; player: Player } => !!o.player);
+      {editingDraft &&
+        (() => {
+          const half = Math.ceil(editingDraft.playerIds.length / 2);
+          const eTeamA = editingDraft.playerIds
+            .slice(0, half)
+            .map((id, i) => ({ id, index: i, player: resolvePlayer(id) }))
+            .filter(
+              (o): o is { id: string; index: number; player: Player } =>
+                !!o.player,
+            );
+          const eTeamB = editingDraft.playerIds
+            .slice(half)
+            .map((id, i) => ({
+              id,
+              index: half + i,
+              player: resolvePlayer(id),
+            }))
+            .filter(
+              (o): o is { id: string; index: number; player: Player } =>
+                !!o.player,
+            );
 
-        return (
-          <Modal
-            open={!changeTarget}
-            onClose={() => setEditingDraft(null)}
-            title={`Edit - ${editingDraft.name}`}
-          >
-            <div className="space-y-4">
-              {/* Team A */}
-              <div>
-                <p className="text-xs font-semibold text-light-300 uppercase tracking-wide mb-2">Team A</p>
-                <div className="space-y-2">
-                  {eTeamA.map(({ id, index, player: p }) => (
-                    <div key={id} className="flex items-center gap-2 p-2 rounded-xl bg-dark-200 border border-dark-100">
-                      <PlayerLevelBadge level={p.level} />
-                      <span className="flex-1 text-sm text-light-100 truncate">{p.name}</span>
-                      <button
-                        onClick={() => setChangeTarget({ draft: editingDraft, playerIndex: index })}
-                        className="px-2 py-1 rounded-lg text-[10px] font-bold text-info hover:bg-info/10 transition-colors shrink-0"
-                        title="Replace player"
+          return (
+            <Modal
+              open={!changeTarget}
+              onClose={() => setEditingDraft(null)}
+              title={`Edit - ${editingDraft.name}`}
+            >
+              <div className="space-y-4">
+                {/* Team A */}
+                <div>
+                  <p className="text-xs font-semibold text-light-300 uppercase tracking-wide mb-2">
+                    Team A
+                  </p>
+                  <div className="space-y-2">
+                    {eTeamA.map(({ id, index, player: p }) => (
+                      <div
+                        key={id}
+                        className="flex items-center gap-2 p-2 rounded-xl bg-dark-200 border border-dark-100"
                       >
-                        Replace
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-              {/* Team B */}
-              <div>
-                <p className="text-xs font-semibold text-light-300 uppercase tracking-wide mb-2">Team B</p>
-                <div className="space-y-2">
-                  {eTeamB.map(({ id, index, player: p }) => (
-                    <div key={id} className="flex items-center gap-2 p-2 rounded-xl bg-dark-200 border border-dark-100">
-                      <PlayerLevelBadge level={p.level} />
-                      <span className="flex-1 text-sm text-light-100 truncate">{p.name}</span>
-                      <button
-                        onClick={() => setChangeTarget({ draft: editingDraft, playerIndex: index })}
-                        className="px-2 py-1 rounded-lg text-[10px] font-bold text-info hover:bg-info/10 transition-colors shrink-0"
-                        title="Replace player"
-                      >
-                        Replace
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Exchange Section */}
-              <div className="border-t border-dark-100 pt-4">
-                <p className="text-xs font-semibold text-light-300 uppercase tracking-wide mb-2">Exchange Players</p>
-                {editingDraft.playerIds.length === 2 ? (
-                  <button
-                    onClick={() => {
-                      const newIds = [...editingDraft.playerIds].reverse();
-                      dispatch(updateDraftPlayers({ id: editingDraft.id, playerIds: newIds }));
-                      setEditingDraft({ ...editingDraft, playerIds: newIds });
-                    }}
-                    className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-dark-200 border border-dark-100 hover:border-accent/30 transition-colors text-sm text-light-100"
-                  >
-                    <span>{eTeamA[0]?.player.name}</span>
-                    <FiRepeat size={14} className="text-accent shrink-0" />
-                    <span>{eTeamB[0]?.player.name}</span>
-                  </button>
-                ) : (
-                  <div className="space-y-1.5">
-                    {eTeamA.map((a, i) => {
-                      const b = eTeamB[i];
-                      if (!b) return null;
-                      return (
+                        <PlayerLevelBadge level={p.level} />
+                        <span className="flex-1 text-sm text-light-100 truncate">
+                          {p.name}
+                        </span>
                         <button
-                          key={`${a.id}-${b.id}`}
-                          onClick={() => setExchangeTarget({ draft: editingDraft, playerIdA: a.id, playerIdB: b.id })}
-                          className="w-full flex items-center justify-between gap-2 px-3 py-2 rounded-xl bg-dark-200 border border-dark-100 hover:border-accent/30 transition-colors text-sm"
+                          onClick={() =>
+                            setChangeTarget({
+                              draft: editingDraft,
+                              playerIndex: index,
+                            })
+                          }
+                          className="px-2 py-1 rounded-lg text-[10px] font-bold text-info hover:bg-info/10 transition-colors shrink-0"
+                          title="Replace player"
                         >
-                          <div className="flex items-center gap-1.5 flex-1 min-w-0">
-                            <PlayerLevelBadge level={a.player.level} />
-                            <span className="text-light-100 truncate">{a.player.name}</span>
-                          </div>
-                          <FiRepeat size={14} className="text-light-300 shrink-0" />
-                          <div className="flex items-center gap-1.5 flex-1 min-w-0 justify-end">
-                            <span className="text-light-100 truncate">{b.player.name}</span>
-                            <PlayerLevelBadge level={b.player.level} />
-                          </div>
+                          Replace
                         </button>
-                      );
-                    })}
+                      </div>
+                    ))}
                   </div>
-                )}
-              </div>
+                </div>
+                {/* Team B */}
+                <div>
+                  <p className="text-xs font-semibold text-light-300 uppercase tracking-wide mb-2">
+                    Team B
+                  </p>
+                  <div className="space-y-2">
+                    {eTeamB.map(({ id, index, player: p }) => (
+                      <div
+                        key={id}
+                        className="flex items-center gap-2 p-2 rounded-xl bg-dark-200 border border-dark-100"
+                      >
+                        <PlayerLevelBadge level={p.level} />
+                        <span className="flex-1 text-sm text-light-100 truncate">
+                          {p.name}
+                        </span>
+                        <button
+                          onClick={() =>
+                            setChangeTarget({
+                              draft: editingDraft,
+                              playerIndex: index,
+                            })
+                          }
+                          className="px-2 py-1 rounded-lg text-[10px] font-bold text-info hover:bg-info/10 transition-colors shrink-0"
+                          title="Replace player"
+                        >
+                          Replace
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
 
-              <div className="flex justify-end pt-1">
-                <button
-                  onClick={() => setEditingDraft(null)}
-                  className="px-4 py-2 rounded-xl text-sm text-light-300 hover:text-light-100 hover:bg-dark-200 transition-colors"
-                >
-                  Close
-                </button>
+                {/* Exchange Section */}
+                <div className="border-t border-dark-100 pt-4">
+                  <p className="text-xs font-semibold text-light-300 uppercase tracking-wide mb-2">
+                    Exchange Players
+                  </p>
+                  {editingDraft.playerIds.length === 2 ? (
+                    <button
+                      onClick={() => {
+                        const newIds = [...editingDraft.playerIds].reverse();
+                        dispatch(
+                          updateDraftPlayers({
+                            id: editingDraft.id,
+                            playerIds: newIds,
+                          }),
+                        );
+                        setEditingDraft({ ...editingDraft, playerIds: newIds });
+                      }}
+                      className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-dark-200 border border-dark-100 hover:border-accent/30 transition-colors text-sm text-light-100"
+                    >
+                      <span>{eTeamA[0]?.player.name}</span>
+                      <FiRepeat size={14} className="text-accent shrink-0" />
+                      <span>{eTeamB[0]?.player.name}</span>
+                    </button>
+                  ) : (
+                    <div className="space-y-1.5">
+                      {eTeamA.map((a, i) => {
+                        const b = eTeamB[i];
+                        if (!b) return null;
+                        return (
+                          <button
+                            key={`${a.id}-${b.id}`}
+                            onClick={() =>
+                              setExchangeTarget({
+                                draft: editingDraft,
+                                playerIdA: a.id,
+                                playerIdB: b.id,
+                              })
+                            }
+                            className="w-full flex items-center justify-between gap-2 px-3 py-2 rounded-xl bg-dark-200 border border-dark-100 hover:border-accent/30 transition-colors text-sm"
+                          >
+                            <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                              <PlayerLevelBadge level={a.player.level} />
+                              <span className="text-light-100 truncate">
+                                {a.player.name}
+                              </span>
+                            </div>
+                            <FiRepeat
+                              size={14}
+                              className="text-light-300 shrink-0"
+                            />
+                            <div className="flex items-center gap-1.5 flex-1 min-w-0 justify-end">
+                              <span className="text-light-100 truncate">
+                                {b.player.name}
+                              </span>
+                              <PlayerLevelBadge level={b.player.level} />
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex justify-end pt-1">
+                  <button
+                    onClick={() => setEditingDraft(null)}
+                    className="px-4 py-2 rounded-xl text-sm text-light-300 hover:text-light-100 hover:bg-dark-200 transition-colors"
+                  >
+                    Close
+                  </button>
+                </div>
               </div>
-            </div>
-          </Modal>
-        );
-      })()}
+            </Modal>
+          );
+        })()}
 
       {/* Delete Confirm */}
       <ConfirmDialog
@@ -843,7 +871,9 @@ export default function DraftPage() {
               }
               className="w-full bg-dark-200 border border-dark-100 rounded-lg px-3 py-2 text-sm text-light-100 outline-none focus:border-accent/50 transition-colors cursor-pointer"
             >
-              <option value="balanced">Balanced — Equal game distribution</option>
+              <option value="balanced">
+                Balanced — Equal game distribution
+              </option>
               <option value="random">Random — Fully randomized</option>
               <option value="skill-match">
                 Skill Match — Same skill levels first
@@ -920,52 +950,119 @@ export default function DraftPage() {
       {/* Winner Selection Modal */}
       <Modal
         open={!!finishTarget}
-        onClose={() => setFinishTarget(null)}
-        title="Select Winner"
+        onClose={() => {
+          setFinishTarget(null);
+          setScoreA("");
+          setScoreB("");
+        }}
+        title="Finish Match"
       >
         {finishTarget &&
           (() => {
             const half = Math.ceil(finishTarget.playerIds.length / 2);
-            const tA = finishTarget.playerIds.slice(0, half)
+            const tA = finishTarget.playerIds
+              .slice(0, half)
               .map(resolvePlayer)
               .filter((p): p is Player => !!p);
-            const tB = finishTarget.playerIds.slice(half)
+            const tB = finishTarget.playerIds
+              .slice(half)
               .map(resolvePlayer)
               .filter((p): p is Player => !!p);
+            const numA = parseInt(scoreA, 10);
+            const numB = parseInt(scoreB, 10);
+            const autoWinner =
+              !isNaN(numA) && !isNaN(numB) && numA !== numB
+                ? numA > numB
+                  ? "A"
+                  : "B"
+                : null;
             return (
               <div className="space-y-4">
-                <p className="text-sm text-light-300">
-                  Which team won this match?
-                </p>
-                <div className="grid grid-cols-2 gap-3">
-                  <button
-                    onClick={() => handleFinish("A")}
-                    className="flex flex-col items-center gap-2 p-4 rounded-xl border border-dark-100 hover:border-accent hover:bg-accent/10 transition-colors group"
-                  >
-                    <span className="text-xs font-semibold text-light-300 uppercase tracking-wide group-hover:text-accent">
-                      Team A
+                {/* Score Inputs */}
+                <div>
+                  <label className="block text-xs font-semibold text-light-300 uppercase tracking-wide mb-2">
+                    Score (optional)
+                  </label>
+                  <div className="flex items-center gap-3">
+                    <div className="flex-1">
+                      <p className="text-[10px] text-light-300/60 mb-1 text-center">
+                        Team A
+                      </p>
+                      <input
+                        type="number"
+                        min={0}
+                        value={scoreA}
+                        onChange={(e) => setScoreA(e.target.value)}
+                        placeholder="—"
+                        className="w-full bg-dark-200 border border-dark-100 rounded-lg px-3 py-2 text-sm text-light-100 text-center outline-none focus:border-accent/50 transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                      />
+                    </div>
+                    <span className="text-xs font-bold text-light-300 pt-4">
+                      —
                     </span>
-                    {tA.map((p) => (
-                      <div key={p.id} className="flex items-center gap-1.5">
-                        <PlayerLevelBadge level={p.level} />
-                        <span className="text-sm text-light-100">{p.name}</span>
-                      </div>
-                    ))}
-                  </button>
-                  <button
-                    onClick={() => handleFinish("B")}
-                    className="flex flex-col items-center gap-2 p-4 rounded-xl border border-dark-100 hover:border-accent hover:bg-accent/10 transition-colors group"
-                  >
-                    <span className="text-xs font-semibold text-light-300 uppercase tracking-wide group-hover:text-accent">
-                      Team B
-                    </span>
-                    {tB.map((p) => (
-                      <div key={p.id} className="flex items-center gap-1.5">
-                        <PlayerLevelBadge level={p.level} />
-                        <span className="text-sm text-light-100">{p.name}</span>
-                      </div>
-                    ))}
-                  </button>
+                    <div className="flex-1">
+                      <p className="text-[10px] text-light-300/60 mb-1 text-center">
+                        Team B
+                      </p>
+                      <input
+                        type="number"
+                        min={0}
+                        value={scoreB}
+                        onChange={(e) => setScoreB(e.target.value)}
+                        placeholder="—"
+                        className="w-full bg-dark-200 border border-dark-100 rounded-lg px-3 py-2 text-sm text-light-100 text-center outline-none focus:border-accent/50 transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Winner Selection */}
+                <div>
+                  <p className="text-xs font-semibold text-light-300 uppercase tracking-wide mb-2">
+                    {autoWinner
+                      ? `Winner: Team ${autoWinner} (from score)`
+                      : "Select Winner"}
+                  </p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      onClick={() => handleFinish(autoWinner ?? "A")}
+                      className={`flex flex-col items-center gap-2 p-4 rounded-xl border transition-colors group ${autoWinner === "A" ? "border-accent bg-accent/10" : "border-dark-100 hover:border-accent hover:bg-accent/10"}`}
+                    >
+                      <span className="text-xs font-semibold text-light-300 uppercase tracking-wide group-hover:text-accent">
+                        Team A {autoWinner === "A" ? "✓" : ""}
+                      </span>
+                      {tA.map((p) => (
+                        <div
+                          key={p.id}
+                          className="flex items-center gap-1.5"
+                        >
+                          <PlayerLevelBadge level={p.level} />
+                          <span className="text-sm text-light-100">
+                            {p.name}
+                          </span>
+                        </div>
+                      ))}
+                    </button>
+                    <button
+                      onClick={() => handleFinish(autoWinner ?? "B")}
+                      className={`flex flex-col items-center gap-2 p-4 rounded-xl border transition-colors group ${autoWinner === "B" ? "border-accent bg-accent/10" : "border-dark-100 hover:border-accent hover:bg-accent/10"}`}
+                    >
+                      <span className="text-xs font-semibold text-light-300 uppercase tracking-wide group-hover:text-accent">
+                        Team B {autoWinner === "B" ? "✓" : ""}
+                      </span>
+                      {tB.map((p) => (
+                        <div
+                          key={p.id}
+                          className="flex items-center gap-1.5"
+                        >
+                          <PlayerLevelBadge level={p.level} />
+                          <span className="text-sm text-light-100">
+                            {p.name}
+                          </span>
+                        </div>
+                      ))}
+                    </button>
+                  </div>
                 </div>
               </div>
             );
@@ -978,59 +1075,62 @@ export default function DraftPage() {
           open={!!changeTarget}
           onClose={() => setChangeTarget(null)}
           title="Select Replacement Player"
-          players={players.filter((p) => !changeTarget.draft.playerIds.includes(p.id))}
+          players={players.filter(
+            (p) => !changeTarget.draft.playerIds.includes(p.id),
+          )}
           maxSelect={1}
           onConfirm={handleChangePlayer}
         />
       )}
 
       {/* Exchange Confirm */}
-      {exchangeTarget && (() => {
-        const pA = resolvePlayer(exchangeTarget.playerIdA);
-        const pB = resolvePlayer(exchangeTarget.playerIdB);
-        return (
-          <Modal
-            open={!!exchangeTarget}
-            onClose={() => setExchangeTarget(null)}
-            title="Confirm Exchange"
-          >
-            <div className="space-y-4">
-              <p className="text-sm text-light-300">
-                Swap these players between teams?
-              </p>
-              <div className="flex items-center justify-center gap-3 py-2">
-                {pA && (
-                  <div className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-dark-200 border border-dark-100">
-                    <PlayerLevelBadge level={pA.level} />
-                    <span className="text-sm text-light-100">{pA.name}</span>
-                  </div>
-                )}
-                <FiRepeat size={16} className="text-accent shrink-0" />
-                {pB && (
-                  <div className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-dark-200 border border-dark-100">
-                    <PlayerLevelBadge level={pB.level} />
-                    <span className="text-sm text-light-100">{pB.name}</span>
-                  </div>
-                )}
+      {exchangeTarget &&
+        (() => {
+          const pA = resolvePlayer(exchangeTarget.playerIdA);
+          const pB = resolvePlayer(exchangeTarget.playerIdB);
+          return (
+            <Modal
+              open={!!exchangeTarget}
+              onClose={() => setExchangeTarget(null)}
+              title="Confirm Exchange"
+            >
+              <div className="space-y-4">
+                <p className="text-sm text-light-300">
+                  Swap these players between teams?
+                </p>
+                <div className="flex items-center justify-center gap-3 py-2">
+                  {pA && (
+                    <div className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-dark-200 border border-dark-100">
+                      <PlayerLevelBadge level={pA.level} />
+                      <span className="text-sm text-light-100">{pA.name}</span>
+                    </div>
+                  )}
+                  <FiRepeat size={16} className="text-accent shrink-0" />
+                  {pB && (
+                    <div className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-dark-200 border border-dark-100">
+                      <PlayerLevelBadge level={pB.level} />
+                      <span className="text-sm text-light-100">{pB.name}</span>
+                    </div>
+                  )}
+                </div>
+                <div className="flex justify-end gap-2">
+                  <button
+                    onClick={() => setExchangeTarget(null)}
+                    className="px-4 py-2 rounded-xl text-sm text-light-300 hover:text-light-100 hover:bg-dark-200 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleExchangePlayer}
+                    className="px-4 py-2 rounded-xl text-sm bg-accent text-primary font-semibold hover:bg-accent/80 transition-colors"
+                  >
+                    Exchange
+                  </button>
+                </div>
               </div>
-              <div className="flex justify-end gap-2">
-                <button
-                  onClick={() => setExchangeTarget(null)}
-                  className="px-4 py-2 rounded-xl text-sm text-light-300 hover:text-light-100 hover:bg-dark-200 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleExchangePlayer}
-                  className="px-4 py-2 rounded-xl text-sm bg-accent text-primary font-semibold hover:bg-accent/80 transition-colors"
-                >
-                  Exchange
-                </button>
-              </div>
-            </div>
-          </Modal>
-        );
-      })()}
+            </Modal>
+          );
+        })()}
 
       {/* No Courts Prompt */}
       <Modal
@@ -1053,6 +1153,17 @@ export default function DraftPage() {
           </div>
         </div>
       </Modal>
+
+      {/* Export Schedule Modal */}
+      <ExportScheduleModal
+        open={showExportModal}
+        onClose={() => setShowExportModal(false)}
+        drafts={drafts}
+        courts={courts}
+        resolvePlayer={resolvePlayer}
+        courtCount={courtCount}
+      />
+
     </div>
   );
 }

@@ -9,57 +9,57 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        // Backgrounds - dark mode optimized
-        primary: "#0A0A0A",    // Deep black (screen background)
-        secondary: "#141414",  // Surface (cards, modals)
+        // Backgrounds - theme-aware via CSS variables (RGB channels)
+        primary: "rgb(var(--bg-primary) / <alpha-value>)",
+        secondary: "rgb(var(--bg-secondary) / <alpha-value>)",
 
         // Surface layers
         surface: {
-          DEFAULT: "#141414",
-          elevated: "#1E1E1E",
+          DEFAULT: "rgb(var(--bg-surface) / <alpha-value>)",
+          elevated: "rgb(var(--bg-elevated) / <alpha-value>)",
         },
 
         // Dark shades for borders and chips
         dark: {
-          100: "#2A2A2A",  // Borders
-          200: "#1E1E1E",  // Elevated surfaces
-          300: "#141414",  // Cards
+          100: "rgb(var(--border-dark-100) / <alpha-value>)",
+          200: "rgb(var(--border-dark-200) / <alpha-value>)",
+          300: "rgb(var(--border-dark-300) / <alpha-value>)",
         },
 
         // Light text shades
         light: {
-          100: "#FFFFFF",  // Primary text
-          200: "#A3A3A3",  // Secondary text
-          300: "#666666",  // Muted/placeholder
+          100: "rgb(var(--text-light-100) / <alpha-value>)",
+          200: "rgb(var(--text-light-200) / <alpha-value>)",
+          300: "rgb(var(--text-light-300) / <alpha-value>)",
         },
 
-        // Brand colors - court inspired
+        // Brand colors - court inspired (same in both themes)
         court: {
-          deep: "#0B5D3B",    // Deep green
-          lime: "#84CC16",    // Vibrant lime
-          muted: "#65A30D",   // Muted lime
+          deep: "#0B5D3B",
+          lime: "#84CC16",
+          muted: "#65A30D",
         },
 
         // Accent - primary CTA
-        accent: "#FFD400",
+        accent: "rgb(var(--color-accent) / <alpha-value>)",
 
         // Semantic colors
-        success: "#22C55E",
-        danger: "#EF4444",
-        info: "#3B82F6",
-        warning: "#F97316",
+        success: "rgb(var(--color-success) / <alpha-value>)",
+        danger: "rgb(var(--color-danger) / <alpha-value>)",
+        info: "rgb(var(--color-info) / <alpha-value>)",
+        warning: "rgb(var(--color-warning) / <alpha-value>)",
 
         // Player levels
-        beginner: "#22C55E",
-        intermediate: "#3B82F6",
-        advanced: "#A855F7",
-        pro: "#FFD400",
+        beginner: "rgb(var(--color-beginner) / <alpha-value>)",
+        intermediate: "rgb(var(--color-intermediate) / <alpha-value>)",
+        advanced: "rgb(var(--color-advanced) / <alpha-value>)",
+        pro: "rgb(var(--color-pro) / <alpha-value>)",
       },
 
       // Shadows for elevation
       boxShadow: {
-        'card': '0 2px 8px rgba(0, 0, 0, 0.3)',
-        'elevated': '0 4px 16px rgba(0, 0, 0, 0.4)',
+        'card': 'var(--shadow-card)',
+        'elevated': 'var(--shadow-elevated)',
         'glow-accent': '0 0 20px rgba(255, 212, 0, 0.3)',
         'glow-success': '0 0 20px rgba(34, 197, 94, 0.3)',
       },
