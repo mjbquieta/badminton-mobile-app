@@ -287,6 +287,17 @@ const playersSlice = createSlice({
 			}
 			state.error = null;
 		},
+		updatePlayerAvatar: (
+			state,
+			action: PayloadAction<{ id: string; avatarUrl?: string; avatarColor?: string }>,
+		) => {
+			const player = state.items.find((p) => p.id === action.payload.id);
+			if (player) {
+				if (action.payload.avatarUrl !== undefined) player.avatarUrl = action.payload.avatarUrl;
+				if (action.payload.avatarColor !== undefined) player.avatarColor = action.payload.avatarColor;
+			}
+			state.error = null;
+		},
 		setPlayers: (state, action: PayloadAction<Player[]>) => {
 			state.items = action.payload;
 			state.error = null;
@@ -307,6 +318,7 @@ export const {
 	resetAllGameCounts,
 	togglePlayerActive,
 	setPlayersActive,
+	updatePlayerAvatar,
 	setPlayers,
 } = playersSlice.actions;
 export const playersReducer = playersSlice.reducer;

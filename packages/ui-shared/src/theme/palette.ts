@@ -56,6 +56,16 @@ export const BadmintonPalette = {
   },
 } as const;
 
+export type BadmintonPaletteType = typeof BadmintonPalette;
+
+export function getPalette(mode: 'dark' | 'light'): BadmintonPaletteType {
+	if (mode === 'light') {
+		const { BadmintonLightPalette } = require('./light-palette') as { BadmintonLightPalette: BadmintonPaletteType };
+		return BadmintonLightPalette;
+	}
+	return BadmintonPalette;
+}
+
 // Legacy export for backwards compatibility during migration
 export const PotatoPalette = {
   bg: {

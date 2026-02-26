@@ -1,14 +1,5 @@
-import { PlayerLevel, type Player } from '@badminton/types';
-
-/**
- * Maps PlayerLevel enum to numeric index for comparison
- */
-const levelIndex: Record<PlayerLevel, number> = {
-	BEGINNER: 0,
-	INTERMEDIATE: 1,
-	ADVANCED: 2,
-	PRO: 3,
-};
+import { type Player } from '@badminton/types';
+import { levelIndex } from './level-index';
 
 /**
  * Checks if a group of players can play together based on skill level compatibility

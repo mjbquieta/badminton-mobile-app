@@ -19,6 +19,7 @@ export {
 	resetAllGameCounts,
 	togglePlayerActive,
 	setPlayersActive,
+	updatePlayerAvatar,
 	setPlayers,
 	playersReducer,
 } from './slices/players';
@@ -48,6 +49,7 @@ export {
 	updateDraftPlayers,
 	updateDraftCourt,
 	finishDraft,
+	updateDraftScore,
 	clearDrafts,
 	clearDraftsError,
 	setDrafts,
@@ -68,3 +70,21 @@ export {
 	clearConfirmationError,
 	confirmationReducer,
 } from './slices/confirmation';
+
+// Match History slice
+export {
+	setMatchHistory,
+	addMatchRecord,
+	addMatchRecordsBatch,
+	removeMatchRecord,
+	clearMatchHistory,
+	setMatchHistoryLoading,
+	setMatchHistoryError,
+	matchHistoryReducer,
+} from './slices/match-history';
+
+// Theme slice
+export { setThemeMode, themeReducer } from './slices/theme';
+
+// Undo/Redo slice
+export { setUndoRedoState, resetUndoRedo, undoRedoReducer } from './slices/undo-redo';

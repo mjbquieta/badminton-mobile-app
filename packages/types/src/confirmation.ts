@@ -40,6 +40,6 @@ export type ConfirmationDocument = {
 	locked: boolean;
 	ownerId: string;
 	pin: string;
-	createdAt: unknown;
-	updatedAt: unknown;
+	createdAt: number | null;
+	updatedAt: number | null;
 };

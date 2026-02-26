@@ -1,4 +1,5 @@
 import { initializeApp, getApps, type FirebaseApp } from 'firebase/app';
+import { getFirestore, enableIndexedDbPersistence, enableMultiTabIndexedDbPersistence } from 'firebase/firestore';
 
 export interface FirebaseConfig {
   apiKey: string;
@@ -28,4 +29,26 @@ export function getFirebaseApp(): FirebaseApp {
     );
   }
   return app;
+}
+
+export async function enableOfflinePersistence(
+  options?: { multiTab?: boolean },
+): Promise<void> {
+  const db = getFirestore(getFirebaseApp());
+  try {
+    if (options?.multiTab) {
+      await enableMultiTabIndexedDbPersistence(db);
+    } else {
+      await enableIndexedDbPersistence(db);
+    }
+  } catch (err: unknown) {
+    if (err && typeof err === 'object' && 'code' in err) {
+      const code = (err as { code: string }).code;
+      if (code === 'failed-precondition') {
+        console.warn('[firebase] Persistence failed: multiple tabs open');
+      } else if (code === 'unimplemented') {
+        console.warn('[firebase] Persistence not available in this environment');
+      }
+    }
+  }
 }

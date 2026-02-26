@@ -152,6 +152,8 @@ function courtToFirestore(court: Court) {
       gameCount: p.gameCount,
       level: p.level,
       trophies: p.trophies ?? 0,
+      ...(p.avatarUrl ? { avatarUrl: p.avatarUrl } : {}),
+      ...(p.avatarColor ? { avatarColor: p.avatarColor } : {}),
     })),
   };
 }
@@ -167,6 +169,8 @@ function courtFromFirestore(data: Record<string, unknown>): Court {
       gameCount: p.gameCount as number,
       level: p.level as Player['level'],
       trophies: (p.trophies as number) ?? 0,
+      ...(p.avatarUrl ? { avatarUrl: p.avatarUrl as string } : {}),
+      ...(p.avatarColor ? { avatarColor: p.avatarColor as string } : {}),
     })),
   };
 }
