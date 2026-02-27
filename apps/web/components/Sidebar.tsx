@@ -7,13 +7,13 @@ import { useAuth } from '@/contexts/AuthContext';
 import { ConfirmDialog } from './ConfirmDialog';
 import { AiOutlineHome, AiOutlineTeam } from 'react-icons/ai';
 import { MdOutlineSportsTennis } from 'react-icons/md';
-import { FiBarChart2, FiCalendar, FiClock, FiLogOut, FiMoon, FiMoreHorizontal, FiSettings, FiSun, FiTarget, FiWifiOff } from 'react-icons/fi';
+import { FiBarChart2, FiCalendar, FiClock, FiLogOut, FiMoon, FiMoreHorizontal, FiSettings, FiShield, FiSun, FiTarget, FiWifiOff } from 'react-icons/fi';
 import { RiDraftLine } from 'react-icons/ri';
 import type { IconType } from 'react-icons';
 import { useOnlineStatus } from '@/hooks/useFirebaseSync';
 import { useTheme } from '@/contexts/ThemeContext';
 
-const navItems: { href: string; label: string; icon: IconType; beta?: boolean }[] = [
+const navItems: { href: string; label: string; icon: IconType; beta?: boolean; adminOnly?: boolean }[] = [
   { href: '/home', label: 'Dashboard', icon: AiOutlineHome },
   { href: '/players', label: 'Players', icon: AiOutlineTeam },
   { href: '/courts', label: 'Courts', icon: MdOutlineSportsTennis },
@@ -22,6 +22,7 @@ const navItems: { href: string; label: string; icon: IconType; beta?: boolean }[
   { href: '/analytics', label: 'Analytics', icon: FiBarChart2, beta: true },
   { href: '/tournament', label: 'Tournament', icon: FiTarget, beta: true },
   { href: '/schedule', label: 'Schedule', icon: FiCalendar, beta: true },
+  { href: '/admin', label: 'Admin', icon: FiShield, adminOnly: true },
   { href: '/settings', label: 'Settings', icon: FiSettings },
 ];
 
@@ -37,6 +38,9 @@ export function Sidebar() {
   const isInOverflow = mobileOverflowItems.some((item) => pathname === item.href);
   const isOnline = useOnlineStatus();
   const { resolvedTheme, toggleTheme } = useTheme();
+  const isAdmin = profile?.role === 'admin' || !profile?.role;
+  const visibleItems = (items: typeof navItems) =>
+    items.filter((item) => !item.adminOnly || isAdmin);
 
   return (
     <>
@@ -59,7 +63,7 @@ export function Sidebar() {
         </div>
 
         <nav className="flex-1 space-y-1">
-          {navItems.map((item) => {
+          {visibleItems(navItems).map((item) => {
             const isActive = pathname === item.href;
             const Icon = item.icon;
             return (
@@ -155,7 +159,7 @@ export function Sidebar() {
             </button>
             {showMoreMenu && (
               <div className="absolute bottom-full mb-2 right-0 bg-secondary border border-dark-100 rounded-xl shadow-elevated py-1 min-w-[160px]">
-                {mobileOverflowItems.map((item) => {
+                {visibleItems(mobileOverflowItems).map((item) => {
                   const isActive = pathname === item.href;
                   const Icon = item.icon;
                   return (

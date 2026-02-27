@@ -78,3 +78,6 @@ export {
   deleteDraftTemplate,
   subscribeToDraftTemplates,
 } from './draft-template-firestore';
+
+export type { UserRecord } from './admin-firestore';
+export { getAllUsers } from './admin-firestore';
