@@ -73,6 +73,7 @@ export default function PlayersPage() {
   const dispatch = useAppDispatch();
   const players = useAppSelector((state) => state.players.items);
   const playersError = useAppSelector((state) => state.players.error);
+  const drafts = useAppSelector((state) => state.drafts.items);
   const confirmation = useAppSelector((state) => state.confirmation);
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState<"name" | "level" | "games" | "trophies">(
@@ -159,6 +160,16 @@ export default function PlayersPage() {
     }
     return { active, inactive };
   }, [players]);
+
+  const playerDraftCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const draft of drafts) {
+      for (const pid of draft.playerIds) {
+        counts.set(pid, (counts.get(pid) ?? 0) + 1);
+      }
+    }
+    return counts;
+  }, [drafts]);
 
   const filtered = useMemo(() => {
     const list = players.filter((p) => {
@@ -1071,6 +1082,10 @@ export default function PlayersPage() {
                   <span className="text-light-300">
                     {player.gameCount}{" "}
                     {player.gameCount === 1 ? "game" : "games"}
+                  </span>
+                  <span className="text-light-300/60">
+                    {playerDraftCounts.get(player.id) ?? 0}{" "}
+                    {(playerDraftCounts.get(player.id) ?? 0) === 1 ? "draft" : "drafts"}
                   </span>
                   <PlayerTrophyBadge trophies={player.trophies ?? 0} />
                 </div>
