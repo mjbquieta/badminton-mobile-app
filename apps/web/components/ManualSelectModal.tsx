@@ -13,6 +13,7 @@ interface ManualSelectModalProps {
   maxSelect: number;
   onConfirm: (selectedIds: string[]) => void;
   initialSelected?: string[];
+  draftCounts?: Map<string, number>;
 }
 
 export function ManualSelectModal({
@@ -23,6 +24,7 @@ export function ManualSelectModal({
   maxSelect,
   onConfirm,
   initialSelected,
+  draftCounts,
 }: ManualSelectModalProps) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [search, setSearch] = useState('');
@@ -74,8 +76,19 @@ export function ManualSelectModal({
           className="w-full bg-dark-200 border border-dark-100 rounded-xl px-4 py-2 text-sm text-light-100 placeholder:text-light-300 outline-none focus:border-accent/50"
         />
 
-        <div className="text-xs text-light-300 text-right">
-          {selected.size}/{maxSelect} selected
+        <div className="flex items-center justify-between">
+          <div className="text-xs text-light-300">
+            {selected.size}/{maxSelect} selected
+          </div>
+          {draftCounts && (
+            <div className="flex items-center gap-1.5 text-[10px] text-light-300/50 uppercase tracking-wider">
+              <span className="w-10 text-center">Drafts</span>
+              <span className="text-light-300/20">|</span>
+              <span className="w-10 text-center">Games</span>
+              <span className="text-light-300/20">|</span>
+              <span className="w-10 text-center">Total</span>
+            </div>
+          )}
         </div>
 
         <div className="max-h-64 overflow-y-auto space-y-1">
@@ -104,7 +117,21 @@ export function ManualSelectModal({
                 </div>
                 <PlayerLevelBadge level={player.level} />
                 <span className="flex-1 text-sm">{player.name}</span>
-                <span className="text-xs text-light-300">{player.gameCount}g</span>
+                <div className="flex items-center gap-1.5 shrink-0 text-[11px] tabular-nums">
+                  {draftCounts && (
+                    <>
+                      <span className="w-10 text-center text-light-300/60">{draftCounts.get(player.id) ?? 0}</span>
+                      <span className="text-light-300/30">|</span>
+                    </>
+                  )}
+                  <span className="w-10 text-center text-light-300">{player.gameCount}</span>
+                  {draftCounts && (
+                    <>
+                      <span className="text-light-300/30">|</span>
+                      <span className="w-10 text-center text-light-100 font-semibold">{(draftCounts.get(player.id) ?? 0) + player.gameCount}</span>
+                    </>
+                  )}
+                </div>
               </button>
             );
           })}

@@ -111,6 +111,16 @@ export default function DraftPage() {
     [players],
   );
 
+  const playerDraftCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const draft of drafts) {
+      for (const pid of draft.playerIds) {
+        counts.set(pid, (counts.get(pid) ?? 0) + 1);
+      }
+    }
+    return counts;
+  }, [drafts]);
+
   function resolvePlayer(id: string): Player | undefined {
     return playerMap.get(id);
   }
@@ -623,6 +633,7 @@ export default function DraftPage() {
         players={draftablePlayers}
         maxSelect={4}
         onConfirm={handleCreateDraft}
+        draftCounts={playerDraftCounts}
       />
 
       {/* Edit Draft Modal */}
@@ -1080,6 +1091,7 @@ export default function DraftPage() {
           )}
           maxSelect={1}
           onConfirm={handleChangePlayer}
+          draftCounts={playerDraftCounts}
         />
       )}
 
