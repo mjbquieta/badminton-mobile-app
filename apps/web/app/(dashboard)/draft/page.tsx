@@ -267,7 +267,7 @@ export default function DraftPage() {
   return (
     <div className="p-4 sm:p-6 md:p-8 pb-24 md:pb-8 max-w-5xl">
       {/* Header */}
-      <div className="flex items-start sm:items-center justify-between gap-3 mb-6">
+      <div className="sticky top-0 z-20 bg-primary/95 backdrop-blur-sm -mx-4 sm:-mx-6 md:-mx-8 px-4 sm:px-6 md:px-8 py-3 mb-3 flex items-start sm:items-center justify-between gap-3 border-b border-dark-100/50">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-accent/10 flex items-center justify-center">
             <RiDraftLine className="text-accent" size={20} />
