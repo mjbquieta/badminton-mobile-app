@@ -637,34 +637,34 @@ export default function DraftPage() {
       />
 
       {/* Edit Draft Modal */}
-      {editingDraft &&
-        (() => {
-          const half = Math.ceil(editingDraft.playerIds.length / 2);
-          const eTeamA = editingDraft.playerIds
-            .slice(0, half)
-            .map((id, i) => ({ id, index: i, player: resolvePlayer(id) }))
-            .filter(
-              (o): o is { id: string; index: number; player: Player } =>
-                !!o.player,
-            );
-          const eTeamB = editingDraft.playerIds
-            .slice(half)
-            .map((id, i) => ({
-              id,
-              index: half + i,
-              player: resolvePlayer(id),
-            }))
-            .filter(
-              (o): o is { id: string; index: number; player: Player } =>
-                !!o.player,
-            );
+      <Modal
+        open={!!editingDraft && !changeTarget}
+        onClose={() => setEditingDraft(null)}
+        title={editingDraft ? `Edit - ${editingDraft.name}` : "Edit"}
+      >
+        {editingDraft &&
+          (() => {
+            const half = Math.ceil(editingDraft.playerIds.length / 2);
+            const eTeamA = editingDraft.playerIds
+              .slice(0, half)
+              .map((id, i) => ({ id, index: i, player: resolvePlayer(id) }))
+              .filter(
+                (o): o is { id: string; index: number; player: Player } =>
+                  !!o.player,
+              );
+            const eTeamB = editingDraft.playerIds
+              .slice(half)
+              .map((id, i) => ({
+                id,
+                index: half + i,
+                player: resolvePlayer(id),
+              }))
+              .filter(
+                (o): o is { id: string; index: number; player: Player } =>
+                  !!o.player,
+              );
 
-          return (
-            <Modal
-              open={!changeTarget}
-              onClose={() => setEditingDraft(null)}
-              title={`Edit - ${editingDraft.name}`}
-            >
+            return (
               <div className="space-y-4">
                 {/* Team A */}
                 <div>
@@ -801,9 +801,9 @@ export default function DraftPage() {
                   </button>
                 </div>
               </div>
-            </Modal>
-          );
-        })()}
+            );
+          })()}
+      </Modal>
 
       {/* Delete Confirm */}
       <ConfirmDialog
@@ -1081,31 +1081,33 @@ export default function DraftPage() {
       </Modal>
 
       {/* Change Player Modal */}
-      {changeTarget && (
-        <ManualSelectModal
-          open={!!changeTarget}
-          onClose={() => setChangeTarget(null)}
-          title="Select Replacement Player"
-          players={players.filter(
-            (p) => !changeTarget.draft.playerIds.includes(p.id),
-          )}
-          maxSelect={1}
-          onConfirm={handleChangePlayer}
-          draftCounts={playerDraftCounts}
-        />
-      )}
+      <ManualSelectModal
+        open={!!changeTarget}
+        onClose={() => setChangeTarget(null)}
+        title="Select Replacement Player"
+        players={
+          changeTarget
+            ? players.filter(
+                (p) => !changeTarget.draft.playerIds.includes(p.id),
+              )
+            : []
+        }
+        maxSelect={1}
+        onConfirm={handleChangePlayer}
+        draftCounts={playerDraftCounts}
+      />
 
       {/* Exchange Confirm */}
-      {exchangeTarget &&
-        (() => {
-          const pA = resolvePlayer(exchangeTarget.playerIdA);
-          const pB = resolvePlayer(exchangeTarget.playerIdB);
-          return (
-            <Modal
-              open={!!exchangeTarget}
-              onClose={() => setExchangeTarget(null)}
-              title="Confirm Exchange"
-            >
+      <Modal
+        open={!!exchangeTarget}
+        onClose={() => setExchangeTarget(null)}
+        title="Confirm Exchange"
+      >
+        {exchangeTarget &&
+          (() => {
+            const pA = resolvePlayer(exchangeTarget.playerIdA);
+            const pB = resolvePlayer(exchangeTarget.playerIdB);
+            return (
               <div className="space-y-4">
                 <p className="text-sm text-light-300">
                   Swap these players between teams?
@@ -1140,9 +1142,9 @@ export default function DraftPage() {
                   </button>
                 </div>
               </div>
-            </Modal>
-          );
-        })()}
+            );
+          })()}
+      </Modal>
 
       {/* No Courts Prompt */}
       <Modal
