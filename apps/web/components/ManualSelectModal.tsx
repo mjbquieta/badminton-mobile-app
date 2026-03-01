@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { type Player } from '@badminton/types';
+import { useState, useEffect, useMemo } from 'react';
+import { PlayerLevel, type Player } from '@badminton/types';
 import { Modal } from './Modal';
 import { PlayerLevelBadge } from './PlayerLevelBadge';
 
@@ -28,6 +28,17 @@ export function ManualSelectModal({
 }: ManualSelectModalProps) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [search, setSearch] = useState('');
+  const [sortBy, setSortBy] = useState<'name' | 'level'>('name');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+
+  function handleSort(field: 'name' | 'level') {
+    if (sortBy === field) {
+      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortBy(field);
+      setSortDir('asc');
+    }
+  }
 
   useEffect(() => {
     if (open) {
@@ -36,9 +47,26 @@ export function ManualSelectModal({
     }
   }, [open, initialSelected]);
 
-  const filtered = players.filter((p) =>
-    p.name.toLowerCase().includes(search.toLowerCase())
-  );
+  const levelOrder = {
+    [PlayerLevel.BEGINNER]: 0,
+    [PlayerLevel.INTERMEDIATE]: 1,
+    [PlayerLevel.ADVANCED]: 2,
+    [PlayerLevel.PRO]: 3,
+  };
+
+  const filtered = useMemo(() => {
+    const dir = sortDir === 'asc' ? 1 : -1;
+    const list = players.filter((p) =>
+      p.name.toLowerCase().includes(search.toLowerCase())
+    );
+    return list.sort((a, b) => {
+      if (sortBy === 'name') {
+        return dir * a.name.localeCompare(b.name);
+      }
+      const lvl = levelOrder[a.level] - levelOrder[b.level];
+      return lvl !== 0 ? dir * lvl : a.name.localeCompare(b.name);
+    });
+  }, [players, search, sortBy, sortDir]);
 
   function toggle(id: string) {
     setSelected((prev) => {
@@ -66,7 +94,7 @@ export function ManualSelectModal({
   }
 
   return (
-    <Modal open={open} onClose={handleClose} title={title}>
+    <Modal open={open} onClose={handleClose} title={title} size="lg">
       <div className="space-y-3">
         <input
           type="text"
@@ -77,16 +105,34 @@ export function ManualSelectModal({
         />
 
         <div className="flex items-center justify-between">
-          <div className="text-xs text-light-300">
-            {selected.size}/{maxSelect} selected
+          <div className="flex items-center gap-2">
+            <div className="text-xs text-light-300">
+              {selected.size}/{maxSelect} selected
+            </div>
+            <span className="text-light-300/20">|</span>
+            <div className="flex items-center gap-1">
+              <span className="text-[10px] text-light-300/50">Sort:</span>
+              <button
+                onClick={() => handleSort('name')}
+                className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1 ${sortBy === 'name' ? 'bg-accent/15 text-accent border border-accent/30' : 'text-light-300/60 hover:text-light-100 hover:bg-dark-100 border border-transparent'}`}
+              >
+                Name
+                {sortBy === 'name' && <span className="text-[10px]">{sortDir === 'asc' ? '↑' : '↓'}</span>}
+              </button>
+              <button
+                onClick={() => handleSort('level')}
+                className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1 ${sortBy === 'level' ? 'bg-accent/15 text-accent border border-accent/30' : 'text-light-300/60 hover:text-light-100 hover:bg-dark-100 border border-transparent'}`}
+              >
+                Level
+                {sortBy === 'level' && <span className="text-[10px]">{sortDir === 'asc' ? '↑' : '↓'}</span>}
+              </button>
+            </div>
           </div>
           {draftCounts && (
             <div className="flex items-center gap-1.5 text-[10px] text-light-300/50 uppercase tracking-wider">
               <span className="w-10 text-center">Drafts</span>
               <span className="text-light-300/20">|</span>
               <span className="w-10 text-center">Games</span>
-              <span className="text-light-300/20">|</span>
-              <span className="w-10 text-center">Total</span>
             </div>
           )}
         </div>
@@ -125,12 +171,6 @@ export function ManualSelectModal({
                     </>
                   )}
                   <span className="w-10 text-center text-light-300">{player.gameCount}</span>
-                  {draftCounts && (
-                    <>
-                      <span className="text-light-300/30">|</span>
-                      <span className="w-10 text-center text-light-100 font-semibold">{(draftCounts.get(player.id) ?? 0) + player.gameCount}</span>
-                    </>
-                  )}
                 </div>
               </button>
             );
