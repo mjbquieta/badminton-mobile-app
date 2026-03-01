@@ -85,6 +85,7 @@ export default function DraftPage() {
     draft: Draft;
     playerIndex: number;
   } | null>(null);
+  const [replaceSearch, setReplaceSearch] = useState("");
   const [exchangeTarget, setExchangeTarget] = useState<{
     draft: Draft;
     playerIdA: string;
@@ -638,8 +639,12 @@ export default function DraftPage() {
 
       {/* Edit Draft Modal */}
       <Modal
-        open={!!editingDraft && !changeTarget}
-        onClose={() => setEditingDraft(null)}
+        open={!!editingDraft}
+        onClose={() => {
+          setEditingDraft(null);
+          setChangeTarget(null);
+          setReplaceSearch("");
+        }}
         title={editingDraft ? `Edit - ${editingDraft.name}` : "Edit"}
       >
         {editingDraft &&
@@ -664,6 +669,101 @@ export default function DraftPage() {
                   !!o.player,
               );
 
+            const isReplacing = changeTarget?.draft.id === editingDraft.id;
+            const availablePlayers = isReplacing
+              ? players
+                  .filter(
+                    (p) =>
+                      (p.active ?? true) &&
+                      !editingDraft.playerIds.includes(p.id),
+                  )
+                  .filter((p) =>
+                    p.name
+                      .toLowerCase()
+                      .includes(replaceSearch.toLowerCase()),
+                  )
+              : [];
+
+            const renderPlayerRow = ({
+              id,
+              index,
+              player: p,
+            }: {
+              id: string;
+              index: number;
+              player: Player;
+            }) => {
+              const isActive =
+                isReplacing && changeTarget?.playerIndex === index;
+              return (
+                <div key={id}>
+                  <div
+                    className={`flex items-center gap-2 p-2 rounded-xl bg-dark-200 border ${isActive ? "border-info" : "border-dark-100"}`}
+                  >
+                    <PlayerLevelBadge level={p.level} />
+                    <span className="flex-1 text-sm text-light-100 truncate">
+                      {p.name}
+                    </span>
+                    <button
+                      onClick={() => {
+                        if (isActive) {
+                          setChangeTarget(null);
+                          setReplaceSearch("");
+                        } else {
+                          setChangeTarget({
+                            draft: editingDraft,
+                            playerIndex: index,
+                          });
+                          setReplaceSearch("");
+                        }
+                      }}
+                      className={`px-2 py-1 rounded-lg text-[10px] font-bold transition-colors shrink-0 ${isActive ? "text-danger hover:bg-danger/10" : "text-info hover:bg-info/10"}`}
+                    >
+                      {isActive ? "Cancel" : "Replace"}
+                    </button>
+                  </div>
+                  {isActive && (
+                    <div className="ml-4 mt-1 border-l-2 border-info/30 pl-3 space-y-1.5 pb-1">
+                      <input
+                        type="text"
+                        placeholder="Search players..."
+                        value={replaceSearch}
+                        onChange={(e) => setReplaceSearch(e.target.value)}
+                        className="w-full bg-dark-200 border border-dark-100 rounded-lg px-3 py-1.5 text-xs text-light-100 placeholder:text-light-300 outline-none focus:border-accent/50"
+                      />
+                      <div className="max-h-40 overflow-y-auto space-y-0.5">
+                        {availablePlayers.map((ap) => (
+                          <button
+                            key={ap.id}
+                            onClick={() => {
+                              handleChangePlayer([ap.id]);
+                              setReplaceSearch("");
+                            }}
+                            className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-left hover:bg-dark-100 transition-colors"
+                          >
+                            <PlayerLevelBadge level={ap.level} />
+                            <span className="flex-1 text-xs text-light-100 truncate">
+                              {ap.name}
+                            </span>
+                            {playerDraftCounts && (
+                              <span className="text-[10px] text-light-300/60 tabular-nums shrink-0">
+                                {playerDraftCounts.get(ap.id) ?? 0}d
+                              </span>
+                            )}
+                          </button>
+                        ))}
+                        {availablePlayers.length === 0 && (
+                          <p className="text-center text-light-300/60 py-2 text-xs">
+                            No players found
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            };
+
             return (
               <div className="space-y-4">
                 {/* Team A */}
@@ -672,29 +772,7 @@ export default function DraftPage() {
                     Team A
                   </p>
                   <div className="space-y-2">
-                    {eTeamA.map(({ id, index, player: p }) => (
-                      <div
-                        key={id}
-                        className="flex items-center gap-2 p-2 rounded-xl bg-dark-200 border border-dark-100"
-                      >
-                        <PlayerLevelBadge level={p.level} />
-                        <span className="flex-1 text-sm text-light-100 truncate">
-                          {p.name}
-                        </span>
-                        <button
-                          onClick={() =>
-                            setChangeTarget({
-                              draft: editingDraft,
-                              playerIndex: index,
-                            })
-                          }
-                          className="px-2 py-1 rounded-lg text-[10px] font-bold text-info hover:bg-info/10 transition-colors shrink-0"
-                          title="Replace player"
-                        >
-                          Replace
-                        </button>
-                      </div>
-                    ))}
+                    {eTeamA.map(renderPlayerRow)}
                   </div>
                 </div>
                 {/* Team B */}
@@ -703,29 +781,7 @@ export default function DraftPage() {
                     Team B
                   </p>
                   <div className="space-y-2">
-                    {eTeamB.map(({ id, index, player: p }) => (
-                      <div
-                        key={id}
-                        className="flex items-center gap-2 p-2 rounded-xl bg-dark-200 border border-dark-100"
-                      >
-                        <PlayerLevelBadge level={p.level} />
-                        <span className="flex-1 text-sm text-light-100 truncate">
-                          {p.name}
-                        </span>
-                        <button
-                          onClick={() =>
-                            setChangeTarget({
-                              draft: editingDraft,
-                              playerIndex: index,
-                            })
-                          }
-                          className="px-2 py-1 rounded-lg text-[10px] font-bold text-info hover:bg-info/10 transition-colors shrink-0"
-                          title="Replace player"
-                        >
-                          Replace
-                        </button>
-                      </div>
-                    ))}
+                    {eTeamB.map(renderPlayerRow)}
                   </div>
                 </div>
 
@@ -794,7 +850,11 @@ export default function DraftPage() {
 
                 <div className="flex justify-end pt-1">
                   <button
-                    onClick={() => setEditingDraft(null)}
+                    onClick={() => {
+                      setEditingDraft(null);
+                      setChangeTarget(null);
+                      setReplaceSearch("");
+                    }}
                     className="px-4 py-2 rounded-xl text-sm text-light-300 hover:text-light-100 hover:bg-dark-200 transition-colors"
                   >
                     Close
@@ -1079,23 +1139,6 @@ export default function DraftPage() {
             );
           })()}
       </Modal>
-
-      {/* Change Player Modal */}
-      <ManualSelectModal
-        open={!!changeTarget}
-        onClose={() => setChangeTarget(null)}
-        title="Select Replacement Player"
-        players={
-          changeTarget
-            ? players.filter(
-                (p) => !changeTarget.draft.playerIds.includes(p.id),
-              )
-            : []
-        }
-        maxSelect={1}
-        onConfirm={handleChangePlayer}
-        draftCounts={playerDraftCounts}
-      />
 
       {/* Exchange Confirm */}
       <Modal
