@@ -34,8 +34,8 @@ import {
   FiCornerUpLeft,
   FiCornerUpRight,
   FiEdit2,
+  FiMoreVertical,
   FiPlus,
-  FiRepeat,
   FiRotateCcw,
   FiShare2,
   FiTrash2,
@@ -86,11 +86,8 @@ export default function DraftPage() {
     playerIndex: number;
   } | null>(null);
   const [replaceSearch, setReplaceSearch] = useState("");
-  const [exchangeTarget, setExchangeTarget] = useState<{
-    draft: Draft;
-    playerIdA: string;
-    playerIdB: string;
-  } | null>(null);
+  const [replaceSort, setReplaceSort] = useState<"name" | "level">("name");
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
 
   // Confirmation-aware player filtering
   const confirmation = useAppSelector((state) => state.confirmation);
@@ -115,6 +112,7 @@ export default function DraftPage() {
   const playerDraftCounts = useMemo(() => {
     const counts = new Map<string, number>();
     for (const draft of drafts) {
+      if (draft.finished) continue;
       for (const pid of draft.playerIds) {
         counts.set(pid, (counts.get(pid) ?? 0) + 1);
       }
@@ -206,27 +204,23 @@ export default function DraftPage() {
     setChangeTarget(null);
   }
 
-  function handleExchangePlayer() {
-    if (!exchangeTarget) return;
-    const { draft, playerIdA, playerIdB } = exchangeTarget;
-    const idxA = draft.playerIds.indexOf(playerIdA);
-    const idxB = draft.playerIds.indexOf(playerIdB);
-    if (idxA === -1 || idxB === -1) return;
-    const newPlayerIds = [...draft.playerIds];
-    newPlayerIds[idxA] = playerIdB;
-    newPlayerIds[idxB] = playerIdA;
-    dispatch(updateDraftPlayers({ id: draft.id, playerIds: newPlayerIds }));
-    // Update editingDraft to reflect the swap in the modal
-    if (editingDraft && editingDraft.id === draft.id) {
-      setEditingDraft({ ...editingDraft, playerIds: newPlayerIds });
-    }
-    setExchangeTarget(null);
-  }
-
   function handleAutoDraft() {
-    const playerIds = draftablePlayers.map((p) => p.id);
+    // Exclude players from the latest round/set so they aren't re-drafted immediately
+    const latestRoundPlayerIds = new Set<string>();
+    if (drafts.length > 0) {
+      const cc = Math.max(courts.length, 1);
+      const lastRoundStart = Math.floor((drafts.length - 1) / cc) * cc;
+      for (let i = lastRoundStart; i < drafts.length; i++) {
+        for (const pid of drafts[i].playerIds) {
+          latestRoundPlayerIds.add(pid);
+        }
+      }
+    }
+
+    const eligible = draftablePlayers.filter((p) => !latestRoundPlayerIds.has(p.id));
+    const playerIds = eligible.map((p) => p.id);
     const playerLevels = new Map(
-      draftablePlayers.map((p) => [p.id, p.level]),
+      eligible.map((p) => [p.id, p.level]),
     );
     const courtSpecs = courts.map((c) => ({ id: c.id, isSingle: c.isSingle }));
 
@@ -273,7 +267,7 @@ export default function DraftPage() {
   return (
     <div className="p-4 sm:p-6 md:p-8 pb-24 md:pb-8 max-w-5xl">
       {/* Header */}
-      <div className="flex items-start sm:items-center justify-between gap-3 mb-6">
+      <div className="sticky top-0 z-20 bg-primary/95 backdrop-blur-sm -mx-4 sm:-mx-6 md:-mx-8 px-4 sm:px-6 md:px-8 py-3 mb-3 flex items-start sm:items-center justify-between gap-3 border-b border-dark-100/50">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-accent/10 flex items-center justify-center">
             <RiDraftLine className="text-accent" size={20} />
@@ -646,6 +640,7 @@ export default function DraftPage() {
           setReplaceSearch("");
         }}
         title={editingDraft ? `Edit - ${editingDraft.name}` : "Edit"}
+        size="lg"
       >
         {editingDraft &&
           (() => {
@@ -670,6 +665,12 @@ export default function DraftPage() {
               );
 
             const isReplacing = changeTarget?.draft.id === editingDraft.id;
+            const levelOrder = {
+              [PlayerLevel.BEGINNER]: 0,
+              [PlayerLevel.INTERMEDIATE]: 1,
+              [PlayerLevel.ADVANCED]: 2,
+              [PlayerLevel.PRO]: 3,
+            };
             const availablePlayers = isReplacing
               ? players
                   .filter(
@@ -682,24 +683,116 @@ export default function DraftPage() {
                       .toLowerCase()
                       .includes(replaceSearch.toLowerCase()),
                   )
+                  .sort((a, b) =>
+                    replaceSort === "name"
+                      ? a.name.localeCompare(b.name)
+                      : levelOrder[a.level] - levelOrder[b.level] ||
+                        a.name.localeCompare(b.name),
+                  )
               : [];
 
-            const renderPlayerRow = ({
-              id,
-              index,
-              player: p,
-            }: {
-              id: string;
-              index: number;
-              player: Player;
-            }) => {
+            function handleDragStart(
+              e: React.DragEvent,
+              team: "A" | "B",
+              index: number,
+              playerId: string,
+            ) {
+              e.dataTransfer.setData(
+                "application/json",
+                JSON.stringify({ team, index, playerId }),
+              );
+              e.dataTransfer.effectAllowed = "move";
+            }
+
+            function handleDragOver(
+              e: React.DragEvent,
+              targetTeam: "A" | "B",
+              targetIndex: number,
+            ) {
+              e.preventDefault();
+              try {
+                // Only allow drops from opposite team
+                const raw = e.dataTransfer.types.includes("application/json");
+                if (raw) {
+                  e.dataTransfer.dropEffect = "move";
+                  setDragOverIndex(targetIndex);
+                }
+              } catch {
+                // dataTransfer data not available during dragover
+                e.dataTransfer.dropEffect = "move";
+                setDragOverIndex(targetIndex);
+              }
+            }
+
+            function handleDrop(
+              e: React.DragEvent,
+              targetTeam: "A" | "B",
+              targetIndex: number,
+            ) {
+              e.preventDefault();
+              setDragOverIndex(null);
+              if (!editingDraft) return;
+              try {
+                const data = JSON.parse(
+                  e.dataTransfer.getData("application/json"),
+                ) as { team: string; index: number; playerId: string };
+                if (data.team === targetTeam) return; // same team, ignore
+                const targetPlayerId =
+                  editingDraft.playerIds[targetIndex];
+                if (!targetPlayerId) return;
+                const newPlayerIds = [...editingDraft.playerIds];
+                newPlayerIds[data.index] = targetPlayerId;
+                newPlayerIds[targetIndex] = data.playerId;
+                dispatch(
+                  updateDraftPlayers({
+                    id: editingDraft.id,
+                    playerIds: newPlayerIds,
+                  }),
+                );
+                setEditingDraft({
+                  ...editingDraft,
+                  playerIds: newPlayerIds,
+                });
+              } catch {
+                // Invalid drag data
+              }
+            }
+
+            const renderPlayerRow = (
+              team: "A" | "B",
+              {
+                id,
+                index,
+                player: p,
+              }: {
+                id: string;
+                index: number;
+                player: Player;
+              },
+            ) => {
               const isActive =
                 isReplacing && changeTarget?.playerIndex === index;
+              const isDragOver = dragOverIndex === index;
               return (
                 <div key={id}>
                   <div
-                    className={`flex items-center gap-2 p-2 rounded-xl bg-dark-200 border ${isActive ? "border-info" : "border-dark-100"}`}
+                    draggable={!isActive}
+                    onDragStart={(e) => handleDragStart(e, team, index, id)}
+                    onDragOver={(e) => handleDragOver(e, team, index)}
+                    onDragLeave={() => setDragOverIndex(null)}
+                    onDrop={(e) => handleDrop(e, team, index)}
+                    className={`flex items-center gap-2 p-2 rounded-xl bg-dark-200 border transition-colors ${
+                      isActive
+                        ? "border-info"
+                        : isDragOver
+                          ? "border-accent ring-2 ring-accent/30"
+                          : "border-dark-100"
+                    } ${!isActive ? "cursor-grab active:cursor-grabbing" : ""}`}
                   >
+                    <FiMoreVertical
+                      size={12}
+                      className="text-light-300/40 shrink-0"
+                    />
                     <PlayerLevelBadge level={p.level} />
                     <span className="flex-1 text-sm text-light-100 truncate">
                       {p.name}
@@ -731,6 +824,21 @@ export default function DraftPage() {
                         onChange={(e) => setReplaceSearch(e.target.value)}
                         className="w-full bg-dark-200 border border-dark-100 rounded-lg px-3 py-1.5 text-xs text-light-100 placeholder:text-light-300 outline-none focus:border-accent/50"
                       />
+                      <div className="flex items-center gap-1">
+                        <span className="text-[10px] text-light-300/50 mr-1">Sort:</span>
+                        <button
+                          onClick={() => setReplaceSort("name")}
+                          className={`px-2 py-0.5 rounded text-[10px] font-semibold transition-colors ${replaceSort === "name" ? "bg-accent/15 text-accent" : "text-light-300/60 hover:text-light-300"}`}
+                        >
+                          Name
+                        </button>
+                        <button
+                          onClick={() => setReplaceSort("level")}
+                          className={`px-2 py-0.5 rounded text-[10px] font-semibold transition-colors ${replaceSort === "level" ? "bg-accent/15 text-accent" : "text-light-300/60 hover:text-light-300"}`}
+                        >
+                          Level
+                        </button>
+                      </div>
                       <div className="max-h-40 overflow-y-auto space-y-0.5">
                         {availablePlayers.map((ap) => (
                           <button
@@ -765,88 +873,41 @@ export default function DraftPage() {
             };
 
             return (
-              <div className="space-y-4">
-                {/* Team A */}
-                <div>
-                  <p className="text-xs font-semibold text-light-300 uppercase tracking-wide mb-2">
-                    Team A
-                  </p>
-                  <div className="space-y-2">
-                    {eTeamA.map(renderPlayerRow)}
+              <div className="space-y-3">
+                <div className="flex items-stretch gap-3">
+                  {/* Team A */}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-semibold text-light-300 uppercase tracking-wide mb-2">
+                      Team A
+                    </p>
+                    <div className="space-y-2">
+                      {eTeamA.map((row) => renderPlayerRow("A", row))}
+                    </div>
                   </div>
-                </div>
-                {/* Team B */}
-                <div>
-                  <p className="text-xs font-semibold text-light-300 uppercase tracking-wide mb-2">
-                    Team B
-                  </p>
-                  <div className="space-y-2">
-                    {eTeamB.map(renderPlayerRow)}
+
+                  {/* VS divider */}
+                  <div className="flex flex-col items-center justify-center px-1">
+                    <div className="flex-1 w-px bg-dark-100" />
+                    <span className="text-[10px] font-bold text-light-300/50 uppercase py-2">
+                      vs
+                    </span>
+                    <div className="flex-1 w-px bg-dark-100" />
+                  </div>
+
+                  {/* Team B */}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-semibold text-light-300 uppercase tracking-wide mb-2">
+                      Team B
+                    </p>
+                    <div className="space-y-2">
+                      {eTeamB.map((row) => renderPlayerRow("B", row))}
+                    </div>
                   </div>
                 </div>
 
-                {/* Exchange Section */}
-                <div className="border-t border-dark-100 pt-4">
-                  <p className="text-xs font-semibold text-light-300 uppercase tracking-wide mb-2">
-                    Exchange Players
-                  </p>
-                  {editingDraft.playerIds.length === 2 ? (
-                    <button
-                      onClick={() => {
-                        const newIds = [...editingDraft.playerIds].reverse();
-                        dispatch(
-                          updateDraftPlayers({
-                            id: editingDraft.id,
-                            playerIds: newIds,
-                          }),
-                        );
-                        setEditingDraft({ ...editingDraft, playerIds: newIds });
-                      }}
-                      className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-dark-200 border border-dark-100 hover:border-accent/30 transition-colors text-sm text-light-100"
-                    >
-                      <span>{eTeamA[0]?.player.name}</span>
-                      <FiRepeat size={14} className="text-accent shrink-0" />
-                      <span>{eTeamB[0]?.player.name}</span>
-                    </button>
-                  ) : (
-                    <div className="space-y-1.5">
-                      {eTeamA.map((a, i) => {
-                        const b = eTeamB[i];
-                        if (!b) return null;
-                        return (
-                          <button
-                            key={`${a.id}-${b.id}`}
-                            onClick={() =>
-                              setExchangeTarget({
-                                draft: editingDraft,
-                                playerIdA: a.id,
-                                playerIdB: b.id,
-                              })
-                            }
-                            className="w-full flex items-center justify-between gap-2 px-3 py-2 rounded-xl bg-dark-200 border border-dark-100 hover:border-accent/30 transition-colors text-sm"
-                          >
-                            <div className="flex items-center gap-1.5 flex-1 min-w-0">
-                              <PlayerLevelBadge level={a.player.level} />
-                              <span className="text-light-100 truncate">
-                                {a.player.name}
-                              </span>
-                            </div>
-                            <FiRepeat
-                              size={14}
-                              className="text-light-300 shrink-0"
-                            />
-                            <div className="flex items-center gap-1.5 flex-1 min-w-0 justify-end">
-                              <span className="text-light-100 truncate">
-                                {b.player.name}
-                              </span>
-                              <PlayerLevelBadge level={b.player.level} />
-                            </div>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
+                <p className="text-center text-[10px] text-light-300/40 italic">
+                  Drag players between teams to swap
+                </p>
 
                 <div className="flex justify-end pt-1">
                   <button
@@ -1134,55 +1195,6 @@ export default function DraftPage() {
                       ))}
                     </button>
                   </div>
-                </div>
-              </div>
-            );
-          })()}
-      </Modal>
-
-      {/* Exchange Confirm */}
-      <Modal
-        open={!!exchangeTarget}
-        onClose={() => setExchangeTarget(null)}
-        title="Confirm Exchange"
-      >
-        {exchangeTarget &&
-          (() => {
-            const pA = resolvePlayer(exchangeTarget.playerIdA);
-            const pB = resolvePlayer(exchangeTarget.playerIdB);
-            return (
-              <div className="space-y-4">
-                <p className="text-sm text-light-300">
-                  Swap these players between teams?
-                </p>
-                <div className="flex items-center justify-center gap-3 py-2">
-                  {pA && (
-                    <div className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-dark-200 border border-dark-100">
-                      <PlayerLevelBadge level={pA.level} />
-                      <span className="text-sm text-light-100">{pA.name}</span>
-                    </div>
-                  )}
-                  <FiRepeat size={16} className="text-accent shrink-0" />
-                  {pB && (
-                    <div className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-dark-200 border border-dark-100">
-                      <PlayerLevelBadge level={pB.level} />
-                      <span className="text-sm text-light-100">{pB.name}</span>
-                    </div>
-                  )}
-                </div>
-                <div className="flex justify-end gap-2">
-                  <button
-                    onClick={() => setExchangeTarget(null)}
-                    className="px-4 py-2 rounded-xl text-sm text-light-300 hover:text-light-100 hover:bg-dark-200 transition-colors"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={handleExchangePlayer}
-                    className="px-4 py-2 rounded-xl text-sm bg-accent text-primary font-semibold hover:bg-accent/80 transition-colors"
-                  >
-                    Exchange
-                  </button>
                 </div>
               </div>
             );
