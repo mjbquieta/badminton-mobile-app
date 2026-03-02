@@ -79,7 +79,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [user, user?.emailVerified]);
 
   const emailVerified = user?.emailVerified ?? false;
-  const isAdmin = profile?.role === 'admin' || profile?.role === undefined;
+  const isAdmin = profile?.role === 'admin';
 
   const login = async (email: string, password: string) => {
     await loginUser(email, password);
