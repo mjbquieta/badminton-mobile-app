@@ -27,6 +27,7 @@ import {
 	FiMapPin,
 	FiSearch,
 	FiUserPlus,
+	FiUsers,
 } from "react-icons/fi";
 
 type Phase = "pin-entry" | "loading" | "viewing" | "not-found" | "error";
@@ -237,6 +238,9 @@ export default function ConfirmationPage() {
 	const pending = playerConfirmations.filter(
 		(p) => p.status === "pending",
 	).length;
+	const maxPlayers = eventDetails.maxPlayers ?? 0;
+	const slotsRemaining = maxPlayers > 0 ? Math.max(0, maxPlayers - confirmed) : -1;
+	const slotsFull = maxPlayers > 0 && confirmed >= maxPlayers;
 
 	return (
 		<div className="space-y-6">
@@ -330,6 +334,21 @@ export default function ConfirmationPage() {
 					</p>
 				</div>
 			</div>
+
+			{/* Slots Indicator */}
+			{maxPlayers > 0 && (
+				<div className={`rounded-xl border px-4 py-3 flex items-center justify-between ${slotsFull ? "bg-warning/10 border-warning/30" : "bg-accent/10 border-accent/20"}`}>
+					<div className="flex items-center gap-2">
+						<FiUsers size={16} className={slotsFull ? "text-warning" : "text-accent"} />
+						<span className={`text-sm font-semibold ${slotsFull ? "text-warning" : "text-accent"}`}>
+							{slotsFull ? "Slots Full" : `${slotsRemaining} slot${slotsRemaining !== 1 ? "s" : ""} remaining`}
+						</span>
+					</div>
+					<span className="text-xs text-light-300">
+						{confirmed}/{maxPlayers} confirmed
+					</span>
+				</div>
+			)}
 
 			{/* Join Request Section */}
 			{!locked && (
@@ -474,11 +493,23 @@ export default function ConfirmationPage() {
 
 			{/* Player List */}
 			{(() => {
+				const sortedPlayers = maxPlayers > 0
+					? [...playerConfirmations].sort((a, b) => {
+							// Confirmed first (sorted by confirmedAt), then pending, then declined
+							const statusOrder = { confirmed: 0, pending: 1, declined: 2 };
+							const diff = statusOrder[a.status] - statusOrder[b.status];
+							if (diff !== 0) return diff;
+							if (a.status === "confirmed" && b.status === "confirmed") {
+								return (a.confirmedAt ?? 0) - (b.confirmedAt ?? 0);
+							}
+							return 0;
+						})
+					: playerConfirmations;
 				const filteredPlayers = playerSearch
-					? playerConfirmations.filter((pc) =>
+					? sortedPlayers.filter((pc) =>
 							pc.playerName.toLowerCase().includes(playerSearch.toLowerCase()),
 						)
-					: playerConfirmations;
+					: sortedPlayers;
 				return (
 					<div className="bg-secondary rounded-2xl border border-dark-100 overflow-hidden">
 						<div className="px-5 py-3 border-b border-dark-100 space-y-3">
@@ -502,16 +533,27 @@ export default function ConfirmationPage() {
 							)}
 						</div>
 						<div className="divide-y divide-dark-100">
-							{filteredPlayers.map((pc) => (
-								<PlayerConfirmationRow
-									key={pc.playerId}
-									pc={pc}
-									locked={locked}
-									updating={updatingPlayer === pc.playerId}
-									onConfirm={() => handleStatusChange(pc.playerId, "confirmed")}
-									onDecline={() => handleStatusChange(pc.playerId, "declined")}
-								/>
-							))}
+							{filteredPlayers.map((pc) => {
+								let confirmedRank: number | undefined;
+								if (maxPlayers > 0 && pc.status === "confirmed") {
+									confirmedRank = sortedPlayers
+										.filter((p) => p.status === "confirmed")
+										.findIndex((p) => p.playerId === pc.playerId) + 1;
+								}
+								return (
+									<PlayerConfirmationRow
+										key={pc.playerId}
+										pc={pc}
+										locked={locked}
+										slotsFull={slotsFull}
+										maxPlayers={maxPlayers}
+										confirmedRank={confirmedRank}
+										updating={updatingPlayer === pc.playerId}
+										onConfirm={() => handleStatusChange(pc.playerId, "confirmed")}
+										onDecline={() => handleStatusChange(pc.playerId, "declined")}
+									/>
+								);
+							})}
 							{playerSearch && filteredPlayers.length === 0 && (
 								<div className="px-5 py-6 text-center text-sm text-light-300">
 									No players found matching &ldquo;{playerSearch}&rdquo;
@@ -529,16 +571,23 @@ export default function ConfirmationPage() {
 function PlayerConfirmationRow({
 	pc,
 	locked,
+	slotsFull,
+	maxPlayers,
+	confirmedRank,
 	updating,
 	onConfirm,
 	onDecline,
 }: {
 	pc: PlayerConfirmation;
 	locked: boolean;
+	slotsFull: boolean;
+	maxPlayers: number;
+	confirmedRank?: number;
 	updating: boolean;
 	onConfirm: () => void;
 	onDecline: () => void;
 }) {
+	const isOnWaitlist = maxPlayers > 0 && confirmedRank !== undefined && confirmedRank > maxPlayers;
 	const config = playerLevelConfig[pc.playerLevel];
 	const statusColors: Record<ConfirmationStatus, string> = {
 		confirmed: "text-success",
@@ -556,14 +605,27 @@ function PlayerConfirmationRow({
 				{config.shortLabel}
 			</span>
 
+			{/* Rank */}
+			{maxPlayers > 0 && confirmedRank !== undefined && (
+				<span
+					className={`inline-flex items-center justify-center font-bold rounded text-[10px] w-5 h-5 shrink-0 ${
+						isOnWaitlist
+							? "text-warning bg-warning/10"
+							: "text-success bg-success/10"
+					}`}
+				>
+					{confirmedRank}
+				</span>
+			)}
+
 			{/* Player info */}
 			<div className="flex-1 min-w-0">
-				<p className="text-sm font-medium truncate">{pc.playerName}</p>
+				<p className={`text-sm font-medium truncate ${isOnWaitlist ? "text-light-300" : ""}`}>{pc.playerName}</p>
 				<div className="flex items-center gap-2">
 					<span
-						className={`text-[10px] font-semibold uppercase tracking-wide ${statusColors[pc.status]}`}
+						className={`text-[10px] font-semibold uppercase tracking-wide ${isOnWaitlist ? "text-warning" : statusColors[pc.status]}`}
 					>
-						{pc.status}
+						{isOnWaitlist ? "waitlist" : pc.status}
 					</span>
 					{pc.confirmedAt && (
 						<span className="text-[10px] text-light-300/50">
@@ -579,10 +641,11 @@ function PlayerConfirmationRow({
 					{pc.status !== "confirmed" && (
 						<button
 							onClick={onConfirm}
-							disabled={updating}
+							disabled={updating || (slotsFull && pc.status !== "declined")}
+							title={slotsFull && pc.status !== "declined" ? "All slots are full" : undefined}
 							className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-success/10 text-success border border-success/20 hover:bg-success/20 disabled:opacity-40 transition-colors"
 						>
-							{updating ? "..." : "Confirm"}
+							{updating ? "..." : slotsFull && pc.status !== "declined" ? "Full" : "Confirm"}
 						</button>
 					)}
 					{pc.status !== "declined" && (

@@ -25,6 +25,7 @@ export type EventDetails = {
 	courtCost: number;
 	additionalCosts: CostItem[];
 	notes?: string;
+	maxPlayers?: number;
 };
 
 export type ConfirmationMeta = {

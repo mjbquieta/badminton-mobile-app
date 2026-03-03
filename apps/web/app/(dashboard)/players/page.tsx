@@ -148,6 +148,7 @@ export default function PlayersPage() {
     [],
   );
   const [eventNotes, setEventNotes] = useState("");
+  const [eventMaxPlayers, setEventMaxPlayers] = useState(0);
 
   const levelOrder: Record<PlayerLevel, number> = {
     [PlayerLevel.BEGINNER]: 0,
@@ -211,18 +212,22 @@ export default function PlayersPage() {
 
   // Subscribe to real-time confirmation updates when enabled
   const subscriptionRef = useRef<(() => void) | null>(null);
+  const confirmationLoadedRef = useRef(false);
   useEffect(() => {
     if (!confirmation.meta.enabled || !confirmation.meta.serialId) {
       subscriptionRef.current?.();
       subscriptionRef.current = null;
+      confirmationLoadedRef.current = false;
       return;
     }
 
     const unsubscribe = subscribeToConfirmation(
       confirmation.meta.serialId,
       (doc) => {
+        confirmationLoadedRef.current = true;
         dispatch(setPlayerConfirmations(doc.playerConfirmations));
         dispatch(setJoinRequests(doc.joinRequests ?? []));
+        dispatch(setEventDetails(doc.eventDetails));
       },
       (err) => console.error("Confirmation subscription error:", err),
     );
@@ -235,6 +240,8 @@ export default function PlayersPage() {
   const prevPlayersRef = useRef<string>("");
   useEffect(() => {
     if (!confirmation.meta.enabled || !confirmation.meta.serialId) return;
+    // Wait until the subscription has delivered initial data to avoid overwriting
+    if (!confirmationLoadedRef.current) return;
 
     const playersKey = JSON.stringify(players.map((p) => p.id).sort());
     if (playersKey === prevPlayersRef.current) return;
@@ -269,6 +276,7 @@ export default function PlayersPage() {
     players,
     confirmation.meta.enabled,
     confirmation.meta.serialId,
+    confirmation.playerConfirmations,
     dispatch,
   ]);
 
@@ -419,6 +427,7 @@ export default function PlayersPage() {
       setEventCourtCost(0);
       setEventAdditionalCosts([]);
       setEventNotes("");
+      setEventMaxPlayers(0);
       setShowEventDetailsModal(true);
     }
   }
@@ -435,6 +444,7 @@ export default function PlayersPage() {
       courtCost: eventCourtCost,
       additionalCosts: eventAdditionalCosts.filter((c) => c.item.trim()),
       ...(eventNotes ? { notes: eventNotes } : {}),
+      ...(eventMaxPlayers > 0 ? { maxPlayers: eventMaxPlayers } : {}),
     };
 
     const playerConfirmations: PlayerConfirmation[] = players.map((p) => ({
@@ -495,6 +505,7 @@ export default function PlayersPage() {
       setEventCourtCost(confirmation.eventDetails.courtCost);
       setEventAdditionalCosts(confirmation.eventDetails.additionalCosts);
       setEventNotes(confirmation.eventDetails.notes ?? "");
+      setEventMaxPlayers(confirmation.eventDetails.maxPlayers ?? 0);
     }
     setShowEditEventModal(true);
   }
@@ -509,6 +520,7 @@ export default function PlayersPage() {
       courtCost: eventCourtCost,
       additionalCosts: eventAdditionalCosts.filter((c) => c.item.trim()),
       ...(eventNotes ? { notes: eventNotes } : {}),
+      ...(eventMaxPlayers > 0 ? { maxPlayers: eventMaxPlayers } : {}),
     };
 
     dispatch(setEventDetails(eventDetails));
@@ -863,49 +875,34 @@ export default function PlayersPage() {
                 <FiUsers size={12} />
                 Attendance
               </div>
-              <span className="text-xs text-light-300">
-                {confirmation.playerConfirmations.length} players
-              </span>
+              {confirmation.eventDetails?.maxPlayers ? (
+                <span className={`text-xs font-semibold ${confirmedCount >= confirmation.eventDetails.maxPlayers ? "text-warning" : "text-light-300"}`}>
+                  {confirmedCount}/{confirmation.eventDetails.maxPlayers} slots filled
+                </span>
+              ) : (
+                <span className="text-xs text-light-300">
+                  {confirmation.playerConfirmations.length} players
+                </span>
+              )}
             </div>
 
-            {/* Stacked Progress Bar */}
-            {confirmation.playerConfirmations.length > 0 && (
+            {/* Slot Progress Bar (when maxPlayers is set) */}
+            {confirmation.eventDetails?.maxPlayers ? (
               <div className="space-y-2">
                 <div className="flex h-3 rounded-full overflow-hidden bg-dark-200">
-                  {confirmedCount > 0 && (
-                    <div
-                      className="bg-success transition-all duration-500 ease-out"
-                      style={{
-                        width: `${(confirmedCount / confirmation.playerConfirmations.length) * 100}%`,
-                      }}
-                    />
-                  )}
-                  {declinedCount > 0 && (
-                    <div
-                      className="bg-danger transition-all duration-500 ease-out"
-                      style={{
-                        width: `${(declinedCount / confirmation.playerConfirmations.length) * 100}%`,
-                      }}
-                    />
-                  )}
+                  <div
+                    className={`${confirmedCount >= confirmation.eventDetails.maxPlayers ? "bg-warning" : "bg-success"} transition-all duration-500 ease-out`}
+                    style={{
+                      width: `${Math.min((confirmedCount / confirmation.eventDetails.maxPlayers) * 100, 100)}%`,
+                    }}
+                  />
                 </div>
-                <div className="flex items-center gap-4 text-xs">
+                <div className="flex items-center gap-4 text-xs flex-wrap">
                   <div className="flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-success" />
+                    <span className={`w-2 h-2 rounded-full ${confirmedCount >= confirmation.eventDetails.maxPlayers ? "bg-warning" : "bg-success"}`} />
                     <span className="text-light-300">Going</span>
-                    <span className="font-bold text-success">
+                    <span className={`font-bold ${confirmedCount >= confirmation.eventDetails.maxPlayers ? "text-warning" : "text-success"}`}>
                       {confirmedCount}
-                    </span>
-                    <span className="text-light-300/50">
-                      (
-                      {confirmation.playerConfirmations.length > 0
-                        ? Math.round(
-                            (confirmedCount /
-                              confirmation.playerConfirmations.length) *
-                              100,
-                          )
-                        : 0}
-                      %)
                     </span>
                   </div>
                   <div className="flex items-center gap-1.5">
@@ -922,8 +919,73 @@ export default function PlayersPage() {
                       {pendingCount}
                     </span>
                   </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-accent" />
+                    <span className="text-light-300">Open</span>
+                    <span className="font-bold text-accent">
+                      {Math.max(0, confirmation.eventDetails.maxPlayers - confirmedCount)}
+                    </span>
+                  </div>
                 </div>
               </div>
+            ) : (
+              /* Stacked Progress Bar (unlimited mode) */
+              confirmation.playerConfirmations.length > 0 && (
+                <div className="space-y-2">
+                  <div className="flex h-3 rounded-full overflow-hidden bg-dark-200">
+                    {confirmedCount > 0 && (
+                      <div
+                        className="bg-success transition-all duration-500 ease-out"
+                        style={{
+                          width: `${(confirmedCount / confirmation.playerConfirmations.length) * 100}%`,
+                        }}
+                      />
+                    )}
+                    {declinedCount > 0 && (
+                      <div
+                        className="bg-danger transition-all duration-500 ease-out"
+                        style={{
+                          width: `${(declinedCount / confirmation.playerConfirmations.length) * 100}%`,
+                        }}
+                      />
+                    )}
+                  </div>
+                  <div className="flex items-center gap-4 text-xs">
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-success" />
+                      <span className="text-light-300">Going</span>
+                      <span className="font-bold text-success">
+                        {confirmedCount}
+                      </span>
+                      <span className="text-light-300/50">
+                        (
+                        {confirmation.playerConfirmations.length > 0
+                          ? Math.round(
+                              (confirmedCount /
+                                confirmation.playerConfirmations.length) *
+                                100,
+                            )
+                          : 0}
+                        %)
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-danger" />
+                      <span className="text-light-300">Not Going</span>
+                      <span className="font-bold text-danger">
+                        {declinedCount}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-dark-100" />
+                      <span className="text-light-300">Pending</span>
+                      <span className="font-bold text-light-300">
+                        {pendingCount}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )
             )}
           </div>
 
@@ -1043,6 +1105,7 @@ export default function PlayersPage() {
           onApprove={handleApproveRequest}
           onApproveAndConfirm={handleApproveAndConfirmRequest}
           onReject={handleRejectRequest}
+          slotsFull={!!(confirmation.eventDetails?.maxPlayers && confirmedCount >= confirmation.eventDetails.maxPlayers)}
         />
       ) : (
       <>
@@ -1434,6 +1497,8 @@ export default function PlayersPage() {
           onCourtCostChange={setEventCourtCost}
           onAdditionalCostsChange={setEventAdditionalCosts}
           onNotesChange={setEventNotes}
+          maxPlayers={eventMaxPlayers}
+          onMaxPlayersChange={setEventMaxPlayers}
           isValid={!!isEventFormValid}
           onCancel={() => setShowEventDetailsModal(false)}
           onSubmit={handleSubmitEventDetails}
@@ -1465,6 +1530,9 @@ export default function PlayersPage() {
           onCourtCostChange={setEventCourtCost}
           onAdditionalCostsChange={setEventAdditionalCosts}
           onNotesChange={setEventNotes}
+          maxPlayers={eventMaxPlayers}
+          onMaxPlayersChange={setEventMaxPlayers}
+          confirmedCount={confirmedCount}
           isValid={!!isEventFormValid}
           onCancel={() => setShowEditEventModal(false)}
           onSubmit={handleUpdateEventDetails}
@@ -1658,11 +1726,13 @@ function JoinRequestsList({
   onApprove,
   onApproveAndConfirm,
   onReject,
+  slotsFull = false,
 }: {
   requests: JoinRequest[];
   onApprove: (r: JoinRequest) => void;
   onApproveAndConfirm: (r: JoinRequest) => void;
   onReject: (r: JoinRequest) => void;
+  slotsFull?: boolean;
 }) {
   const pending = requests.filter((r) => r.status === "pending");
   const handled = requests.filter((r) => r.status !== "pending");
@@ -1720,7 +1790,13 @@ function JoinRequestsList({
                       </button>
                       <button
                         onClick={() => onApproveAndConfirm(r)}
-                        className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-success/10 text-success border border-success/20 hover:bg-success/20 transition-colors"
+                        disabled={slotsFull}
+                        title={slotsFull ? "Slots are full" : undefined}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                          slotsFull
+                            ? "bg-dark-200 text-light-300/40 border border-dark-100 cursor-not-allowed"
+                            : "bg-success/10 text-success border border-success/20 hover:bg-success/20"
+                        }`}
                       >
                         Approve & Confirm
                       </button>
@@ -1789,6 +1865,7 @@ function EventDetailsForm({
   courtCost,
   additionalCosts,
   notes,
+  maxPlayers,
   onLocationChange,
   onCourtsChange,
   onDateChange,
@@ -1797,6 +1874,8 @@ function EventDetailsForm({
   onCourtCostChange,
   onAdditionalCostsChange,
   onNotesChange,
+  onMaxPlayersChange,
+  confirmedCount = 0,
   isValid,
   onCancel,
   onSubmit,
@@ -1810,6 +1889,7 @@ function EventDetailsForm({
   courtCost: number;
   additionalCosts: CostItem[];
   notes: string;
+  maxPlayers: number;
   onLocationChange: (v: string) => void;
   onCourtsChange: (v: number) => void;
   onDateChange: (v: string) => void;
@@ -1818,6 +1898,8 @@ function EventDetailsForm({
   onCourtCostChange: (v: number) => void;
   onAdditionalCostsChange: (v: CostItem[]) => void;
   onNotesChange: (v: string) => void;
+  onMaxPlayersChange: (v: number) => void;
+  confirmedCount?: number;
   isValid: boolean;
   onCancel: () => void;
   onSubmit: () => void;
@@ -1890,6 +1972,59 @@ function EventDetailsForm({
               }}
               className={inputClass}
             />
+          </div>
+          <div>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="text-sm text-light-200">
+                Player Limit
+              </label>
+              <button
+                type="button"
+                onClick={() => {
+                  const minVal = Math.max(1, confirmedCount);
+                  onMaxPlayersChange(maxPlayers > 0 ? 0 : Math.max(12, minVal));
+                }}
+                className="flex items-center gap-1.5"
+              >
+                <span
+                  role="switch"
+                  aria-checked={maxPlayers > 0}
+                  className={`relative inline-flex h-4 w-7 shrink-0 items-center rounded-full transition-colors duration-200 ${
+                    maxPlayers > 0 ? "bg-accent" : "bg-dark-100"
+                  }`}
+                >
+                  <span
+                    className={`inline-block h-3 w-3 rounded-full bg-white shadow-sm transition-transform duration-200 ${
+                      maxPlayers > 0 ? "translate-x-3.5" : "translate-x-0.5"
+                    }`}
+                  />
+                </span>
+                <span className="text-[10px] text-light-300">
+                  {maxPlayers > 0 ? "On" : "Unlimited"}
+                </span>
+              </button>
+            </div>
+            {maxPlayers > 0 && (
+              <>
+                <input
+                  type="number"
+                  min={Math.max(1, confirmedCount)}
+                  value={maxPlayers}
+                  onChange={(e) => {
+                    const minVal = Math.max(1, confirmedCount);
+                    const val = parseInt(e.target.value, 10);
+                    onMaxPlayersChange(isNaN(val) || val < minVal ? minVal : val);
+                  }}
+                  className={inputClass}
+                />
+                <p className="text-[10px] text-light-300/60 mt-1">
+                  First come first serve — only the first {maxPlayers} to confirm get a slot.
+                  {confirmedCount > 0 && (
+                    <> Minimum {confirmedCount} (already confirmed).</>
+                  )}
+                </p>
+              </>
+            )}
           </div>
           <div>
             <label className="text-sm text-light-200 mb-1.5 block">
