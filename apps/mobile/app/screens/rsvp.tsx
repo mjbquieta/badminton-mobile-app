@@ -160,7 +160,7 @@ export const RSVPContent = ({
 	}, [meta.serialId, dispatch, showToast]);
 
 	const handleShareLink = useCallback(async () => {
-		const url = `https://smashpotatoes.com/confirm/${meta.serialId}`;
+		const url = `https://rallyup.app/confirm/${meta.serialId}`;
 		try {
 			await Share.share({
 				message: `RSVP for badminton!\n\nLink: ${url}\nPIN: ${meta.pin}`,
@@ -439,7 +439,7 @@ export const RSVPContent = ({
 						{/* QR Code */}
 						<View className="items-center py-3 rounded-xl bg-white">
 							<QRCode
-								value={`https://smashpotatoes.com/confirm/${meta.serialId}`}
+								value={`https://rallyup.app/confirm/${meta.serialId}`}
 								size={160}
 							/>
 						</View>

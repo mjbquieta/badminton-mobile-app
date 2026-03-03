@@ -48,7 +48,7 @@ export default function LoginScreen() {
             Sign In
           </Text>
           <Text className="text-light-200 text-base mb-8">
-            Welcome back to Smash Potatoes
+            Welcome back to RallyUp
           </Text>
 
           {error ? (

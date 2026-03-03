@@ -1,9 +1,9 @@
 "use client";
 
 import { AuthProvider } from "@/contexts/AuthContext";
+import { PublicFooter } from "@/components/PublicFooter";
+import { PublicNavbar } from "@/components/PublicNavbar";
 import Link from "next/link";
-import { useState } from "react";
-import { FiArrowLeft, FiMenu, FiX } from "react-icons/fi";
 
 const features = [
   {
@@ -96,8 +96,6 @@ const features = [
 ];
 
 function WhatsNewContent() {
-  const [menuOpen, setMenuOpen] = useState(false);
-
   return (
     <div className="min-h-screen flex flex-col overflow-x-hidden">
       {/* Ambient glow effects */}
@@ -106,115 +104,10 @@ function WhatsNewContent() {
         <div className="absolute bottom-[-10%] right-[-10%] w-[400px] h-[400px] bg-accent/5 rounded-full blur-[100px]" />
       </div>
 
-      {/* Nav */}
-      <header className="relative z-10 px-6 sm:px-10 py-5">
-        {/* Mobile */}
-        <div className="flex sm:hidden items-center justify-between">
-          <div className="flex items-center gap-2">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/potato-logo.svg"
-              alt="Smash Potatoes"
-              className="w-8 h-8"
-            />
-            <span className="text-xl font-bold text-light-100">
-              Smash Potatoes
-            </span>
-          </div>
-          <button
-            onClick={() => setMenuOpen(!menuOpen)}
-            className="p-2 text-light-200 hover:text-light-100 transition-colors"
-          >
-            {menuOpen ? <FiX size={22} /> : <FiMenu size={22} />}
-          </button>
-        </div>
-        {menuOpen && (
-          <div className="sm:hidden mt-3 flex flex-col gap-1 bg-secondary/90 backdrop-blur border border-dark-100 rounded-2xl p-3">
-            <Link
-              href="/"
-              className="text-sm text-light-200 hover:text-light-100 transition-colors px-3 py-2.5 rounded-xl hover:bg-dark-200"
-              onClick={() => setMenuOpen(false)}
-            >
-              Home
-            </Link>
-            <Link
-              href="/feedback"
-              className="text-sm text-light-200 hover:text-light-100 transition-colors px-3 py-2.5 rounded-xl hover:bg-dark-200"
-              onClick={() => setMenuOpen(false)}
-            >
-              Feedback
-            </Link>
-            <Link
-              href="/login"
-              className="text-sm text-light-200 hover:text-light-100 transition-colors px-3 py-2.5 rounded-xl hover:bg-dark-200"
-              onClick={() => setMenuOpen(false)}
-            >
-              Sign In
-            </Link>
-            <Link
-              href="/register"
-              className="text-sm font-semibold bg-accent text-primary px-4 py-2.5 rounded-xl hover:bg-accent/80 transition-colors text-center mt-1"
-              onClick={() => setMenuOpen(false)}
-            >
-              Get Started
-            </Link>
-          </div>
-        )}
-        {/* Desktop */}
-        <div className="hidden sm:flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/potato-logo.svg"
-              alt="Smash Potatoes"
-              className="w-8 h-8"
-            />
-            <span className="text-xl font-bold text-light-100">
-              Smash Potatoes
-            </span>
-          </div>
-          <div className="flex items-center gap-3">
-            <Link
-              href="/"
-              className="text-sm text-light-200 hover:text-light-100 transition-colors px-4 py-2"
-            >
-              Home
-            </Link>
-            <Link
-              href="/feedback"
-              className="text-sm text-light-200 hover:text-light-100 transition-colors px-4 py-2"
-            >
-              Feedback
-            </Link>
-            <Link
-              href="/login"
-              className="text-sm text-light-200 hover:text-light-100 transition-colors px-4 py-2"
-            >
-              Sign In
-            </Link>
-            <Link
-              href="/register"
-              className="text-sm font-semibold bg-accent text-primary px-5 py-2 rounded-xl hover:bg-accent/80 transition-colors"
-            >
-              Get Started
-            </Link>
-          </div>
-        </div>
-      </header>
+      <PublicNavbar />
 
       {/* Content */}
       <main className="relative z-10 flex flex-col items-center px-6 pt-8 sm:pt-16 pb-20">
-        {/* Back link */}
-        <div className="w-full max-w-4xl mb-8">
-          <Link
-            href="/"
-            className="inline-flex items-center gap-1.5 text-sm text-light-300 hover:text-light-100 transition-colors"
-          >
-            <FiArrowLeft size={14} />
-            Back to Home
-          </Link>
-        </div>
-
         {/* Header */}
         <div className="text-center mb-16">
           <div className="inline-block bg-accent/10 border border-accent/30 text-accent text-[10px] font-bold uppercase tracking-widest px-3 py-1 rounded-full mb-4">
@@ -304,16 +197,7 @@ function WhatsNewContent() {
         </div>
       </main>
 
-      {/* Footer */}
-      <footer className="relative z-10 text-center py-10 text-light-300 text-xs flex flex-col items-center gap-2">
-        <Link
-          href="/feedback"
-          className="text-light-200 hover:text-light-100 transition-colors"
-        >
-          Feedback &amp; Bug Reports
-        </Link>
-        <span>Smash Potatoes &copy; {new Date().getFullYear()}</span>
-      </footer>
+      <PublicFooter />
     </div>
   );
 }

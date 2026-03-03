@@ -12,7 +12,7 @@ interface ThemeContextType {
 
 const ThemeContext = createContext<ThemeContextType | null>(null);
 
-const STORAGE_KEY = 'smash-potatoes-theme';
+const STORAGE_KEY = 'rallyup-theme';
 
 function getSystemTheme(): 'dark' | 'light' {
   if (typeof window === 'undefined') return 'dark';
