@@ -1,6 +1,7 @@
 import {
 	type ConfirmationMeta,
 	type EventDetails,
+	type JoinRequest,
 	type PlayerConfirmation,
 } from "@badminton/types";
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
@@ -9,6 +10,7 @@ type ConfirmationState = {
 	meta: ConfirmationMeta;
 	eventDetails: EventDetails | null;
 	playerConfirmations: PlayerConfirmation[];
+	joinRequests: JoinRequest[];
 	error: string | null;
 };
 
@@ -21,6 +23,7 @@ const initialState: ConfirmationState = {
 	},
 	eventDetails: null,
 	playerConfirmations: [],
+	joinRequests: [],
 	error: null,
 };
 
@@ -45,6 +48,7 @@ const confirmationSlice = createSlice({
 			state.meta.locked = false;
 			state.eventDetails = null;
 			state.playerConfirmations = [];
+			state.joinRequests = [];
 			state.error = null;
 		},
 		setEventDetails: (state, action: PayloadAction<EventDetails>) => {
@@ -87,6 +91,20 @@ const confirmationSlice = createSlice({
 			state.meta = action.payload;
 			state.error = null;
 		},
+		setJoinRequests: (state, action: PayloadAction<JoinRequest[]>) => {
+			state.joinRequests = action.payload;
+			state.error = null;
+		},
+		updateJoinRequest: (
+			state,
+			action: PayloadAction<{ id: string; status: 'approved' | 'rejected' }>,
+		) => {
+			const req = state.joinRequests.find((r) => r.id === action.payload.id);
+			if (req) {
+				req.status = action.payload.status;
+			}
+			state.error = null;
+		},
 		setConfirmationError: (state, action: PayloadAction<string>) => {
 			state.error = action.payload;
 		},
@@ -105,6 +123,8 @@ export const {
 	lockConfirmation,
 	unlockConfirmation,
 	setConfirmationMeta,
+	setJoinRequests,
+	updateJoinRequest,
 	setConfirmationError,
 	clearConfirmationError,
 } = confirmationSlice.actions;

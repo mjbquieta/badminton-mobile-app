@@ -25,6 +25,8 @@ export {
   unlockConfirmationDoc,
   deleteConfirmationDoc,
   subscribeToConfirmation,
+  addJoinRequest,
+  updateJoinRequestStatus,
 } from './confirmation-firestore';
 
 export type { User, UserProfile, RegisterResult } from './auth';
