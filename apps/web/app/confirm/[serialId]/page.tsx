@@ -331,59 +331,9 @@ export default function ConfirmationPage() {
 				</div>
 			</div>
 
-			{/* Player List */}
-			{(() => {
-				const filteredPlayers = playerSearch
-					? playerConfirmations.filter((pc) =>
-							pc.playerName.toLowerCase().includes(playerSearch.toLowerCase()),
-						)
-					: playerConfirmations;
-				return (
-					<div className="bg-secondary rounded-2xl border border-dark-100 overflow-hidden">
-						<div className="px-5 py-3 border-b border-dark-100 space-y-3">
-							<h2 className="text-sm font-semibold text-light-200 uppercase tracking-wide">
-								Players ({playerConfirmations.length})
-							</h2>
-							{playerConfirmations.length > 5 && (
-								<div className="relative">
-									<FiSearch
-										size={14}
-										className="absolute left-3 top-1/2 -translate-y-1/2 text-light-300/50"
-									/>
-									<input
-										type="text"
-										placeholder="Search your name..."
-										value={playerSearch}
-										onChange={(e) => setPlayerSearch(e.target.value)}
-										className="w-full bg-dark-200 border border-dark-100 rounded-lg pl-9 pr-3 py-2 text-sm text-light-100 placeholder:text-light-300/40 outline-none focus:border-accent/50"
-									/>
-								</div>
-							)}
-						</div>
-						<div className="divide-y divide-dark-100">
-							{filteredPlayers.map((pc) => (
-								<PlayerConfirmationRow
-									key={pc.playerId}
-									pc={pc}
-									locked={locked}
-									updating={updatingPlayer === pc.playerId}
-									onConfirm={() => handleStatusChange(pc.playerId, "confirmed")}
-									onDecline={() => handleStatusChange(pc.playerId, "declined")}
-								/>
-							))}
-							{playerSearch && filteredPlayers.length === 0 && (
-								<div className="px-5 py-6 text-center text-sm text-light-300">
-									No players found matching &ldquo;{playerSearch}&rdquo;
-								</div>
-							)}
-						</div>
-					</div>
-				);
-			})()}
-
 			{/* Join Request Section */}
 			{!locked && (
-				<div className="bg-secondary rounded-2xl border border-dark-100 overflow-hidden">
+				<div className="bg-secondary rounded-2xl border border-accent/30 overflow-hidden">
 					{joinSubmitted ? (
 						<div className="px-5 py-6 text-center space-y-2">
 							<div className="w-10 h-10 rounded-full bg-success/10 flex items-center justify-center mx-auto">
@@ -401,10 +351,10 @@ export default function ConfirmationPage() {
 						<>
 							<button
 								onClick={() => setShowJoinForm(!showJoinForm)}
-								className="w-full px-5 py-3 flex items-center gap-3 hover:bg-dark-200/50 transition-colors"
+								className="w-full px-5 py-3.5 flex items-center gap-3 hover:bg-dark-200/50 transition-colors"
 							>
-								<FiUserPlus size={16} className="text-accent shrink-0" />
-								<span className="text-sm font-medium text-light-200">
+								<FiUserPlus size={18} className="text-accent shrink-0" />
+								<span className="text-sm font-semibold text-accent">
 									Not on the list? Request to join
 								</span>
 								<span
@@ -484,7 +434,7 @@ export default function ConfirmationPage() {
 
 									{existingPlayer && !joinSubmitting && (
 										<p className="text-xs text-warning">
-											This name is already on the player list — find your name above to confirm.
+											This name is already on the player list — find your name below to confirm.
 										</p>
 									)}
 
@@ -521,7 +471,58 @@ export default function ConfirmationPage() {
 					)}
 				</div>
 			)}
-		</div>
+
+			{/* Player List */}
+			{(() => {
+				const filteredPlayers = playerSearch
+					? playerConfirmations.filter((pc) =>
+							pc.playerName.toLowerCase().includes(playerSearch.toLowerCase()),
+						)
+					: playerConfirmations;
+				return (
+					<div className="bg-secondary rounded-2xl border border-dark-100 overflow-hidden">
+						<div className="px-5 py-3 border-b border-dark-100 space-y-3">
+							<h2 className="text-sm font-semibold text-light-200 uppercase tracking-wide">
+								Players ({playerConfirmations.length})
+							</h2>
+							{playerConfirmations.length > 5 && (
+								<div className="relative">
+									<FiSearch
+										size={14}
+										className="absolute left-3 top-1/2 -translate-y-1/2 text-light-300/50"
+									/>
+									<input
+										type="text"
+										placeholder="Search your name..."
+										value={playerSearch}
+										onChange={(e) => setPlayerSearch(e.target.value)}
+										className="w-full bg-dark-200 border border-dark-100 rounded-lg pl-9 pr-3 py-2 text-sm text-light-100 placeholder:text-light-300/40 outline-none focus:border-accent/50"
+									/>
+								</div>
+							)}
+						</div>
+						<div className="divide-y divide-dark-100">
+							{filteredPlayers.map((pc) => (
+								<PlayerConfirmationRow
+									key={pc.playerId}
+									pc={pc}
+									locked={locked}
+									updating={updatingPlayer === pc.playerId}
+									onConfirm={() => handleStatusChange(pc.playerId, "confirmed")}
+									onDecline={() => handleStatusChange(pc.playerId, "declined")}
+								/>
+							))}
+							{playerSearch && filteredPlayers.length === 0 && (
+								<div className="px-5 py-6 text-center text-sm text-light-300">
+									No players found matching &ldquo;{playerSearch}&rdquo;
+								</div>
+							)}
+						</div>
+					</div>
+				);
+			})()}
+
+			</div>
 	);
 }
 
