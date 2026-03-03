@@ -28,3 +28,4 @@ export type {
 } from './tournament';
 export type { RecurrenceType, ScheduledSession } from './schedule';
 export type { DraftTemplate } from './draft-template';
+export type { LeaderboardEntry, LeaderboardSnapshot } from './leaderboard';

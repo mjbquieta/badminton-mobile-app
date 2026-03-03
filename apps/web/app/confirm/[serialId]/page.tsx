@@ -637,27 +637,32 @@ function PlayerConfirmationRow({
 
 			{/* Actions */}
 			{!locked && (
-				<div className="flex gap-1.5 shrink-0">
-					{pc.status !== "confirmed" && (
-						<button
-							onClick={onConfirm}
-							disabled={updating || (slotsFull && pc.status !== "declined")}
-							title={slotsFull && pc.status !== "declined" ? "All slots are full" : undefined}
-							className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-success/10 text-success border border-success/20 hover:bg-success/20 disabled:opacity-40 transition-colors"
-						>
-							{updating ? "..." : slotsFull && pc.status !== "declined" ? "Full" : "Confirm"}
-						</button>
-					)}
-					{pc.status !== "declined" && (
-						<button
-							onClick={onDecline}
-							disabled={updating}
-							className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-danger/10 text-danger border border-danger/20 hover:bg-danger/20 disabled:opacity-40 transition-colors"
-						>
-							{updating ? "..." : "Decline"}
-						</button>
-					)}
-				</div>
+				slotsFull && pc.status !== "confirmed" ? (
+					<span className="px-3 py-1.5 rounded-lg text-[10px] font-semibold bg-warning/10 text-warning border border-warning/20 shrink-0">
+						Slots Full
+					</span>
+				) : (
+					<div className="flex gap-1.5 shrink-0">
+						{pc.status !== "confirmed" && (
+							<button
+								onClick={onConfirm}
+								disabled={updating}
+								className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-success/10 text-success border border-success/20 hover:bg-success/20 disabled:opacity-40 transition-colors"
+							>
+								{updating ? "..." : "Confirm"}
+							</button>
+						)}
+						{pc.status !== "declined" && (
+							<button
+								onClick={onDecline}
+								disabled={updating}
+								className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-danger/10 text-danger border border-danger/20 hover:bg-danger/20 disabled:opacity-40 transition-colors"
+							>
+								{updating ? "..." : "Decline"}
+							</button>
+						)}
+					</div>
+				)
 			)}
 		</div>
 	);

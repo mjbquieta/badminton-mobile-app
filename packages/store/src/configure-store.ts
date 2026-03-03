@@ -8,6 +8,7 @@ import { themeReducer } from './slices/theme';
 import { tournamentsReducer } from './slices/tournaments';
 import { schedulesReducer } from './slices/schedules';
 import { draftTemplatesReducer } from './slices/draft-templates';
+import { leaderboardReducer } from './slices/leaderboard';
 
 export const configureAppStore = () => {
 	return configureStore({
@@ -21,6 +22,7 @@ export const configureAppStore = () => {
 			tournaments: tournamentsReducer,
 			schedules: schedulesReducer,
 			draftTemplates: draftTemplatesReducer,
+			leaderboard: leaderboardReducer,
 		},
 	});
 };

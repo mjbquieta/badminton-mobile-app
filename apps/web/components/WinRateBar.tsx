@@ -6,11 +6,13 @@ interface WinRateBarProps {
 }
 
 export function WinRateBar({ rate, size = "md" }: WinRateBarProps) {
+  // rate is a decimal 0–1, convert to percentage
+  const pct = rate * 100;
   const height = size === "sm" ? "h-1.5" : "h-2";
   const color =
-    rate >= 60
+    pct >= 60
       ? "bg-green-400"
-      : rate >= 40
+      : pct >= 40
         ? "bg-yellow-400"
         : "bg-red-400";
 
@@ -19,11 +21,11 @@ export function WinRateBar({ rate, size = "md" }: WinRateBarProps) {
       <div className={`flex-1 ${height} bg-dark-200 rounded-full overflow-hidden`}>
         <div
           className={`${height} ${color} rounded-full transition-all`}
-          style={{ width: `${Math.min(100, Math.max(0, rate))}%` }}
+          style={{ width: `${Math.min(100, Math.max(0, pct))}%` }}
         />
       </div>
       <span className="text-xs text-light-300 tabular-nums w-9 text-right">
-        {Math.round(rate)}%
+        {Math.round(pct)}%
       </span>
     </div>
   );

@@ -183,8 +183,8 @@ const playersSlice = createSlice({
 		addPlayer: (state, action: PayloadAction<AddPlayerPayload>) => {
 			const name = action.payload.name.trim();
 
-			if (name.length < 3) {
-				state.error = "Player name must be at least 3 characters long";
+			if (name.length < 2) {
+				state.error = "Player name must be at least 2 characters long";
 				return;
 			}
 

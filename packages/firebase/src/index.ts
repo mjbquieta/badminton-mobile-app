@@ -81,5 +81,12 @@ export {
   subscribeToDraftTemplates,
 } from './draft-template-firestore';
 
+export {
+  saveLeaderboardSnapshot,
+  subscribeToLeaderboardSnapshots,
+  deleteLeaderboardSnapshot,
+  clearLeaderboardSnapshots,
+} from './leaderboard-firestore';
+
 export type { UserRecord } from './admin-firestore';
 export { getAllUsers } from './admin-firestore';

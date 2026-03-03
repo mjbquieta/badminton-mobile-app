@@ -10,6 +10,7 @@ import {
   subscribeToSchedules,
   subscribeToDraftTemplates,
   subscribeToMatchHistory,
+  subscribeToLeaderboardSnapshots,
   type SyncableStore,
 } from '@badminton/firebase';
 
@@ -72,6 +73,9 @@ export function useFirebaseSync(store: SyncableStore, sessionId: string) {
           const unsubMatchHistory = subscribeToMatchHistory(sessionId, (records) => {
             store.dispatch({ type: 'matchHistory/setMatchHistory', payload: records });
           });
+          const unsubLeaderboard = subscribeToLeaderboardSnapshots(sessionId, (snapshots) => {
+            store.dispatch({ type: 'leaderboard/setLeaderboardSnapshots', payload: snapshots });
+          });
 
           cleanupRef.current = () => {
             mainCleanup();
@@ -79,6 +83,7 @@ export function useFirebaseSync(store: SyncableStore, sessionId: string) {
             unsubSchedules();
             unsubTemplates();
             unsubMatchHistory();
+            unsubLeaderboard();
           };
 
           setIsLoading(false);

@@ -1,17 +1,31 @@
 "use client";
 
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
 import { PlayerLevelBadge } from "@/components/PlayerLevelBadge";
-import { useAppSelector } from "@badminton/store";
-import type { MatchRecord, Player } from "@badminton/types";
+import { useAuth } from "@/contexts/AuthContext";
+import { clearMatchHistoryFirestore, deleteLeaderboardSnapshot } from "@badminton/firebase";
+import {
+  clearMatchHistory,
+  useAppDispatch,
+  useAppSelector,
+} from "@badminton/store";
+import type { LeaderboardSnapshot, MatchRecord, Player } from "@badminton/types";
+import { playerLevelConfig } from "@badminton/ui-shared";
 import { useMemo, useState } from "react";
-import { FiCalendar, FiClock, FiSearch } from "react-icons/fi";
+import { FiAward, FiCalendar, FiChevronDown, FiChevronUp, FiClock, FiList, FiSearch, FiTrash2 } from "react-icons/fi";
 
 export default function HistoryPage() {
+  const { user } = useAuth();
+  const dispatch = useAppDispatch();
   const records = useAppSelector((state) => state.matchHistory.records);
   const players = useAppSelector((state) => state.players.items);
   const courts = useAppSelector((state) => state.courts.items);
 
+  const leaderboardSnapshots = useAppSelector((state) => state.leaderboard.snapshots);
+  const [activeTab, setActiveTab] = useState<"matches" | "leaderboards">("matches");
+  const [expandedSnapshotId, setExpandedSnapshotId] = useState<string | null>(null);
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [search, setSearch] = useState("");
   const [courtFilter, setCourtFilter] = useState("");
   const [winnerFilter, setWinnerFilter] = useState<"" | "A" | "B">("");
@@ -51,11 +65,13 @@ export default function HistoryPage() {
       }
       if (search) {
         const lowerSearch = search.toLowerCase();
-        const hasMatchingPlayer = r.playerIds.some((id) => {
-          const p = resolvePlayer(id);
-          return p?.name.toLowerCase().includes(lowerSearch);
-        });
-        if (!hasMatchingPlayer) return false;
+        const allNames = [
+          ...r.playerIds.map((id) => resolvePlayer(id)?.name),
+          ...(r.teamANames ?? []),
+          ...(r.teamBNames ?? []),
+        ];
+        const hasMatch = allNames.some((name) => name?.toLowerCase().includes(lowerSearch));
+        if (!hasMatch) return false;
       }
       return true;
     });
@@ -96,14 +112,57 @@ export default function HistoryPage() {
       {/* Header */}
       <div className="flex items-start sm:items-center justify-between gap-3 mb-6 md:mb-8">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold">Match History</h1>
-          <p className="text-light-300 text-sm mt-1">
-            {filteredRecords.length} finished match
-            {filteredRecords.length !== 1 ? "es" : ""}
-          </p>
+          <h1 className="text-2xl sm:text-3xl font-bold">History</h1>
         </div>
+        {activeTab === "matches" && records.length > 0 && (
+          <button
+            onClick={() => setShowClearConfirm(true)}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-danger bg-danger/10 border border-danger/20 hover:bg-danger/20 transition-colors"
+          >
+            <FiTrash2 size={14} />
+            Clear History
+          </button>
+        )}
       </div>
 
+      {/* Tabs */}
+      <div className="flex bg-dark-200 rounded-xl p-1 mb-6">
+        <button
+          onClick={() => setActiveTab("matches")}
+          className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-semibold transition-colors ${
+            activeTab === "matches"
+              ? "bg-dark-100 text-light-100"
+              : "text-light-300 hover:text-light-200"
+          }`}
+        >
+          <FiList size={14} />
+          Matches
+          {records.length > 0 && (
+            <span className="text-[10px] bg-dark-200 rounded-full px-1.5 py-0.5 ml-0.5">
+              {records.length}
+            </span>
+          )}
+        </button>
+        <button
+          onClick={() => setActiveTab("leaderboards")}
+          className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-semibold transition-colors ${
+            activeTab === "leaderboards"
+              ? "bg-dark-100 text-light-100"
+              : "text-light-300 hover:text-light-200"
+          }`}
+        >
+          <FiAward size={14} />
+          Leaderboards
+          {leaderboardSnapshots.length > 0 && (
+            <span className="text-[10px] bg-dark-200 rounded-full px-1.5 py-0.5 ml-0.5">
+              {leaderboardSnapshots.length}
+            </span>
+          )}
+        </button>
+      </div>
+
+      {activeTab === "matches" ? (
+      <>
       {/* Filters */}
       <div className="flex flex-wrap gap-2 mb-6">
         <div className="relative flex-1 min-w-[180px]">
@@ -192,12 +251,18 @@ export default function HistoryPage() {
               </div>
               <div className="bg-secondary rounded-2xl border border-dark-100 overflow-hidden">
                 {group.records.map((record, idx) => {
-                  const teamA = record.teamA
-                    .map(resolvePlayer)
-                    .filter((p): p is Player => p !== undefined);
-                  const teamB = record.teamB
-                    .map(resolvePlayer)
-                    .filter((p): p is Player => p !== undefined);
+                  const teamA = record.teamA.map((id, i) => {
+                    const p = resolvePlayer(id);
+                    if (p) return { player: p, deleted: false };
+                    const name = record.teamANames?.[i] ?? "Unknown";
+                    return { player: { id, name, level: "BEGINNER" as const, gameCount: 0, trophies: 0 } as Player, deleted: true };
+                  });
+                  const teamB = record.teamB.map((id, i) => {
+                    const p = resolvePlayer(id);
+                    if (p) return { player: p, deleted: false };
+                    const name = record.teamBNames?.[i] ?? "Unknown";
+                    return { player: { id, name, level: "BEGINNER" as const, gameCount: 0, trophies: 0 } as Player, deleted: true };
+                  });
 
                   return (
                     <div
@@ -233,13 +298,13 @@ export default function HistoryPage() {
                               : "p-2"
                           }`}
                         >
-                          {teamA.map((p) => (
+                          {teamA.map(({ player: p, deleted }) => (
                             <div
                               key={p.id}
-                              className="flex items-center gap-1.5"
+                              className={`flex items-center gap-1.5 ${deleted ? "opacity-50" : ""}`}
                             >
                               <PlayerAvatar player={p} size="sm" />
-                              <PlayerLevelBadge level={p.level} />
+                              {!deleted && <PlayerLevelBadge level={p.level} />}
                               <span
                                 className={`text-sm truncate ${
                                   record.winner === "A"
@@ -270,13 +335,13 @@ export default function HistoryPage() {
                               : "p-2"
                           }`}
                         >
-                          {teamB.map((p) => (
+                          {teamB.map(({ player: p, deleted }) => (
                             <div
                               key={p.id}
-                              className="flex items-center gap-1.5"
+                              className={`flex items-center gap-1.5 ${deleted ? "opacity-50" : ""}`}
                             >
                               <PlayerAvatar player={p} size="sm" />
-                              <PlayerLevelBadge level={p.level} />
+                              {!deleted && <PlayerLevelBadge level={p.level} />}
                               <span
                                 className={`text-sm truncate ${
                                   record.winner === "B"
@@ -298,6 +363,139 @@ export default function HistoryPage() {
           ))}
         </div>
       )}
+      </>
+      ) : (
+        /* Leaderboards Tab */
+        <div className="space-y-4">
+          {leaderboardSnapshots.length === 0 ? (
+            <div className="bg-secondary rounded-2xl border border-dark-100 py-16 text-center">
+              <FiAward size={32} className="mx-auto text-light-300/40 mb-3" />
+              <p className="text-light-300 text-sm">No leaderboard snapshots yet</p>
+              <p className="text-light-300/50 text-xs mt-1">
+                Snapshots are saved when you reset drafts
+              </p>
+            </div>
+          ) : (
+            leaderboardSnapshots.map((snapshot) => {
+              const isExpanded = expandedSnapshotId === snapshot.id;
+              const top3 = snapshot.entries.slice(0, 3);
+              return (
+                <div
+                  key={snapshot.id}
+                  className="bg-secondary rounded-2xl border border-dark-100 overflow-hidden"
+                >
+                  <button
+                    onClick={() => setExpandedSnapshotId(isExpanded ? null : snapshot.id)}
+                    className="w-full flex items-center justify-between px-4 py-3 hover:bg-dark-200/50 transition-colors"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <FiAward size={16} className="text-accent shrink-0" />
+                      <div className="text-left min-w-0">
+                        <p className="text-sm font-semibold">
+                          {new Date(snapshot.createdAt).toLocaleDateString("en-US", {
+                            month: "long",
+                            day: "numeric",
+                            year: "numeric",
+                          })}
+                        </p>
+                        <p className="text-[10px] text-light-300">
+                          {snapshot.totalMatches} match{snapshot.totalMatches !== 1 ? "es" : ""}
+                          {" · "}
+                          {snapshot.entries.length} player{snapshot.entries.length !== 1 ? "s" : ""}
+                          {top3.length > 0 && (
+                            <> · Top: {top3.map((e) => e.playerName).join(", ")}</>
+                          )}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      {isExpanded ? <FiChevronUp size={16} className="text-light-300" /> : <FiChevronDown size={16} className="text-light-300" />}
+                    </div>
+                  </button>
+
+                  {isExpanded && (
+                    <div className="border-t border-dark-100">
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="text-[10px] text-light-300 uppercase tracking-wide">
+                              <th className="text-left px-4 py-2 font-semibold">#</th>
+                              <th className="text-left px-4 py-2 font-semibold">Player</th>
+                              <th className="text-center px-2 py-2 font-semibold">W</th>
+                              <th className="text-center px-2 py-2 font-semibold">L</th>
+                              <th className="text-center px-2 py-2 font-semibold">Win%</th>
+                              <th className="text-center px-2 py-2 font-semibold">Games</th>
+                              <th className="text-center px-2 py-2 font-semibold">Trophies</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {snapshot.entries.map((entry, i) => {
+                              const config = playerLevelConfig[entry.playerLevel];
+                              return (
+                                <tr key={entry.playerId} className="border-t border-dark-100/50">
+                                  <td className="px-4 py-2 text-light-300 font-bold text-xs">{i + 1}</td>
+                                  <td className="px-4 py-2">
+                                    <div className="flex items-center gap-2">
+                                      <span
+                                        className="inline-flex items-center justify-center font-bold rounded text-[10px] w-5 h-5 shrink-0"
+                                        style={{ color: config.color, backgroundColor: `${config.color}15` }}
+                                      >
+                                        {config.shortLabel}
+                                      </span>
+                                      <span className="truncate">{entry.playerName}</span>
+                                    </div>
+                                  </td>
+                                  <td className="text-center px-2 py-2 text-success font-semibold">{entry.wins}</td>
+                                  <td className="text-center px-2 py-2 text-danger font-semibold">{entry.losses}</td>
+                                  <td className="text-center px-2 py-2 font-semibold">{Math.round(entry.winRate * 100)}%</td>
+                                  <td className="text-center px-2 py-2 text-light-300">{entry.gameCount}</td>
+                                  <td className="text-center px-2 py-2 text-warning">{entry.trophies}</td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                      <div className="flex justify-end px-4 py-2 border-t border-dark-100/50">
+                        <button
+                          onClick={() => {
+                            if (user?.uid) {
+                              deleteLeaderboardSnapshot(user.uid, snapshot.id).catch((err) =>
+                                console.error("Failed to delete snapshot:", err),
+                              );
+                            }
+                          }}
+                          className="flex items-center gap-1 text-[10px] text-danger/60 hover:text-danger transition-colors"
+                        >
+                          <FiTrash2 size={10} />
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })
+          )}
+        </div>
+      )}
+
+      <ConfirmDialog
+        open={showClearConfirm}
+        onClose={() => setShowClearConfirm(false)}
+        onConfirm={() => {
+          dispatch(clearMatchHistory());
+          if (user?.uid) {
+            clearMatchHistoryFirestore(user.uid).catch((err) =>
+              console.error("Failed to clear match history:", err),
+            );
+          }
+        }}
+        title="Clear All Match History"
+        message="This will permanently delete all match history. Player stats (game counts and trophies) will not be affected. This action cannot be undone."
+        confirmLabel="Clear All"
+        danger
+      />
     </div>
   );
 }
