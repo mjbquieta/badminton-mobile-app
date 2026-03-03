@@ -21,6 +21,7 @@ import {
   subscribeToConfirmation,
   updateConfirmationEventDetails,
   updateConfirmationPlayers,
+  updateJoinRequestStatus,
 } from "@badminton/firebase";
 import {
   addPlayer,
@@ -30,9 +31,11 @@ import {
   enableConfirmation,
   removePlayer,
   setEventDetails,
+  setJoinRequests,
   setPlayerConfirmations,
   setPlayersActive,
   togglePlayerActive,
+  updateJoinRequest,
   updatePlayerGameCount,
   updatePlayerLevel,
   useAppDispatch,
@@ -42,6 +45,7 @@ import {
   PlayerLevel,
   type CostItem,
   type EventDetails,
+  type JoinRequest,
   type Player,
   type PlayerConfirmation,
 } from "@badminton/types";
@@ -62,6 +66,7 @@ import {
   FiShare2,
   FiTrash2,
   FiUpload,
+  FiUserPlus,
   FiUsers,
   FiX,
   FiXCircle,
@@ -80,7 +85,7 @@ export default function PlayersPage() {
     "name",
   );
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
-  const [activeTab, setActiveTab] = useState<"all" | "active" | "inactive">(
+  const [activeTab, setActiveTab] = useState<"all" | "active" | "inactive" | "requests">(
     "all",
   );
   const [showAddModal, setShowAddModal] = useState(false);
@@ -217,6 +222,7 @@ export default function PlayersPage() {
       confirmation.meta.serialId,
       (doc) => {
         dispatch(setPlayerConfirmations(doc.playerConfirmations));
+        dispatch(setJoinRequests(doc.joinRequests ?? []));
       },
       (err) => console.error("Confirmation subscription error:", err),
     );
@@ -540,6 +546,86 @@ export default function PlayersPage() {
   }, [confirmation.eventDetails]);
 
   const costPerPlayer = confirmedCount > 0 ? totalCost / confirmedCount : 0;
+
+  // Join requests
+  const pendingRequestCount = confirmation.joinRequests.filter(
+    (r) => r.status === "pending",
+  ).length;
+
+  async function handleApproveRequest(request: JoinRequest) {
+    const newPlayerId = uuidv4();
+    dispatch(
+      addPlayer({
+        id: newPlayerId,
+        name: request.name,
+        level: request.level,
+        maxPlayers: emailVerified ? undefined : UNVERIFIED_LIMITS.MAX_PLAYERS,
+      }),
+    );
+
+    // Update request status in Firestore
+    dispatch(updateJoinRequest({ id: request.id, status: "approved" }));
+    if (confirmation.meta.serialId) {
+      await updateJoinRequestStatus(
+        confirmation.meta.serialId,
+        request.id,
+        "approved",
+        confirmation.joinRequests,
+      ).catch(console.error);
+    }
+  }
+
+  async function handleApproveAndConfirmRequest(request: JoinRequest) {
+    const newPlayerId = uuidv4();
+    dispatch(
+      addPlayer({
+        id: newPlayerId,
+        name: request.name,
+        level: request.level,
+        maxPlayers: emailVerified ? undefined : UNVERIFIED_LIMITS.MAX_PLAYERS,
+      }),
+    );
+
+    // Add as confirmed player in confirmation system and sync to Firestore
+    if (confirmation.meta.enabled && confirmation.meta.serialId) {
+      const newPc: PlayerConfirmation = {
+        playerId: newPlayerId,
+        playerName: request.name,
+        playerLevel: request.level,
+        status: "confirmed",
+        confirmedAt: Date.now(),
+      };
+      const updatedPcs = [...confirmation.playerConfirmations, newPc];
+      dispatch(setPlayerConfirmations(updatedPcs));
+      await updateConfirmationPlayers(
+        confirmation.meta.serialId,
+        updatedPcs,
+      ).catch(console.error);
+    }
+
+    // Update request status in Firestore
+    dispatch(updateJoinRequest({ id: request.id, status: "approved" }));
+    if (confirmation.meta.serialId) {
+      await updateJoinRequestStatus(
+        confirmation.meta.serialId,
+        request.id,
+        "approved",
+        confirmation.joinRequests,
+      ).catch(console.error);
+    }
+  }
+
+  async function handleRejectRequest(request: JoinRequest) {
+    dispatch(updateJoinRequest({ id: request.id, status: "rejected" }));
+    if (confirmation.meta.serialId) {
+      await updateJoinRequestStatus(
+        confirmation.meta.serialId,
+        request.id,
+        "rejected",
+        confirmation.joinRequests,
+      ).catch(console.error);
+    }
+  }
 
   return (
     <div className="p-4 sm:p-6 md:p-8 max-w-5xl">
@@ -931,8 +1017,35 @@ export default function PlayersPage() {
             </button>
           );
         })}
+        {confirmation.meta.enabled && (
+          <button
+            onClick={() => setActiveTab("requests")}
+            className={`flex-1 py-2 px-3 rounded-lg text-xs font-semibold capitalize transition-colors relative ${
+              activeTab === "requests"
+                ? "bg-secondary text-light-100 shadow-sm"
+                : "text-light-300 hover:text-light-200"
+            }`}
+          >
+            Requests
+            {pendingRequestCount > 0 && (
+              <span className="ml-1.5 inline-flex items-center justify-center w-5 h-5 rounded-full bg-danger text-white text-[10px] font-bold">
+                {pendingRequestCount}
+              </span>
+            )}
+          </button>
+        )}
       </div>
 
+      {/* Requests Tab Content */}
+      {activeTab === "requests" ? (
+        <JoinRequestsList
+          requests={confirmation.joinRequests}
+          onApprove={handleApproveRequest}
+          onApproveAndConfirm={handleApproveAndConfirmRequest}
+          onReject={handleRejectRequest}
+        />
+      ) : (
+      <>
       {/* Search & Sort */}
       <div className="flex gap-2 mb-6">
         <input
@@ -1152,6 +1265,8 @@ export default function PlayersPage() {
             </button>
           </div>
         </div>
+      )}
+      </>
       )}
 
       {/* Add Player Modal */}
@@ -1535,6 +1650,133 @@ function ConfirmationStatusBadge({
     >
       <FiClock size={10} className="text-light-300" />
     </span>
+  );
+}
+
+function JoinRequestsList({
+  requests,
+  onApprove,
+  onApproveAndConfirm,
+  onReject,
+}: {
+  requests: JoinRequest[];
+  onApprove: (r: JoinRequest) => void;
+  onApproveAndConfirm: (r: JoinRequest) => void;
+  onReject: (r: JoinRequest) => void;
+}) {
+  const pending = requests.filter((r) => r.status === "pending");
+  const handled = requests.filter((r) => r.status !== "pending");
+
+  return (
+    <div className="space-y-4">
+      {pending.length === 0 && handled.length === 0 ? (
+        <div className="bg-secondary rounded-2xl border border-dark-100 py-16 text-center">
+          <FiUserPlus size={32} className="mx-auto text-light-300/40 mb-3" />
+          <p className="text-light-300 text-sm">No join requests yet</p>
+          <p className="text-light-300/60 text-xs mt-0.5">
+            Players can request to join from the public RSVP page
+          </p>
+        </div>
+      ) : (
+        <>
+          {pending.length > 0 && (
+            <div>
+              <h3 className="text-xs font-semibold text-light-300 uppercase tracking-wide mb-2">
+                Pending ({pending.length})
+              </h3>
+              <div className="space-y-2">
+                {pending.map((r) => (
+                  <div
+                    key={r.id}
+                    className="bg-secondary rounded-2xl border border-dark-100 p-4 flex flex-col sm:flex-row sm:items-center gap-3"
+                  >
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="font-semibold text-sm truncate">
+                          {r.name}
+                        </span>
+                        <PlayerLevelBadge level={r.level} size="md" />
+                      </div>
+                      {r.description && (
+                        <p className="text-xs text-light-300 line-clamp-2">
+                          {r.description}
+                        </p>
+                      )}
+                      <p className="text-[10px] text-light-300/50 mt-1">
+                        {new Date(r.createdAt).toLocaleString("en-US", {
+                          month: "short",
+                          day: "numeric",
+                          hour: "numeric",
+                          minute: "2-digit",
+                        })}
+                      </p>
+                    </div>
+                    <div className="flex gap-2 shrink-0 flex-wrap justify-end">
+                      <button
+                        onClick={() => onApprove(r)}
+                        className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-accent/10 text-accent border border-accent/20 hover:bg-accent/20 transition-colors"
+                      >
+                        Approve
+                      </button>
+                      <button
+                        onClick={() => onApproveAndConfirm(r)}
+                        className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-success/10 text-success border border-success/20 hover:bg-success/20 transition-colors"
+                      >
+                        Approve & Confirm
+                      </button>
+                      <button
+                        onClick={() => onReject(r)}
+                        className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-danger/10 text-danger border border-danger/20 hover:bg-danger/20 transition-colors"
+                      >
+                        Reject
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          {handled.length > 0 && (
+            <div>
+              <h3 className="text-xs font-semibold text-light-300 uppercase tracking-wide mb-2">
+                Handled ({handled.length})
+              </h3>
+              <div className="space-y-2">
+                {handled.map((r) => (
+                  <div
+                    key={r.id}
+                    className="bg-secondary/50 rounded-2xl border border-dark-100/50 p-4 flex items-center gap-3 opacity-60"
+                  >
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-sm truncate">
+                          {r.name}
+                        </span>
+                        <PlayerLevelBadge level={r.level} size="md" />
+                      </div>
+                      {r.description && (
+                        <p className="text-xs text-light-300 line-clamp-1 mt-0.5">
+                          {r.description}
+                        </p>
+                      )}
+                    </div>
+                    <span
+                      className={`text-[10px] font-bold uppercase tracking-wide ${
+                        r.status === "approved"
+                          ? "text-success"
+                          : "text-danger"
+                      }`}
+                    >
+                      {r.status}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </>
+      )}
+    </div>
   );
 }
 

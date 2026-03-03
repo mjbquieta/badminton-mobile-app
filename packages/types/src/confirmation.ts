@@ -34,9 +34,19 @@ export type ConfirmationMeta = {
 	locked: boolean;
 };
 
+export type JoinRequest = {
+	id: string;
+	name: string;
+	level: PlayerLevel;
+	description: string;
+	status: 'pending' | 'approved' | 'rejected';
+	createdAt: number;
+};
+
 export type ConfirmationDocument = {
 	eventDetails: EventDetails;
 	playerConfirmations: PlayerConfirmation[];
+	joinRequests?: JoinRequest[];
 	locked: boolean;
 	ownerId: string;
 	pin: string;

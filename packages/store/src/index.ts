@@ -66,6 +66,8 @@ export {
 	lockConfirmation,
 	unlockConfirmation,
 	setConfirmationMeta,
+	setJoinRequests,
+	updateJoinRequest,
 	setConfirmationError,
 	clearConfirmationError,
 	confirmationReducer,

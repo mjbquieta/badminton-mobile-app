@@ -7,21 +7,26 @@ import {
 	getConfirmationDoc,
 	subscribeToConfirmation,
 	updatePlayerConfirmation,
+	addJoinRequest,
 } from "@badminton/firebase";
 import { firebaseConfig } from "@/config/firebase";
-import type {
-	ConfirmationDocument,
-	PlayerConfirmation,
-	ConfirmationStatus,
+import {
+	PlayerLevel,
+	type ConfirmationDocument,
+	type PlayerConfirmation,
+	type ConfirmationStatus,
+	type JoinRequest,
 } from "@badminton/types";
 import { playerLevelConfig } from "@badminton/ui-shared";
 import {
 	FiActivity,
 	FiCalendar,
+	FiCheck,
 	FiClock,
 	FiLock,
 	FiMapPin,
 	FiSearch,
+	FiUserPlus,
 } from "react-icons/fi";
 
 type Phase = "pin-entry" | "loading" | "viewing" | "not-found" | "error";
@@ -37,6 +42,14 @@ export default function ConfirmationPage() {
 	const [updatingPlayer, setUpdatingPlayer] = useState<string | null>(null);
 	const [playerSearch, setPlayerSearch] = useState("");
 	const firebaseInitialized = useRef(false);
+
+	// Join request form state
+	const [showJoinForm, setShowJoinForm] = useState(false);
+	const [joinName, setJoinName] = useState("");
+	const [joinLevel, setJoinLevel] = useState<PlayerLevel>(PlayerLevel.INTERMEDIATE);
+	const [joinDescription, setJoinDescription] = useState("");
+	const [joinSubmitting, setJoinSubmitting] = useState(false);
+	const [joinSubmitted, setJoinSubmitted] = useState(false);
 
 	useEffect(() => {
 		if (!firebaseInitialized.current) {
@@ -181,10 +194,40 @@ export default function ConfirmationPage() {
 		);
 	}
 
+	async function handleJoinRequest() {
+		if (!data || joinName.trim().length < 2) return;
+		setJoinSubmitting(true);
+		try {
+			const request: JoinRequest = {
+				id: crypto.randomUUID(),
+				name: joinName.trim(),
+				level: joinLevel,
+				description: joinDescription.trim(),
+				status: "pending",
+				createdAt: Date.now(),
+			};
+			await addJoinRequest(serialId, request, data.joinRequests ?? []);
+			setJoinSubmitted(true);
+			setShowJoinForm(false);
+		} catch (err) {
+			console.error("Failed to submit join request:", err);
+		} finally {
+			setJoinSubmitting(false);
+		}
+	}
+
 	// --- Viewing ---
 	if (!data) return null;
 
 	const { eventDetails, playerConfirmations, locked } = data;
+	const existingRequest = (data.joinRequests ?? []).find(
+		(r) => r.name.toLowerCase() === joinName.trim().toLowerCase(),
+	);
+	const existingPlayer = joinName.trim().length >= 2
+		? playerConfirmations.find(
+				(p) => p.playerName.toLowerCase() === joinName.trim().toLowerCase(),
+			)
+		: undefined;
 	const confirmed = playerConfirmations.filter(
 		(p) => p.status === "confirmed",
 	).length;
@@ -337,6 +380,147 @@ export default function ConfirmationPage() {
 					</div>
 				);
 			})()}
+
+			{/* Join Request Section */}
+			{!locked && (
+				<div className="bg-secondary rounded-2xl border border-dark-100 overflow-hidden">
+					{joinSubmitted ? (
+						<div className="px-5 py-6 text-center space-y-2">
+							<div className="w-10 h-10 rounded-full bg-success/10 flex items-center justify-center mx-auto">
+								<FiCheck className="text-success" size={20} />
+							</div>
+							<p className="text-sm font-semibold text-success">
+								Request Submitted!
+							</p>
+							<p className="text-xs text-light-300">
+								The organizer will review your request. Check back later for
+								updates.
+							</p>
+						</div>
+					) : (
+						<>
+							<button
+								onClick={() => setShowJoinForm(!showJoinForm)}
+								className="w-full px-5 py-3 flex items-center gap-3 hover:bg-dark-200/50 transition-colors"
+							>
+								<FiUserPlus size={16} className="text-accent shrink-0" />
+								<span className="text-sm font-medium text-light-200">
+									Not on the list? Request to join
+								</span>
+								<span
+									className={`ml-auto text-light-300 text-xs transition-transform ${showJoinForm ? "rotate-180" : ""}`}
+								>
+									&#9662;
+								</span>
+							</button>
+							{showJoinForm && (
+								<div className="px-5 pb-5 space-y-4 border-t border-dark-100 pt-4">
+									{/* Name */}
+									<div>
+										<label className="text-xs text-light-300 mb-1 block">
+											Your Name
+										</label>
+										<input
+											type="text"
+											value={joinName}
+											onChange={(e) => setJoinName(e.target.value)}
+											placeholder="Enter your name"
+											className="w-full bg-dark-200 border border-dark-100 rounded-lg px-3 py-2 text-sm text-light-100 placeholder:text-light-300/40 outline-none focus:border-accent/50"
+										/>
+									</div>
+
+									{/* Skill Level */}
+									<div>
+										<label className="text-xs text-light-300 mb-2 block">
+											Skill Level
+										</label>
+										<div className="grid grid-cols-4 gap-1.5">
+											{(
+												[
+													PlayerLevel.BEGINNER,
+													PlayerLevel.INTERMEDIATE,
+													PlayerLevel.ADVANCED,
+													PlayerLevel.PRO,
+												]
+											).map((level) => {
+												const config = playerLevelConfig[level];
+												const selected = joinLevel === level;
+												return (
+													<button
+														key={level}
+														onClick={() => setJoinLevel(level)}
+														className={`py-2 rounded-lg text-xs font-semibold border transition-colors ${
+															selected
+																? "border-accent/50 bg-accent/10"
+																: "border-dark-100 bg-dark-200 hover:border-dark-100/80"
+														}`}
+														style={
+															selected
+																? { color: config.color }
+																: undefined
+														}
+													>
+														{config.shortLabel}
+													</button>
+												);
+											})}
+										</div>
+									</div>
+
+									{/* Description */}
+									<div>
+										<label className="text-xs text-light-300 mb-1 block">
+											Description{" "}
+											<span className="text-light-300/50">(optional)</span>
+										</label>
+										<textarea
+											value={joinDescription}
+											onChange={(e) => setJoinDescription(e.target.value)}
+											placeholder="e.g. Invited by John, new to badminton..."
+											rows={2}
+											className="w-full bg-dark-200 border border-dark-100 rounded-lg px-3 py-2 text-sm text-light-100 placeholder:text-light-300/40 outline-none focus:border-accent/50 resize-none"
+										/>
+									</div>
+
+									{existingPlayer && !joinSubmitting && (
+										<p className="text-xs text-warning">
+											This name is already on the player list — find your name above to confirm.
+										</p>
+									)}
+
+									{existingRequest && !existingPlayer && !joinSubmitting && (
+										<p className="text-xs text-warning">
+											A request with this name already exists (
+											{existingRequest.status}).
+										</p>
+									)}
+
+									{/* Submit */}
+									<button
+										onClick={handleJoinRequest}
+										disabled={
+											joinName.trim().length < 2 ||
+											joinSubmitting ||
+											!!existingRequest ||
+											!!existingPlayer
+										}
+										className="w-full py-2.5 rounded-xl bg-accent text-primary font-semibold text-sm hover:bg-accent/80 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+									>
+										{joinSubmitting ? (
+											<span className="flex items-center justify-center gap-2">
+												<span className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+												Submitting...
+											</span>
+										) : (
+											"Submit Request"
+										)}
+									</button>
+								</div>
+							)}
+						</>
+					)}
+				</div>
+			)}
 		</div>
 	);
 }

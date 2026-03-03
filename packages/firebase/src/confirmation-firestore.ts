@@ -14,6 +14,7 @@ import {
 	type ConfirmationDocument,
 	type PlayerConfirmation,
 	type EventDetails,
+	type JoinRequest,
 } from '@badminton/types';
 import { getFirebaseApp } from './config';
 import { toTimestampMs } from './timestamp-helpers';
@@ -131,4 +132,30 @@ export function subscribeToConfirmation(
 		},
 		onError,
 	);
+}
+
+export async function addJoinRequest(
+	serialId: string,
+	request: JoinRequest,
+	existingRequests: JoinRequest[],
+): Promise<void> {
+	await updateDoc(doc(getDb(), 'confirmations', serialId), {
+		joinRequests: [...existingRequests, request],
+		updatedAt: serverTimestamp(),
+	});
+}
+
+export async function updateJoinRequestStatus(
+	serialId: string,
+	requestId: string,
+	status: 'approved' | 'rejected',
+	existingRequests: JoinRequest[],
+): Promise<void> {
+	const updated = existingRequests.map((r) =>
+		r.id === requestId ? { ...r, status } : r,
+	);
+	await updateDoc(doc(getDb(), 'confirmations', serialId), {
+		joinRequests: updated,
+		updatedAt: serverTimestamp(),
+	});
 }

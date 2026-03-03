@@ -9,6 +9,7 @@ import {
   subscribeToTournaments,
   subscribeToSchedules,
   subscribeToDraftTemplates,
+  subscribeToMatchHistory,
   type SyncableStore,
 } from '@badminton/firebase';
 
@@ -68,12 +69,16 @@ export function useFirebaseSync(store: SyncableStore, sessionId: string) {
           const unsubTemplates = subscribeToDraftTemplates(sessionId, (templates) => {
             store.dispatch({ type: 'draftTemplates/setDraftTemplates', payload: templates });
           });
+          const unsubMatchHistory = subscribeToMatchHistory(sessionId, (records) => {
+            store.dispatch({ type: 'matchHistory/setMatchHistory', payload: records });
+          });
 
           cleanupRef.current = () => {
             mainCleanup();
             unsubTournaments();
             unsubSchedules();
             unsubTemplates();
+            unsubMatchHistory();
           };
 
           setIsLoading(false);

@@ -11,6 +11,7 @@ import { computeBalanceScore, generateAutoDrafts } from "@badminton/core";
 import {
   addDraft,
   addDraftsBatch,
+  addMatchRecord,
   clearDrafts,
   clearDraftsError,
   finishDraft,
@@ -24,7 +25,8 @@ import {
   useAppDispatch,
   useAppSelector,
 } from "@badminton/store";
-import { PlayerLevel, type Draft, type Player } from "@badminton/types";
+import { saveMatchRecord } from "@badminton/firebase";
+import { PlayerLevel, type Draft, type Player, type MatchRecord } from "@badminton/types";
 import { playerLevelConfig } from "@badminton/ui-shared";
 import { useRef, useMemo, useState } from "react";
 import {
@@ -158,23 +160,51 @@ export default function DraftPage() {
   function handleFinish(winner: "A" | "B") {
     if (!finishTarget || finishTarget.finished) return;
     const half = Math.ceil(finishTarget.playerIds.length / 2);
-    const winnerIds =
-      winner === "A"
-        ? finishTarget.playerIds.slice(0, half)
-        : finishTarget.playerIds.slice(half);
+    const teamA = finishTarget.playerIds.slice(0, half);
+    const teamB = finishTarget.playerIds.slice(half);
+    const winnerIds = winner === "A" ? teamA : teamB;
     pushUndo();
     dispatch(incrementPlayersGameCount(finishTarget.playerIds));
     dispatch(incrementPlayersTrophies(winnerIds));
     const numA = parseInt(scoreA, 10);
     const numB = parseInt(scoreB, 10);
+    const parsedScoreA = !isNaN(numA) ? numA : undefined;
+    const parsedScoreB = !isNaN(numB) ? numB : undefined;
     dispatch(
       finishDraft({
         id: finishTarget.id,
         winner,
-        scoreA: !isNaN(numA) ? numA : undefined,
-        scoreB: !isNaN(numB) ? numB : undefined,
+        scoreA: parsedScoreA,
+        scoreB: parsedScoreB,
       }),
     );
+
+    // Save match record to Firestore for permanent history
+    const court = finishTarget.courtId
+      ? courts.find((c) => c.id === finishTarget.courtId)
+      : undefined;
+    const record: MatchRecord = {
+      id: uuidv4(),
+      sessionId: user?.uid ?? "",
+      draftId: finishTarget.id,
+      playerIds: finishTarget.playerIds,
+      teamA,
+      teamB,
+      winner,
+      ...(parsedScoreA != null && { scoreA: parsedScoreA }),
+      ...(parsedScoreB != null && { scoreB: parsedScoreB }),
+      ...(finishTarget.courtId != null && { courtId: finishTarget.courtId }),
+      ...(court?.name != null && { courtName: court.name }),
+      isSingle: finishTarget.playerIds.length === 2,
+      finishedAt: Date.now(),
+    };
+    dispatch(addMatchRecord(record));
+    if (user?.uid) {
+      saveMatchRecord(user.uid, record).catch((err) => {
+        console.error("[draft] Failed to save match record:", err);
+      });
+    }
+
     setFinishTarget(null);
     setScoreA("");
     setScoreB("");

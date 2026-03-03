@@ -8,6 +8,7 @@ export type {
 	EventDetails,
 	ConfirmationMeta,
 	ConfirmationDocument,
+	JoinRequest,
 } from './confirmation';
 export type { MatchRecord } from './match-history';
 export type { PlayerStats, HeadToHeadRecord } from './statistics';
