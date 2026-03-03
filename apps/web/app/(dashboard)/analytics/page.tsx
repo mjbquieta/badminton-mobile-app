@@ -10,7 +10,6 @@ import {
   computeAvailabilityHeatmap,
   getRecentForm,
 } from "@badminton/core";
-import type { MatchRecord } from "@badminton/types";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
 import { PlayerLevelBadge } from "@/components/PlayerLevelBadge";
 import { useMemo, useState } from "react";
@@ -44,34 +43,11 @@ const HOURS = Array.from({ length: 12 }, (_, i) => {
 export default function AnalyticsPage() {
   const players = useAppSelector((s) => s.players.items);
   const courts = useAppSelector((s) => s.courts.items);
-  const drafts = useAppSelector((s) => s.drafts.items);
+  const matchRecords = useAppSelector((s) => s.matchHistory.records);
   const schedules = useAppSelector((s) => s.schedules.items);
 
   const [activeTab, setActiveTab] = useState<Tab>("overview");
   const [selectedPlayerId, setSelectedPlayerId] = useState<string>("");
-
-  const matchRecords: MatchRecord[] = useMemo(
-    () =>
-      drafts
-        .filter((d) => d.finished && d.winner)
-        .map((d) => {
-          const half = Math.ceil(d.playerIds.length / 2);
-          return {
-            id: d.id,
-            sessionId: "",
-            draftId: d.id,
-            playerIds: d.playerIds,
-            teamA: d.playerIds.slice(0, half),
-            teamB: d.playerIds.slice(half),
-            winner: d.winner as "A" | "B",
-            scoreA: d.scoreA,
-            scoreB: d.scoreB,
-            isSingle: d.playerIds.length === 2,
-            finishedAt: Date.now(),
-          };
-        }),
-    [drafts],
-  );
 
   const allStats = useMemo(
     () => computeAllPlayerStats(matchRecords),

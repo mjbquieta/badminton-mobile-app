@@ -25,6 +25,7 @@ import {
 } from "@badminton/firebase";
 import {
   addPlayer,
+  clearDrafts,
   clearPlayers,
   clearPlayersError,
   disableConfirmation,
@@ -56,6 +57,7 @@ import {
   FiClipboard,
   FiClock,
   FiDollarSign,
+  FiDownload,
   FiEdit2,
   FiExternalLink,
   FiEye,
@@ -119,6 +121,10 @@ export default function PlayersPage() {
   const [importMode, setImportMode] = useState<"file" | "paste">("file");
   const [isDragging, setIsDragging] = useState(false);
   const [importFileName, setImportFileName] = useState<string | null>(null);
+
+  // Export state
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [selectedExportIds, setSelectedExportIds] = useState<Set<string>>(new Set());
 
   // Add player form state
   const [newName, setNewName] = useState("");
@@ -359,7 +365,7 @@ export default function PlayersPage() {
     for (const entry of entries) {
       const name = entry.name.trim();
       const level = entry.level.trim().toUpperCase();
-      if (name.length < 3 || !validLevels.has(level as PlayerLevel)) {
+      if (name.length < 2 || !validLevels.has(level as PlayerLevel)) {
         skipped++;
         continue;
       }
@@ -375,7 +381,7 @@ export default function PlayersPage() {
     }
     if (imported === 0 && skipped > 0) {
       setImportError(
-        `All ${skipped} entries were invalid. Check name (3+ chars) and level (BEGINNER, INTERMEDIATE, ADVANCED, PRO).`,
+        `All ${skipped} entries were invalid. Check name (2+ chars) and level (BEGINNER, INTERMEDIATE, ADVANCED, PRO).`,
       );
       return;
     }
@@ -403,6 +409,20 @@ export default function PlayersPage() {
     } else {
       setImportError("Please drop a .json or .csv file.");
     }
+  }
+
+  function handleExportPlayers() {
+    const selected = players.filter((p) => selectedExportIds.has(p.id));
+    if (selected.length === 0) return;
+    const csv = "name,level\n" + selected.map((p) => `${p.name},${p.level}`).join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `players-export-${new Date().toISOString().split("T")[0]}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    setShowExportModal(false);
   }
 
   function openEdit(player: Player) {
@@ -747,6 +767,20 @@ export default function PlayersPage() {
                   <FiUpload size={14} />
                   Import
                 </button>
+                {players.length > 0 && (
+                  <button
+                    onClick={() => {
+                      const ids = new Set(filtered.map((p) => p.id));
+                      setSelectedExportIds(ids);
+                      setShowExportModal(true);
+                      setShowMenu(false);
+                    }}
+                    className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-light-200 hover:bg-dark-200 text-left"
+                  >
+                    <FiDownload size={14} />
+                    Export
+                  </button>
+                )}
                 {players.length > 0 && (
                   <button
                     onClick={() => {
@@ -1347,7 +1381,7 @@ export default function PlayersPage() {
             className="w-full bg-dark-200 border border-dark-100 rounded-xl px-4 py-2.5 text-sm text-light-100 placeholder:text-light-300 outline-none focus:border-accent/50"
             autoFocus
             onKeyDown={(e) =>
-              e.key === "Enter" && newName.trim().length >= 3 && handleAdd()
+              e.key === "Enter" && newName.trim().length >= 2 && handleAdd()
             }
           />
           <div>
@@ -1365,7 +1399,7 @@ export default function PlayersPage() {
             </button>
             <button
               onClick={handleAdd}
-              disabled={newName.trim().length < 3}
+              disabled={newName.trim().length < 2}
               className="px-4 py-2 rounded-xl bg-accent text-primary font-semibold hover:bg-accent/80 disabled:opacity-40 disabled:cursor-not-allowed"
             >
               Add
@@ -1441,9 +1475,12 @@ export default function PlayersPage() {
       <ConfirmDialog
         open={showClearConfirm}
         onClose={() => setShowClearConfirm(false)}
-        onConfirm={() => dispatch(clearPlayers())}
+        onConfirm={() => {
+          dispatch(clearPlayers());
+          dispatch(clearDrafts());
+        }}
         title="Clear All Players"
-        message="This will remove all players. Are you sure?"
+        message="This will remove all players and reset all current drafts. Match history will not be affected. Are you sure?"
         confirmLabel="Clear All"
         danger
       />
@@ -1678,6 +1715,82 @@ export default function PlayersPage() {
               className="px-4 py-2 rounded-xl text-sm bg-accent text-primary font-semibold hover:bg-accent/80 disabled:opacity-40 disabled:cursor-not-allowed"
             >
               Import Players
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Export Players Modal */}
+      <Modal
+        open={showExportModal}
+        onClose={() => setShowExportModal(false)}
+        title="Export Players"
+      >
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={selectedExportIds.size === filtered.length && filtered.length > 0}
+                onChange={(e) => {
+                  if (e.target.checked) {
+                    setSelectedExportIds(new Set(filtered.map((p) => p.id)));
+                  } else {
+                    setSelectedExportIds(new Set());
+                  }
+                }}
+                className="w-4 h-4 rounded accent-accent"
+              />
+              <span className="text-sm text-light-200">Select All</span>
+            </label>
+            <span className="text-xs text-light-300">
+              {selectedExportIds.size} of {filtered.length} selected
+            </span>
+          </div>
+
+          <div className="max-h-72 overflow-y-auto rounded-xl border border-dark-100 divide-y divide-dark-100">
+            {filtered.map((p) => (
+              <label
+                key={p.id}
+                className="flex items-center gap-3 px-4 py-2.5 hover:bg-dark-200 cursor-pointer"
+              >
+                <input
+                  type="checkbox"
+                  checked={selectedExportIds.has(p.id)}
+                  onChange={(e) => {
+                    const next = new Set(selectedExportIds);
+                    if (e.target.checked) {
+                      next.add(p.id);
+                    } else {
+                      next.delete(p.id);
+                    }
+                    setSelectedExportIds(next);
+                  }}
+                  className="w-4 h-4 rounded accent-accent shrink-0"
+                />
+                <span className="text-sm text-light-100 truncate flex-1">{p.name}</span>
+                <PlayerLevelBadge level={p.level} size="md" />
+              </label>
+            ))}
+          </div>
+
+          <div className="flex items-center justify-between text-[10px] text-light-300/50">
+            <span>Format: CSV (name, level)</span>
+          </div>
+
+          <div className="flex gap-3 justify-end pt-1">
+            <button
+              onClick={() => setShowExportModal(false)}
+              className="px-4 py-2 rounded-xl text-sm text-light-200 hover:bg-dark-200"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleExportPlayers}
+              disabled={selectedExportIds.size === 0}
+              className="px-4 py-2 rounded-xl text-sm bg-accent text-primary font-semibold hover:bg-accent/80 disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              Export {selectedExportIds.size} Player{selectedExportIds.size !== 1 ? "s" : ""}
             </button>
           </div>
         </div>

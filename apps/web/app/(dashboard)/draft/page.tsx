@@ -7,7 +7,7 @@ import { Modal } from "@/components/Modal";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
 import { PlayerLevelBadge } from "@/components/PlayerLevelBadge";
 import { useAuth } from "@/contexts/AuthContext";
-import { computeBalanceScore, generateAutoDrafts } from "@badminton/core";
+import { computeAllPlayerStats, computeBalanceScore, generateAutoDrafts } from "@badminton/core";
 import {
   addDraft,
   addDraftsBatch,
@@ -18,16 +18,16 @@ import {
   incrementPlayersGameCount,
   incrementPlayersTrophies,
   removeDraft,
-  resetAllGameCounts,
   setDrafts,
   updateDraftCourt,
   updateDraftPlayers,
   useAppDispatch,
   useAppSelector,
 } from "@badminton/store";
-import { saveMatchRecord } from "@badminton/firebase";
-import { PlayerLevel, type Draft, type Player, type MatchRecord } from "@badminton/types";
+import { saveLeaderboardSnapshot, saveMatchRecord } from "@badminton/firebase";
+import { PlayerLevel, type Draft, type LeaderboardEntry, type LeaderboardSnapshot, type Player, type MatchRecord } from "@badminton/types";
 import { playerLevelConfig } from "@badminton/ui-shared";
+import { useRouter } from "next/navigation";
 import { useRef, useMemo, useState } from "react";
 import {
   FiAlertCircle,
@@ -49,6 +49,7 @@ import { v4 as uuidv4 } from "uuid";
 
 export default function DraftPage() {
   const { user } = useAuth();
+  const router = useRouter();
   const dispatch = useAppDispatch();
   const drafts = useAppSelector((state) => state.drafts.items);
   const draftsError = useAppSelector((state) => state.drafts.error);
@@ -58,6 +59,7 @@ export default function DraftPage() {
   const [editingDraft, setEditingDraft] = useState<Draft | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Draft | null>(null);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [showResetSuccess, setShowResetSuccess] = useState(false);
   const [showAutoDraftConfirm, setShowAutoDraftConfirm] = useState(false);
   const [draftCount, setDraftCount] = useState(30);
   const [shuffleMode, setShuffleMode] = useState<
@@ -183,6 +185,8 @@ export default function DraftPage() {
     const court = finishTarget.courtId
       ? courts.find((c) => c.id === finishTarget.courtId)
       : undefined;
+    const teamANames = teamA.map((id) => playerMap.get(id)?.name ?? "Unknown");
+    const teamBNames = teamB.map((id) => playerMap.get(id)?.name ?? "Unknown");
     const record: MatchRecord = {
       id: uuidv4(),
       sessionId: user?.uid ?? "",
@@ -190,6 +194,8 @@ export default function DraftPage() {
       playerIds: finishTarget.playerIds,
       teamA,
       teamB,
+      teamANames,
+      teamBNames,
       winner,
       ...(parsedScoreA != null && { scoreA: parsedScoreA }),
       ...(parsedScoreB != null && { scoreB: parsedScoreB }),
@@ -342,7 +348,7 @@ export default function DraftPage() {
               <span className="hidden sm:inline">Export</span>
             </button>
           )}
-          {(drafts.length > 0 || players.length > 0) && (
+          {drafts.length > 0 && (
             <button
               onClick={() => setShowResetConfirm(true)}
               className="flex items-center gap-1.5 p-2 sm:px-4 sm:py-2 rounded-xl text-xs sm:text-sm text-danger border border-danger/30 hover:bg-danger/10 transition-colors"
@@ -962,14 +968,85 @@ export default function DraftPage() {
         open={showResetConfirm}
         onClose={() => setShowResetConfirm(false)}
         onConfirm={() => {
+          // Save leaderboard snapshot before clearing
+          const finishedDrafts = drafts.filter((d) => d.finished && d.winner);
+          if (finishedDrafts.length > 0 && user?.uid) {
+            const matchRecords: MatchRecord[] = finishedDrafts.map((d) => {
+              const half = Math.ceil(d.playerIds.length / 2);
+              return {
+                id: d.id,
+                sessionId: user.uid,
+                draftId: d.id,
+                playerIds: d.playerIds,
+                teamA: d.playerIds.slice(0, half),
+                teamB: d.playerIds.slice(half),
+                winner: d.winner as "A" | "B",
+                scoreA: d.scoreA,
+                scoreB: d.scoreB,
+                isSingle: d.playerIds.length === 2,
+                finishedAt: Date.now(),
+              };
+            });
+            const allStats = computeAllPlayerStats(matchRecords);
+            const entries: LeaderboardEntry[] = Array.from(allStats.entries()).map(
+              ([pid, stats]) => {
+                const p = playerMap.get(pid);
+                return {
+                  playerId: pid,
+                  playerName: p?.name ?? "Unknown",
+                  playerLevel: p?.level ?? PlayerLevel.BEGINNER,
+                  gameCount: p?.gameCount ?? 0,
+                  trophies: p?.trophies ?? 0,
+                  wins: stats.wins,
+                  losses: stats.losses,
+                  winRate: stats.winRate,
+                };
+              },
+            );
+            entries.sort((a, b) => b.wins - a.wins || b.winRate - a.winRate);
+            const snapshot: LeaderboardSnapshot = {
+              id: uuidv4(),
+              totalMatches: finishedDrafts.length,
+              entries,
+              createdAt: Date.now(),
+            };
+            saveLeaderboardSnapshot(user.uid, snapshot).catch((err) =>
+              console.error("Failed to save leaderboard snapshot:", err),
+            );
+          }
           dispatch(clearDrafts());
-          dispatch(resetAllGameCounts());
+          setShowResetSuccess(true);
         }}
         title="Reset All"
-        message="This will clear all drafts and reset all players' game counts and trophies to zero. Are you sure?"
+        message="This will clear all drafts and save a leaderboard snapshot. Player stats will be preserved."
         confirmLabel="Reset"
         danger
       />
+
+      {/* Reset Success */}
+      <Modal
+        open={showResetSuccess}
+        onClose={() => setShowResetSuccess(false)}
+        title="Drafts Reset"
+      >
+        <p className="text-light-200 text-sm mb-6">
+          All drafts have been cleared and a leaderboard snapshot has been saved. Your player stats are preserved.
+        </p>
+        <div className="flex gap-3 justify-end">
+          <button
+            onClick={() => setShowResetSuccess(false)}
+            className="px-4 py-2 rounded-xl text-light-200 hover:bg-dark-200"
+          >
+            Stay Here
+          </button>
+          <button
+            onClick={() => router.push("/home")}
+            className="px-4 py-2 rounded-xl font-semibold bg-accent text-primary hover:bg-accent/80"
+          >
+            View Dashboard
+          </button>
+        </div>
+      </Modal>
 
       {/* Auto Draft Confirm */}
       <Modal

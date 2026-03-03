@@ -322,8 +322,8 @@ export default function PlayerProfilePage() {
           <div>
             {playerMatches.slice(0, 20).map((m) => {
               const won = (m.winner === "A" ? m.teamA : m.teamB).includes(playerId);
-              const teamAPlayers = m.teamA.map((id) => playerMap.get(id)?.name ?? "?");
-              const teamBPlayers = m.teamB.map((id) => playerMap.get(id)?.name ?? "?");
+              const teamAPlayers = m.teamA.map((id, i) => playerMap.get(id)?.name ?? m.teamANames?.[i] ?? "?");
+              const teamBPlayers = m.teamB.map((id, i) => playerMap.get(id)?.name ?? m.teamBNames?.[i] ?? "?");
               return (
                 <div
                   key={m.id}

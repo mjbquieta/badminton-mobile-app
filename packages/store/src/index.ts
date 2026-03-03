@@ -113,6 +113,15 @@ export {
 	schedulesReducer,
 } from './slices/schedules';
 
+// Leaderboard slice
+export {
+	setLeaderboardSnapshots,
+	addLeaderboardSnapshot,
+	removeLeaderboardSnapshot,
+	clearLeaderboardSnapshots,
+	leaderboardReducer,
+} from './slices/leaderboard';
+
 // Draft Templates slice
 export {
 	setDraftTemplates,

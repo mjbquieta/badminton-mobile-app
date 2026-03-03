@@ -5,6 +5,8 @@ export type MatchRecord = {
 	playerIds: string[];
 	teamA: string[];
 	teamB: string[];
+	teamANames?: string[];
+	teamBNames?: string[];
 	winner: 'A' | 'B';
 	scoreA?: number;
 	scoreB?: number;
