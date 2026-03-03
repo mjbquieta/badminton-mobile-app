@@ -28,7 +28,7 @@ const AboutContent = () => {
 
       {/* App Name */}
       <Text className="text-light-100 text-3xl font-bold mb-2">
-        Smash Potatoes
+        RallyUp
       </Text>
 
       {/* Version */}
@@ -40,7 +40,7 @@ const AboutContent = () => {
       <View className="bg-secondary border border-dark-100 rounded-2xl p-6 w-full mb-4">
         <Text className="text-light-300 text-center text-sm leading-6">
           This application is intended for use only under the ownership of{" "}
-          <Text className="text-court-lime font-semibold">Smash Potato</Text>.
+          <Text className="text-court-lime font-semibold">RallyUp</Text>.
           {"\n\n"}
           All rights reserved.
         </Text>

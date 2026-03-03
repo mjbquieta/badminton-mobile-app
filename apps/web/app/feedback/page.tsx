@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import Link from "next/link";
+import { PublicFooter } from "@/components/PublicFooter";
+import { PublicNavbar } from "@/components/PublicNavbar";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import { useEffect, useState } from "react";
 
 function FeedbackForm() {
   const { user, loading } = useAuth();
@@ -44,13 +45,6 @@ function FeedbackForm() {
 
   return (
     <div className="relative z-10 bg-secondary border border-dark-100 rounded-2xl p-8 w-full max-w-md">
-      <Link
-        href={isAuthenticated ? "/home" : "/"}
-        className="inline-flex items-center gap-1 text-light-300 text-sm hover:text-light-100 transition-colors mb-4"
-      >
-        &larr; {isAuthenticated ? "Back to dashboard" : "Back to home"}
-      </Link>
-
       <h1 className="text-2xl font-bold mb-2">Feedback</h1>
       <p className="text-light-300 text-sm mb-6">
         Report a bug, suggest a feature, or share your thoughts.
@@ -98,9 +92,7 @@ function FeedbackForm() {
             </div>
 
             <div>
-              <label className="text-sm text-light-200 mb-1 block">
-                Email
-              </label>
+              <label className="text-sm text-light-200 mb-1 block">Email</label>
               <input
                 type="email"
                 value={email}
@@ -156,14 +148,20 @@ function FeedbackForm() {
 export default function FeedbackPage() {
   return (
     <AuthProvider>
-      <div className="min-h-screen flex flex-col items-center justify-center px-4 py-12 relative">
+      <div className="min-h-screen flex flex-col relative">
         {/* Ambient glow */}
         <div className="fixed inset-0 pointer-events-none">
           <div className="absolute top-[-20%] left-[-10%] w-[500px] h-[500px] bg-court-deep/20 rounded-full blur-[120px]" />
           <div className="absolute bottom-[-10%] right-[-10%] w-[400px] h-[400px] bg-accent/5 rounded-full blur-[100px]" />
         </div>
 
-        <FeedbackForm />
+        <PublicNavbar />
+
+        <main className="flex-1 flex items-center justify-center px-4 py-12">
+          <FeedbackForm />
+        </main>
+
+        <PublicFooter />
       </div>
     </AuthProvider>
   );

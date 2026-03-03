@@ -141,6 +141,35 @@ body {
   animation: rainbow-spin 3s linear infinite;
 }
 
+/* Cartoonish animations for landing page */
+@keyframes wiggle {
+  0%, 100% { transform: rotate(0deg); }
+  25% { transform: rotate(-6deg); }
+  75% { transform: rotate(6deg); }
+}
+
+@keyframes pop {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.15); }
+  100% { transform: scale(1); }
+}
+
+@keyframes bounce-soft {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+
+@keyframes squish {
+  0%, 100% { transform: scale(1, 1); }
+  30% { transform: scale(1.1, 0.9); }
+  60% { transform: scale(0.95, 1.05); }
+}
+
+.hover-wiggle:hover { animation: wiggle 0.5s ease-in-out; }
+.hover-pop:hover { animation: pop 0.3s ease-in-out; }
+.hover-squish:hover { animation: squish 0.4s ease-in-out; }
+.animate-bounce-soft { animation: bounce-soft 2s ease-in-out infinite; }
+
 @media print {
   nav,
   .sidebar,

@@ -3,6 +3,8 @@
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
+import { PublicNavbar } from '@/components/PublicNavbar';
+import { PublicFooter } from '@/components/PublicFooter';
 
 function AuthRedirectGuard({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -35,8 +37,17 @@ export default function AuthLayout({
   return (
     <AuthProvider>
       <AuthRedirectGuard>
-        <div className="flex items-center justify-center min-h-screen px-4">
-          {children}
+        <div className="min-h-screen flex flex-col relative">
+          {/* Ambient glow */}
+          <div className="fixed inset-0 pointer-events-none">
+            <div className="absolute top-[-20%] left-[-10%] w-[500px] h-[500px] bg-court-deep/20 rounded-full blur-[120px]" />
+            <div className="absolute bottom-[-10%] right-[-10%] w-[400px] h-[400px] bg-accent/5 rounded-full blur-[100px]" />
+          </div>
+          <PublicNavbar />
+          <main className="flex-1 flex items-center justify-center px-4 py-12">
+            {children}
+          </main>
+          <PublicFooter />
         </div>
       </AuthRedirectGuard>
     </AuthProvider>
