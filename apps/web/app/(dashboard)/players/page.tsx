@@ -76,7 +76,7 @@ import {
 import { v4 as uuidv4 } from "uuid";
 
 export default function PlayersPage() {
-  const { user, emailVerified, isAdmin } = useAuth();
+  const { user, emailVerified } = useAuth();
   const dispatch = useAppDispatch();
   const players = useAppSelector((state) => state.players.items);
   const playersError = useAppSelector((state) => state.players.error);
@@ -716,16 +716,14 @@ export default function PlayersPage() {
               </span>
             )}
           </div>
-          {isAdmin && (
           <button
             onClick={() => setShowAddModal(true)}
             className="px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm bg-accent text-primary font-semibold hover:bg-accent/80 whitespace-nowrap"
           >
             + Add
           </button>
-          )}
-          {/* Ellipsis Menu (admin only) */}
-          {isAdmin && (
+          {/* Ellipsis Menu */}
+
           <div className="relative" ref={menuRef}>
             <button
               onClick={() => setShowMenu(!showMenu)}
@@ -794,7 +792,6 @@ export default function PlayersPage() {
               </div>
             )}
           </div>
-          )}
         </div>
       </div>
 
@@ -1247,7 +1244,7 @@ export default function PlayersPage() {
                     <ConfirmationStatusBadge status={pc.status} />
                   )}
                 </div>
-                {!selecting && isAdmin && (
+                {!selecting && (
                   <div className="flex gap-1">
                     <button
                       onClick={() => dispatch(togglePlayerActive(player.id))}
