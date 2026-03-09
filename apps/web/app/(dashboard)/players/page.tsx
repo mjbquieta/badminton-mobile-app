@@ -668,8 +668,7 @@ export default function PlayersPage() {
           <p className="text-light-300 text-sm mt-1">{players.length} total</p>
         </div>
         <div className="flex items-center gap-2.5 sm:gap-3">
-          {/* Confirmation Toggle (admin only) */}
-          {isAdmin && (
+          {/* Confirmation Toggle */}
           <div className="relative">
             <div
               className="animate-rainbow-spin rounded-xl p-[1.6px]"
@@ -717,7 +716,6 @@ export default function PlayersPage() {
               </span>
             )}
           </div>
-          )}
           {isAdmin && (
           <button
             onClick={() => setShowAddModal(true)}

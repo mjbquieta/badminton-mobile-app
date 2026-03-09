@@ -41,7 +41,7 @@ export const RSVPContent = ({
 }: { contentContainerClassName?: string }) => {
 	const dispatch = useAppDispatch();
 	const { showToast } = useToast();
-	const { user, isAdmin } = useAuth();
+	const { user } = useAuth();
 	const players = useAppSelector((s) => s.players.items);
 	const confirmation = useAppSelector((s) => s.confirmation);
 	const { meta, eventDetails, playerConfirmations } = confirmation;
@@ -201,25 +201,6 @@ export const RSVPContent = ({
 		return totalCost / stats.confirmed;
 	}, [totalCost, stats.confirmed]);
 
-	if (!isAdmin) {
-		return (
-			<View
-				className={`flex-1 items-center justify-center ${contentContainerClassName}`}
-			>
-				<MaterialCommunityIcons
-					name="lock-outline"
-					size={48}
-					color={BadmintonPalette.text.muted}
-				/>
-				<Text
-					className="text-sm mt-3"
-					style={{ color: BadmintonPalette.text.muted }}
-				>
-					Admin access required
-				</Text>
-			</View>
-		);
-	}
 
 	// Event Details Editor
 	if (editingEvent) {
