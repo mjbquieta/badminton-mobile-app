@@ -20,7 +20,7 @@ export async function getAllUsers(): Promise<UserRecord[]> {
       uid: d.id,
       email: data.email as string,
       clubName: data.clubName as string,
-      role: (data.role as 'admin' | 'player') ?? 'admin',
+      role: (data.role as 'admin' | 'player') ?? 'player',
       createdAt: toTimestampMs(data.createdAt),
     };
   });

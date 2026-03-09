@@ -62,7 +62,7 @@ export async function registerUser(
   await setDoc(doc(db, 'users', user.uid), {
     email,
     clubName,
-    role: 'admin',
+    role: 'player',
     createdAt: serverTimestamp(),
   });
 
@@ -150,7 +150,7 @@ export async function getUserProfile(uid: string): Promise<UserProfile | null> {
   return {
     email: data.email as string,
     clubName: data.clubName as string,
-    role: (data.role as 'admin' | 'player') ?? 'admin',
+    role: (data.role as 'admin' | 'player') ?? 'player',
     createdAt: toTimestampMs(data.createdAt),
   };
 }
