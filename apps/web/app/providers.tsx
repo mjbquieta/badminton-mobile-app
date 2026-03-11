@@ -8,8 +8,8 @@ import { Provider } from 'react-redux';
 const store = configureAppStore();
 
 function FirebaseSyncProvider({ children }: { children: React.ReactNode }) {
-  const { user } = useAuth();
-  const { isLoading } = useFirebaseSync(store, user!.uid);
+  const { effectiveUid } = useAuth();
+  const { isLoading } = useFirebaseSync(store, effectiveUid!);
 
   if (isLoading) {
     return (

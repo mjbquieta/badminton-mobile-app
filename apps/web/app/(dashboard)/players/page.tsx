@@ -584,16 +584,41 @@ export default function PlayersPage() {
     (r) => r.status === "pending",
   ).length;
 
-  async function handleApproveRequest(request: JoinRequest) {
+  function resolveOrAddPlayer(request: JoinRequest): string | null {
+    const existingPlayer = players.find(
+      (p) => p.name.trim().toLowerCase() === request.name.trim().toLowerCase(),
+    );
+
+    if (existingPlayer) {
+      // Reactivate inactive player
+      if (!existingPlayer.active) {
+        dispatch(togglePlayerActive(existingPlayer.id));
+      }
+      return existingPlayer.id;
+    }
+
+    // Check max players limit for unverified users
+    const maxPlayers = emailVerified ? undefined : UNVERIFIED_LIMITS.MAX_PLAYERS;
+    if (maxPlayers !== undefined && players.length >= maxPlayers) {
+      dispatch(clearPlayersError());
+      return null;
+    }
+
     const newPlayerId = uuidv4();
     dispatch(
       addPlayer({
         id: newPlayerId,
         name: request.name,
         level: request.level,
-        maxPlayers: emailVerified ? undefined : UNVERIFIED_LIMITS.MAX_PLAYERS,
+        maxPlayers,
       }),
     );
+    return newPlayerId;
+  }
+
+  async function handleApproveRequest(request: JoinRequest) {
+    const playerId = resolveOrAddPlayer(request);
+    if (!playerId) return;
 
     // Update request status in Firestore
     dispatch(updateJoinRequest({ id: request.id, status: "approved" }));
@@ -608,31 +633,29 @@ export default function PlayersPage() {
   }
 
   async function handleApproveAndConfirmRequest(request: JoinRequest) {
-    const newPlayerId = uuidv4();
-    dispatch(
-      addPlayer({
-        id: newPlayerId,
-        name: request.name,
-        level: request.level,
-        maxPlayers: emailVerified ? undefined : UNVERIFIED_LIMITS.MAX_PLAYERS,
-      }),
-    );
+    const playerId = resolveOrAddPlayer(request);
+    if (!playerId) return;
 
     // Add as confirmed player in confirmation system and sync to Firestore
     if (confirmation.meta.enabled && confirmation.meta.serialId) {
-      const newPc: PlayerConfirmation = {
-        playerId: newPlayerId,
-        playerName: request.name,
-        playerLevel: request.level,
-        status: "confirmed",
-        confirmedAt: Date.now(),
-      };
-      const updatedPcs = [...confirmation.playerConfirmations, newPc];
-      dispatch(setPlayerConfirmations(updatedPcs));
-      await updateConfirmationPlayers(
-        confirmation.meta.serialId,
-        updatedPcs,
-      ).catch(console.error);
+      const alreadyConfirmed = confirmation.playerConfirmations.some(
+        (pc) => pc.playerId === playerId,
+      );
+      if (!alreadyConfirmed) {
+        const newPc: PlayerConfirmation = {
+          playerId,
+          playerName: request.name,
+          playerLevel: request.level,
+          status: "confirmed",
+          confirmedAt: Date.now(),
+        };
+        const updatedPcs = [...confirmation.playerConfirmations, newPc];
+        dispatch(setPlayerConfirmations(updatedPcs));
+        await updateConfirmationPlayers(
+          confirmation.meta.serialId,
+          updatedPcs,
+        ).catch(console.error);
+      }
     }
 
     // Update request status in Firestore
@@ -1842,8 +1865,21 @@ function JoinRequestsList({
   onReject: (r: JoinRequest) => void;
   slotsFull?: boolean;
 }) {
+  const [processingId, setProcessingId] = useState<string | null>(null);
+  const [doneId, setDoneId] = useState<string | null>(null);
   const pending = requests.filter((r) => r.status === "pending");
   const handled = requests.filter((r) => r.status !== "pending");
+
+  async function withFeedback(id: string, action: () => void | Promise<void>) {
+    setProcessingId(id);
+    try {
+      await action();
+      setDoneId(id);
+      setTimeout(() => setDoneId(null), 1500);
+    } finally {
+      setProcessingId(null);
+    }
+  }
 
   return (
     <div className="space-y-4">
@@ -1890,30 +1926,40 @@ function JoinRequestsList({
                       </p>
                     </div>
                     <div className="flex gap-2 shrink-0 flex-wrap justify-end">
-                      <button
-                        onClick={() => onApprove(r)}
-                        className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-accent/10 text-accent border border-accent/20 hover:bg-accent/20 transition-colors"
-                      >
-                        Approve
-                      </button>
-                      <button
-                        onClick={() => onApproveAndConfirm(r)}
-                        disabled={slotsFull}
-                        title={slotsFull ? "Slots are full" : undefined}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
-                          slotsFull
-                            ? "bg-dark-200 text-light-300/40 border border-dark-100 cursor-not-allowed"
-                            : "bg-success/10 text-success border border-success/20 hover:bg-success/20"
-                        }`}
-                      >
-                        Approve & Confirm
-                      </button>
-                      <button
-                        onClick={() => onReject(r)}
-                        className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-danger/10 text-danger border border-danger/20 hover:bg-danger/20 transition-colors"
-                      >
-                        Reject
-                      </button>
+                      {doneId === r.id ? (
+                        <span className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-success/10 text-success border border-success/20 flex items-center gap-1">
+                          <FiCheck size={12} /> Done
+                        </span>
+                      ) : (
+                        <>
+                          <button
+                            onClick={() => withFeedback(r.id, () => onApprove(r))}
+                            disabled={processingId === r.id}
+                            className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-accent/10 text-accent border border-accent/20 hover:bg-accent/20 transition-colors disabled:opacity-50"
+                          >
+                            {processingId === r.id ? "Approving..." : "Approve"}
+                          </button>
+                          <button
+                            onClick={() => withFeedback(r.id, () => onApproveAndConfirm(r))}
+                            disabled={slotsFull || processingId === r.id}
+                            title={slotsFull ? "Slots are full" : undefined}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors disabled:opacity-50 ${
+                              slotsFull
+                                ? "bg-dark-200 text-light-300/40 border border-dark-100 cursor-not-allowed"
+                                : "bg-success/10 text-success border border-success/20 hover:bg-success/20"
+                            }`}
+                          >
+                            {processingId === r.id ? "Approving..." : "Approve & Confirm"}
+                          </button>
+                          <button
+                            onClick={() => withFeedback(r.id, () => onReject(r))}
+                            disabled={processingId === r.id}
+                            className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-danger/10 text-danger border border-danger/20 hover:bg-danger/20 transition-colors disabled:opacity-50"
+                          >
+                            {processingId === r.id ? "Rejecting..." : "Reject"}
+                          </button>
+                        </>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -1944,15 +1990,30 @@ function JoinRequestsList({
                         </p>
                       )}
                     </div>
-                    <span
-                      className={`text-[10px] font-bold uppercase tracking-wide ${
-                        r.status === "approved"
-                          ? "text-success"
-                          : "text-danger"
-                      }`}
-                    >
-                      {r.status}
-                    </span>
+                    <div className="flex items-center gap-2 shrink-0">
+                      {doneId === r.id ? (
+                        <span className="px-2.5 py-1 rounded-lg text-[10px] font-semibold bg-success/10 text-success border border-success/20 flex items-center gap-1 opacity-100">
+                          <FiCheck size={10} /> Done
+                        </span>
+                      ) : (
+                        <button
+                          onClick={() => withFeedback(r.id, () => onApproveAndConfirm(r))}
+                          disabled={processingId === r.id}
+                          className="px-2.5 py-1 rounded-lg text-[10px] font-semibold bg-success/10 text-success border border-success/20 hover:bg-success/20 transition-colors opacity-100 disabled:opacity-50"
+                        >
+                          {processingId === r.id ? "Processing..." : "Re-approve & Confirm"}
+                        </button>
+                      )}
+                      <span
+                        className={`text-[10px] font-bold uppercase tracking-wide ${
+                          r.status === "approved"
+                            ? "text-success"
+                            : "text-danger"
+                        }`}
+                      >
+                        {r.status}
+                      </span>
+                    </div>
                   </div>
                 ))}
               </div>

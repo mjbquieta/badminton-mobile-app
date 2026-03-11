@@ -220,7 +220,11 @@ export default function ConfirmationPage() {
 	// --- Viewing ---
 	if (!data) return null;
 
-	const { eventDetails, playerConfirmations, locked } = data;
+	const { eventDetails, locked } = data;
+	// Deduplicate by playerId — keeps the first (earliest) entry per player
+	const playerConfirmations = data.playerConfirmations.filter(
+		(pc, i, arr) => arr.findIndex((p) => p.playerId === pc.playerId) === i,
+	);
 	const existingRequest = (data.joinRequests ?? []).find(
 		(r) => r.name.toLowerCase() === joinName.trim().toLowerCase(),
 	);

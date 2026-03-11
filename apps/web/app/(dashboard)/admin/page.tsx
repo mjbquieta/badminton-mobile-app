@@ -2,11 +2,12 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth, startImpersonation } from "@/contexts/AuthContext";
 import { getAllUsers, updateUserRole } from "@badminton/firebase";
 import type { UserRecord } from "@badminton/firebase";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import {
+  FiEye,
   FiSearch,
   FiShield,
   FiUser,
@@ -280,23 +281,40 @@ export default function AdminPage() {
                             {formatDate(u.createdAt)}
                           </td>
                           <td className="text-center px-2 py-2.5">
-                            <select
-                              value={u.role}
-                              onChange={(e) =>
-                                setRoleChange({
-                                  uid: u.uid,
-                                  email: u.email,
-                                  newRole: e.target.value as
-                                    | "admin"
-                                    | "player",
-                                })
-                              }
-                              disabled={isCurrentUser}
-                              className="bg-dark-200 border border-dark-100 rounded-lg px-2 py-1 text-xs text-light-100 focus:outline-none focus:border-accent disabled:opacity-40 disabled:cursor-not-allowed"
-                            >
-                              <option value="admin">Admin</option>
-                              <option value="player">Player</option>
-                            </select>
+                            <div className="flex items-center justify-center gap-2">
+                              <select
+                                value={u.role}
+                                onChange={(e) =>
+                                  setRoleChange({
+                                    uid: u.uid,
+                                    email: u.email,
+                                    newRole: e.target.value as
+                                      | "admin"
+                                      | "player",
+                                  })
+                                }
+                                disabled={isCurrentUser}
+                                className="bg-dark-200 border border-dark-100 rounded-lg px-2 py-1 text-xs text-light-100 focus:outline-none focus:border-accent disabled:opacity-40 disabled:cursor-not-allowed"
+                              >
+                                <option value="admin">Admin</option>
+                                <option value="player">Player</option>
+                              </select>
+                              {!isCurrentUser && (
+                                <button
+                                  onClick={() =>
+                                    startImpersonation({
+                                      uid: u.uid,
+                                      email: u.email,
+                                      clubName: u.clubName,
+                                    })
+                                  }
+                                  title="Support Access"
+                                  className="p-1.5 rounded-lg bg-warning/10 text-warning hover:bg-warning/20 transition-colors"
+                                >
+                                  <FiEye size={14} />
+                                </button>
+                              )}
+                            </div>
                           </td>
                         </tr>
                       );

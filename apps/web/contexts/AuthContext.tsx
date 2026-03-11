@@ -17,6 +17,14 @@ import {
 } from '@badminton/firebase';
 import { firebaseConfig } from '@/config/firebase';
 
+const IMPERSONATION_KEY = 'impersonation_target';
+
+export interface ImpersonationTarget {
+  uid: string;
+  email: string;
+  clubName: string;
+}
+
 interface AuthContextType {
   user: User | null;
   profile: UserProfile | null;
@@ -30,18 +38,44 @@ interface AuthContextType {
   refreshUser: () => Promise<void>;
   updatePassword: (currentPassword: string, newPassword: string) => Promise<void>;
   updateClubName: (newClubName: string) => Promise<void>;
+  // Impersonation
+  isImpersonating: boolean;
+  impersonationTarget: ImpersonationTarget | null;
+  effectiveUid: string | null;
+  stopImpersonation: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
+
+export function startImpersonation(target: ImpersonationTarget) {
+  sessionStorage.setItem(IMPERSONATION_KEY, JSON.stringify(target));
+  window.open('/home', '_blank');
+}
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshCounter, setRefreshCounter] = useState(0);
+  const [impersonationTarget, setImpersonationTarget] = useState<ImpersonationTarget | null>(null);
+  const [impersonatedProfile, setImpersonatedProfile] = useState<UserProfile | null>(null);
 
   useEffect(() => {
     initializeFirebase(firebaseConfig);
+
+    // Check for impersonation target in sessionStorage
+    const stored = sessionStorage.getItem(IMPERSONATION_KEY);
+    if (stored) {
+      try {
+        const target = JSON.parse(stored) as ImpersonationTarget;
+        setImpersonationTarget(target);
+        getUserProfile(target.uid).then((p) => {
+          if (p) setImpersonatedProfile(p);
+        });
+      } catch {
+        sessionStorage.removeItem(IMPERSONATION_KEY);
+      }
+    }
 
     const unsubscribe = subscribeToAuthState(async (firebaseUser) => {
       setUser(firebaseUser);
@@ -72,8 +106,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, [user, user?.emailVerified]);
 
-  const emailVerified = user?.emailVerified ?? false;
+  const isImpersonating = !!(impersonationTarget && impersonatedProfile);
   const isAdmin = profile?.role === 'admin';
+
+  // Only allow impersonation if the actual user is an admin
+  const activeImpersonation = isAdmin && isImpersonating;
+
+  const effectiveProfile = activeImpersonation ? impersonatedProfile : profile;
+  const effectiveUid = activeImpersonation ? impersonationTarget!.uid : (user?.uid ?? null);
+  const emailVerified = user?.emailVerified ?? false;
 
   const login = async (email: string, password: string) => {
     await loginUser(email, password);
@@ -85,6 +126,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const logout = async () => {
+    sessionStorage.removeItem(IMPERSONATION_KEY);
     await signOut();
   };
 
@@ -110,11 +152,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setProfile(updatedProfile);
   };
 
+  const stopImpersonation = () => {
+    sessionStorage.removeItem(IMPERSONATION_KEY);
+    window.close();
+    // Fallback if browser blocks window.close (only works on tabs opened via script)
+    window.location.reload();
+  };
+
   return (
     <AuthContext.Provider value={{
-      user, profile, loading, emailVerified, isAdmin,
+      user, profile: effectiveProfile, loading, emailVerified, isAdmin,
       login, register, logout, sendVerificationEmail, refreshUser,
       updatePassword, updateClubName,
+      isImpersonating: activeImpersonation,
+      impersonationTarget: activeImpersonation ? impersonationTarget : null,
+      effectiveUid,
+      stopImpersonation,
     }}>
       {children}
     </AuthContext.Provider>
