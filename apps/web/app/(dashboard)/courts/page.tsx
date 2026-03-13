@@ -19,7 +19,7 @@ import { UNVERIFIED_LIMITS } from '@badminton/ui-shared';
 import { FiTrash2 } from 'react-icons/fi';
 
 export default function CourtsPage() {
-  const { emailVerified, isAdmin } = useAuth();
+  const { emailVerified } = useAuth();
   const dispatch = useAppDispatch();
   const courts = useAppSelector((state) => state.courts.items);
   const courtsError = useAppSelector((state) => state.courts.error);
@@ -52,7 +52,6 @@ export default function CourtsPage() {
           <h1 className="text-2xl sm:text-3xl font-bold">Courts</h1>
           <p className="text-light-300 text-sm mt-1">{courts.length} total</p>
         </div>
-        {isAdmin && (
         <div className="flex gap-2 sm:gap-3 shrink-0">
           {courts.length > 0 && (
             <button
@@ -69,7 +68,6 @@ export default function CourtsPage() {
             + Add Court
           </button>
         </div>
-        )}
       </div>
 
       {/* Error */}
@@ -97,14 +95,12 @@ export default function CourtsPage() {
                     {court.isSingle ? 'Singles' : 'Doubles'}
                   </span>
                 </div>
-                {isAdmin && (
                 <button
                   onClick={() => setDeleteTarget(court)}
                   className="p-1.5 rounded-lg text-light-300 hover:text-danger hover:bg-danger/10"
                 >
                   <FiTrash2 size={16} />
                 </button>
-                )}
               </div>
 
               {hasPlayers ? (
