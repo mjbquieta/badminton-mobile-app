@@ -101,6 +101,17 @@ const draftsSlice = createSlice({
 			state.error = null;
 		},
 
+		unfinishDraft: (state, action: PayloadAction<string>) => {
+			const draft = state.items.find((d) => d.id === action.payload);
+			if (draft) {
+				draft.finished = false;
+				draft.winner = undefined;
+				draft.scoreA = undefined;
+				draft.scoreB = undefined;
+			}
+			state.error = null;
+		},
+
 		updateDraftScore: (
 			state,
 			action: PayloadAction<{ id: string; scoreA: number; scoreB: number }>
@@ -131,6 +142,7 @@ export const {
 	updateDraftPlayers,
 	updateDraftCourt,
 	finishDraft,
+	unfinishDraft,
 	updateDraftScore,
 	clearDrafts,
 	clearDraftsError,

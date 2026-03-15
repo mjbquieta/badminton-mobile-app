@@ -15,6 +15,7 @@ import {
   clearDrafts,
   clearDraftsError,
   finishDraft,
+  unfinishDraft,
   incrementPlayersGameCount,
   incrementPlayersTrophies,
   removeDraft,
@@ -37,6 +38,7 @@ import {
   FiCornerUpRight,
   FiEdit2,
   FiMoreVertical,
+  FiCopy,
   FiPlus,
   FiRotateCcw,
   FiShare2,
@@ -58,6 +60,7 @@ export default function DraftPage() {
   const [showSelectModal, setShowSelectModal] = useState(false);
   const [editingDraft, setEditingDraft] = useState<Draft | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Draft | null>(null);
+  const [showRepeatConfirm, setShowRepeatConfirm] = useState(false);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [showResetSuccess, setShowResetSuccess] = useState(false);
   const [showAutoDraftConfirm, setShowAutoDraftConfirm] = useState(false);
@@ -151,6 +154,22 @@ export default function DraftPage() {
     dispatch(setDrafts(next));
     setCanUndo(true);
     setCanRedo(redoStack.current.length > 0);
+  }
+
+  function handleRepeatDrafts(mode: 'append' | 'restart') {
+    if (drafts.length === 0) return;
+    pushUndo();
+    const repeated = drafts.map((d) => ({
+      id: uuidv4(),
+      playerIds: [...d.playerIds],
+      courtId: d.courtId,
+    }));
+    if (mode === 'restart') {
+      dispatch(setDrafts(repeated));
+    } else {
+      dispatch(addDraftsBatch(repeated));
+    }
+    setShowRepeatConfirm(false);
   }
 
   function handleCreateDraft(selectedIds: string[]) {
@@ -340,6 +359,16 @@ export default function DraftPage() {
           )}
           {drafts.length > 0 && (
             <button
+              onClick={() => setShowRepeatConfirm(true)}
+              className="flex items-center gap-1.5 p-2 sm:px-4 sm:py-2 rounded-xl text-xs sm:text-sm text-light-300 border border-dark-100 hover:bg-dark-200 transition-colors"
+              title="Repeat Drafts"
+            >
+              <FiCopy size={14} />
+              <span className="hidden sm:inline">Repeat</span>
+            </button>
+          )}
+          {drafts.length > 0 && (
+            <button
               onClick={() => setShowExportModal(true)}
               className="flex items-center gap-1.5 p-2 sm:px-4 sm:py-2 rounded-xl text-xs sm:text-sm text-light-300 border border-dark-100 hover:bg-dark-200 transition-colors"
               title="Export"
@@ -492,9 +521,17 @@ export default function DraftPage() {
                 const actions = (
                   <div className="flex gap-1">
                     {draft.finished ? (
-                      <span className="text-[10px] sm:text-xs font-bold text-accent uppercase tracking-wide">
-                        Finished
-                      </span>
+                      <button
+                        onClick={() => {
+                          pushUndo();
+                          dispatch(unfinishDraft(draft.id));
+                        }}
+                        className="text-[10px] sm:text-xs font-bold text-accent uppercase tracking-wide hover:text-accent/60 transition-colors"
+                        title="Click to undo finish"
+                      >
+                        <FiCornerUpLeft size={14} className="inline mr-1" />
+                        Unfinish
+                      </button>
                     ) : (
                       <>
                         <button
@@ -964,6 +1001,33 @@ export default function DraftPage() {
       />
 
       {/* Reset Confirm */}
+      <Modal open={showRepeatConfirm} onClose={() => setShowRepeatConfirm(false)} title="Repeat Drafts">
+        <p className="text-sm text-light-300 mb-5">
+          Duplicate all {drafts.length} {drafts.length === 1 ? 'draft' : 'drafts'} with the same matchups. How would you like to repeat?
+        </p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <button
+            onClick={() => handleRepeatDrafts('append')}
+            className="p-4 rounded-xl border-2 border-dark-100 hover:border-accent text-left transition-colors"
+          >
+            <div className="font-semibold text-sm text-light-100 mb-1">Append</div>
+            <div className="text-xs text-light-300">Add copies after the existing drafts</div>
+          </button>
+          <button
+            onClick={() => handleRepeatDrafts('restart')}
+            className="p-4 rounded-xl border-2 border-dark-100 hover:border-accent text-left transition-colors"
+          >
+            <div className="font-semibold text-sm text-light-100 mb-1">New Set</div>
+            <div className="text-xs text-light-300">Replace current drafts with fresh copies</div>
+          </button>
+        </div>
+        <div className="flex justify-end mt-4">
+          <button onClick={() => setShowRepeatConfirm(false)} className="px-4 py-2 rounded-xl text-sm text-light-300 hover:bg-dark-200">
+            Cancel
+          </button>
+        </div>
+      </Modal>
+
       <ConfirmDialog
         open={showResetConfirm}
         onClose={() => setShowResetConfirm(false)}
@@ -1014,6 +1078,7 @@ export default function DraftPage() {
               console.error("Failed to save leaderboard snapshot:", err),
             );
           }
+          pushUndo();
           dispatch(clearDrafts());
           setShowResetSuccess(true);
         }}

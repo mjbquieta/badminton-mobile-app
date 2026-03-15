@@ -49,6 +49,7 @@ export {
 	updateDraftPlayers,
 	updateDraftCourt,
 	finishDraft,
+	unfinishDraft,
 	updateDraftScore,
 	clearDrafts,
 	clearDraftsError,
