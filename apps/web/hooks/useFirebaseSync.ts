@@ -11,6 +11,7 @@ import {
   subscribeToDraftTemplates,
   subscribeToMatchHistory,
   subscribeToLeaderboardSnapshots,
+  subscribeToConfirmation,
   type SyncableStore,
 } from '@badminton/firebase';
 
@@ -77,6 +78,36 @@ export function useFirebaseSync(store: SyncableStore, sessionId: string) {
             store.dispatch({ type: 'leaderboard/setLeaderboardSnapshots', payload: snapshots });
           });
 
+          // Subscribe to confirmation data if RSVP is active
+          const confirmationMeta = store.getState().confirmation.meta;
+          let unsubConfirmation: (() => void) | null = null;
+          if (confirmationMeta.enabled && confirmationMeta.serialId) {
+            unsubConfirmation = subscribeToConfirmation(confirmationMeta.serialId, (data) => {
+              store.dispatch({ type: 'confirmation/setPlayerConfirmations', payload: data.playerConfirmations });
+              store.dispatch({ type: 'confirmation/setJoinRequests', payload: data.joinRequests ?? [] });
+              if (data.eventDetails) {
+                store.dispatch({ type: 'confirmation/setEventDetails', payload: data.eventDetails });
+              }
+            });
+          }
+
+          // Re-subscribe when confirmation meta changes (e.g. RSVP enabled/disabled)
+          const unsubConfirmationWatch = store.subscribe(() => {
+            const meta = store.getState().confirmation.meta;
+            if (meta.enabled && meta.serialId && !unsubConfirmation) {
+              unsubConfirmation = subscribeToConfirmation(meta.serialId, (data) => {
+                store.dispatch({ type: 'confirmation/setPlayerConfirmations', payload: data.playerConfirmations });
+                store.dispatch({ type: 'confirmation/setJoinRequests', payload: data.joinRequests ?? [] });
+                if (data.eventDetails) {
+                  store.dispatch({ type: 'confirmation/setEventDetails', payload: data.eventDetails });
+                }
+              });
+            } else if (!meta.enabled && unsubConfirmation) {
+              unsubConfirmation();
+              unsubConfirmation = null;
+            }
+          });
+
           cleanupRef.current = () => {
             mainCleanup();
             unsubTournaments();
@@ -84,6 +115,8 @@ export function useFirebaseSync(store: SyncableStore, sessionId: string) {
             unsubTemplates();
             unsubMatchHistory();
             unsubLeaderboard();
+            unsubConfirmation?.();
+            unsubConfirmationWatch();
           };
 
           setIsLoading(false);
