@@ -159,10 +159,13 @@ export default function DraftPage() {
   function handleRepeatDrafts(mode: 'append' | 'restart') {
     if (drafts.length === 0) return;
     pushUndo();
-    const repeated = drafts.map((d) => ({
+    const repeated: Draft[] = drafts.map((d) => ({
+      ...d,
       id: uuidv4(),
-      playerIds: [...d.playerIds],
-      courtId: d.courtId,
+      finished: false,
+      winner: undefined,
+      scoreA: undefined,
+      scoreB: undefined,
     }));
     if (mode === 'restart') {
       dispatch(setDrafts(repeated));
